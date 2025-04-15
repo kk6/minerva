@@ -36,3 +36,11 @@ minerva(ローカル)からの write_note の結果を表示 >
 
 Markdown文書を「web_development_best_practices.md」というファイル名で書き出しました。ファイルが正常に作成されたことが確認できました。このファイルには、先ほど作成したWebアプリケーション開発のベストプラクティスに関する内容が保存されています。
 ```
+
+## Claude Desktop のログの確認
+
+MacOSの場合、以下のコマンドでログを確認できます。
+
+```bash
+tail -f ~/Library/Logs/Claude/mcp-server-minerva.log
+```

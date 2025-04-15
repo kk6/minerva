@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -6,6 +7,10 @@ from mcp.server.fastmcp import FastMCP
 
 from minerva.file_handler import FileWriteRequest, write_file
 
+# Set up logging
+logger = logging.getLogger(__name__)
+
+# Load environment variables from .env file
 load_dotenv()
 
 OBSIDIAN_VAULT_ROOT = os.environ["OBSIDIAN_VAULT_ROOT"]
@@ -17,7 +22,7 @@ mcp = FastMCP("minerva", "0.1.0")
 
 
 @mcp.tool()
-def write_note(text: str, filename: str, is_overwrite: bool = False) -> Path:
+def write_note(text: str, filename: str, is_overwrite: bool = False) -> Path | None:
     """
     Write a note to a file in the Obsidian vault.
 
@@ -28,6 +33,7 @@ def write_note(text: str, filename: str, is_overwrite: bool = False) -> Path:
     Returns:
         file_path (Path): The path to the written file.
     """
+    file_path = None
     try:
         request = FileWriteRequest(
             directory=str(VAULT_PATH),
@@ -36,9 +42,10 @@ def write_note(text: str, filename: str, is_overwrite: bool = False) -> Path:
             overwrite=is_overwrite,
         )
         file_path = write_file(request)
-        print(f"File written to {file_path}")
+        logger.info(f"File written to {file_path}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"Error writing file: {e}")
+        raise
 
     # Return the file path
     return file_path
