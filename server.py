@@ -17,7 +17,6 @@ mcp = FastMCP("minerva", "0.1.0")
 mcp.add_tool(write_note)
 mcp.add_tool(read_note)
 mcp.add_tool(search_notes)
-#     try:
 
 if __name__ == "__main__":
     # Run the server
