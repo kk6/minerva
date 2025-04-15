@@ -1,6 +1,20 @@
 # Minerva
 
+Minervaは、Claude Desktopと連携し、チャットからMarkdown文書の書き出しなどを自動化するツールです。
+
+## 必要なもの
+
+- Python 3.12 以上
+- [uv](https://github.com/astral-sh/uv)
+
+## インストール
+
+依存パッケージがある場合は、事前にインストールしてください。
+
 ## MCP Inspector を起動する
+
+プロジェクトルートで以下を実行してください。
+
 ```bash
 uv run mcp dev server.py
 ```
@@ -12,7 +26,7 @@ uv run mcp install server.py
 
 ## Claude Desktop での使い方
 
-チャットで「write_note を利用して今回の内容のMarkdownを書き出してください」とか入れれば使ってくれるはず
+チャットで「write_note を利用して今回の内容のMarkdownを書き出してください」などと入力すると、MinervaがMarkdownファイルを書き出します。
 
 ### 出力例
 ```
