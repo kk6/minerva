@@ -2,7 +2,14 @@ import pytest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from minerva.file_handler import FileWriteRequest, FileReadRequest, read_file, write_file, FORBIDDEN_CHARS, ENCODING
+from minerva.file_handler import (
+    FileWriteRequest,
+    FileReadRequest,
+    read_file,
+    write_file,
+    FORBIDDEN_CHARS,
+    ENCODING,
+)
 
 
 class TestFileHandler:
