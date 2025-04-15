@@ -44,3 +44,11 @@ MacOSの場合、以下のコマンドでログを確認できます。
 ```bash
 tail -f ~/Library/Logs/Claude/mcp-server-minerva.log
 ```
+
+## pytest
+
+pytestを使用して、テストを実行することができます。
+
+```bash
+uv run pytest
+```
