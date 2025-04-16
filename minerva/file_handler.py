@@ -12,78 +12,56 @@ ENCODING = "utf-8"
 logger = logging.getLogger(__name__)
 
 
-class FileWriteRequest(BaseModel):
+class FileOperationRequest(BaseModel):
+    """
+    Base request model for file operations.
+    """
+
+    directory: str = Field(description="Directory for the file operation")
+    filename: str = Field(description="Name of the file")
+
+    @field_validator("directory")
+    def validate_directory(cls, v):
+        """
+        Validate the directory path.
+        """
+        if not isinstance(v, str):
+            raise ValueError("Directory must be a string")
+        return v
+
+    @field_validator("filename")
+    def validate_filename(cls, v):
+        """
+        Validate the filename.
+        """
+        if not v:
+            raise ValueError("Filename cannot be empty")
+        if os.path.isabs(v):
+            raise ValueError("Filename cannot be an absolute path")
+        if not isinstance(v, str):
+            raise ValueError("Filename must be a string")
+        if any(char in v for char in FORBIDDEN_CHARS):
+            raise ValueError(
+                f"Filename contains forbidden characters: {FORBIDDEN_CHARS}"
+            )
+        return v
+
+
+class FileWriteRequest(FileOperationRequest):
     """
     Request model for writing to a file.
     """
 
-    directory: str = Field(description="Directory to write the file in")
-    filename: str = Field(description="Name of the file to write")
     content: str = Field(description="Content to write to the file")
     overwrite: bool = Field(
         default=False, description="Overwrite the file if it exists"
     )
 
-    @field_validator("directory")
-    def validate_directory(cls, v):
-        """
-        Validate the directory path.
-        """
-        if not isinstance(v, str):
-            raise ValueError("Directory must be a string")
-        return v
 
-    @field_validator("filename")
-    def validate_filename(cls, v):
-        """
-        Validate the filename.
-        """
-        if not v:
-            raise ValueError("Filename cannot be empty")
-        if os.path.isabs(v):
-            raise ValueError("Filename cannot be an absolute path")
-        if not isinstance(v, str):
-            raise ValueError("Filename must be a string")
-        if any(char in v for char in FORBIDDEN_CHARS):
-            raise ValueError(
-                f"Filename contains forbidden characters: {FORBIDDEN_CHARS}"
-            )
-        return v
-
-
-class FileReadRequest(BaseModel):
+class FileReadRequest(FileOperationRequest):
     """
     Request model for reading from a file.
     """
-
-    directory: str = Field(description="Directory to read the file from")
-    filename: str = Field(description="Name of the file to read")
-
-    @field_validator("directory")
-    def validate_directory(cls, v):
-        """
-        Validate the directory path.
-        """
-        if not isinstance(v, str):
-            raise ValueError("Directory must be a string")
-        return v
-
-    @field_validator("filename")
-    def validate_filename(cls, v):
-        """
-        Validate the filename.
-        """
-        if not v:
-            raise ValueError("Filename cannot be empty")
-        if os.path.isabs(v):
-            raise ValueError("Filename cannot be an absolute path")
-        if not isinstance(v, str):
-            raise ValueError("Filename must be a string")
-        if any(char in v for char in FORBIDDEN_CHARS):
-            raise ValueError(
-                f"Filename contains forbidden characters: {FORBIDDEN_CHARS}"
-            )
-        return v
 
 
 class SearchConfig(BaseModel):
@@ -118,7 +96,7 @@ class SearchConfig(BaseModel):
         """
         Format the file extensions to include the dot.
         """
-        if v is not None:
+        if v is None:
             return None
         if isinstance(v, str):
             extensions = [f".{ext.lower().lstrip('.')}" for ext in v.split(",")]
@@ -146,7 +124,8 @@ def is_binary_file(file_path: Path) -> bool:
         with open(file_path, "rb") as f:
             chunk = f.read(1024)
             return b"\0" in chunk
-    except Exception:
+    except (IOError, PermissionError) as e:
+        logger.warning(f"Error checking if file is binary: {e}")
         return False
 
 
@@ -154,10 +133,13 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
     """
     Search for a keyword in files within a directory.
 
+    Note: This function returns only the first match in each file.
+
     Args:
         config (SearchConfig): Configuration for the search operation.
     Returns:
         list[SearchResult]: List of search results containing file paths and line numbers.
+            Each file will have at most one entry in the results.
     """
     matching_files = []
 
@@ -184,7 +166,7 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
 
                 try:
                     # Open the file and search for the keyword
-                    with open(file_path, "r", encoding="utf-8") as file:
+                    with open(file_path, "r", encoding=ENCODING) as file:
                         for line_num, line in enumerate(file, 1):
                             if config.case_sensitive:
                                 found = config.keyword in line
@@ -198,11 +180,10 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
                                     context=line.strip(),
                                 )
                                 matching_files.append(result)
-                                break  # Add only one entry per file
+                                break  # Stop after finding first match in this file
                 except (UnicodeDecodeError, PermissionError):
                     # Ignore read errors and continue
                     logger.warning(f"Could not read file {file_path}. Skipping.")
-                    pass
 
     except Exception as e:
         logger.error(f"Error during search: {e}")
@@ -211,21 +192,28 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
     return matching_files
 
 
+def _get_validated_file_path(directory: str, filename: str) -> Path:
+    """
+    Validate and return the full file path.
+    """
+    dirpath = Path(directory)
+    # Check if the directory is absolute
+    if not dirpath.is_absolute():
+        raise ValueError("Directory must be an absolute path")
+
+    return dirpath / filename
+
+
 def write_file(request: FileWriteRequest) -> Path:
     """
     Write the content to a file in the specified directory.
     """
-    directory = Path(request.directory)
-    # Check if the directory is absolute
-    if not directory.is_absolute():
-        raise ValueError("Directory must be an absolute path")
+    file_path = _get_validated_file_path(request.directory, request.filename)
 
     # Ensure the directory exists
-    if not directory.exists():
-        directory.mkdir(parents=True, exist_ok=True)
+    if not file_path.parent.exists():
+        file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Construct the full file path
-    file_path = directory / request.filename
     if file_path.exists() and not request.overwrite:
         raise FileExistsError(
             f"File {file_path} already exists and overwrite is set to False"
@@ -241,13 +229,7 @@ def read_file(request: FileReadRequest) -> str:
     """
     Read the content from a file in the specified directory.
     """
-    directory = Path(request.directory)
-    # Check if the directory is absolute
-    if not directory.is_absolute():
-        raise ValueError("Directory must be an absolute path")
-
-    # Construct the full file path
-    file_path = directory / request.filename
+    file_path = _get_validated_file_path(request.directory, request.filename)
 
     # Check if the file exists
     if not file_path.exists():

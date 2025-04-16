@@ -71,16 +71,15 @@ class SearchNoteRequest(BaseModel):
     )
 
 
-def write_note(request: WriteNoteRequest) -> Path | None:
+def write_note(request: WriteNoteRequest) -> Path:
     """
     Write a note to a file in the Obsidian vault.
 
     Args:
         request (WriteNoteRequest): The request object containing the text, filename, and overwrite flag.
     Returns:
-        file_path (Path): The path to the written file.
+        Path: The path to the written file.
     """
-    file_path = None
     try:
         file_write_request = FileWriteRequest(
             directory=str(VAULT_PATH),
@@ -98,29 +97,27 @@ def write_note(request: WriteNoteRequest) -> Path | None:
     return file_path
 
 
-def read_note(request: ReadNoteRequest) -> str | None:
+def read_note(request: ReadNoteRequest) -> str:
     """
     Read a note from a file in the Obsidian vault.
 
     Args:
         request (ReadNoteRequest): The request object containing the filepath.
     Returns:
-        content (str): The content of the file.
+        str: The content of the file.
     """
-    content = None
     directory, filename = os.path.split(request.filepath)
     try:
-        rile_read_request = FileReadRequest(
+        file_read_request = FileReadRequest(
             directory=directory,
             filename=filename,
         )
-        content = read_file(rile_read_request)
-        logger.info(f"File read from {filename}")
+        content = read_file(file_read_request)
+        logger.info(f"File read from {request.filepath}")
     except Exception as e:
         logger.error(f"Error reading file: {e}")
         raise
 
-    # Return the content
     return content
 
 
@@ -131,12 +128,11 @@ def search_notes(request: SearchNoteRequest) -> list[SearchResult]:
     Args:
         request (SearchNoteRequest): The request object containing the query and case sensitivity flag.
     Returns:
-        matching_files (list[SearchResult]): A list of paths to the files containing the keyword.
+        list[SearchResult]: A list of search results containing file paths, line numbers and context.
     """
     if not request.query:
         raise ValueError("Query cannot be empty")
 
-    matching_files = []
     try:
         search_config = SearchConfig(
             directory=str(VAULT_PATH),
@@ -145,10 +141,11 @@ def search_notes(request: SearchNoteRequest) -> list[SearchResult]:
             case_sensitive=request.case_sensitive,
         )
         matching_files = search_keyword_in_files(search_config)
-        logger.info(f"Files found: {matching_files}")
+        logger.info(
+            f"Found {len(matching_files)} files matching the query: {request.query}"
+        )
     except Exception as e:
         logger.error(f"Error searching files: {e}")
         raise
 
-    # Return the list of matching files
     return matching_files
