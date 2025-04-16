@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from minerva.file_handler import (
     FileWriteRequest,
@@ -28,7 +28,7 @@ class WriteNoteRequest(BaseModel):
 
     Attributes:
         text (str): The content to write to the file.
-        filename (str): The name of the file to write.
+        filename (str): The name of the file to write. If it doesn't have a .md extension, it will be added.
         is_overwrite (bool): Whether to overwrite the file if it exists.
     """
 
@@ -38,6 +38,15 @@ class WriteNoteRequest(BaseModel):
         False,
         description="Whether to overwrite the file if it exists.",
     )
+
+    @field_validator("filename")
+    def format_filename(cls, v):
+        """
+        Format the filename to ensure it has a .md extension.
+        """
+        if ".md" not in v:
+            v = f"{v}.md"
+        return v
 
 
 class ReadNoteRequest(BaseModel):
@@ -106,7 +115,7 @@ def write_note(request: WriteNoteRequest) -> Path:
     try:
         file_write_request = FileWriteRequest(
             directory=str(full_dir_path),
-            filename=f"{base_filename}.md",
+            filename=base_filename,
             content=request.text,
             overwrite=request.is_overwrite,
         )

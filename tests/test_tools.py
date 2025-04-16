@@ -74,7 +74,7 @@ class TestWriteNote:
         mock_write_file.assert_called_once()
         called_request = mock_write_file.call_args[0][0]
         assert called_request.directory == str(tmp_path)
-        assert called_request.filename == f"{write_note_request.filename}.md"
+        assert called_request.filename == write_note_request.filename
         assert called_request.content == write_note_request.text
         assert called_request.overwrite == write_note_request.is_overwrite
 
@@ -134,7 +134,7 @@ class TestWriteNote:
 
         # Verify that subdirectory is properly separated and directory path and filename are set correctly
         assert called_request.directory == str(expected_dir_path)
-        assert called_request.filename == "note_in_subdir.md"
+        assert called_request.filename == "note_in_subdir"
         assert called_request.content == write_note_request.text
         assert called_request.overwrite == write_note_request.is_overwrite
 
