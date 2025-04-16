@@ -93,9 +93,11 @@ class SearchResult(BaseModel):
 
     file_path: str = Field(description="Path to the file")
     line_number: Optional[int] = Field(
-        description="Line number where the keyword was found"
+        default=None, description="Line number where the keyword was found"
     )
-    context: Optional[str] = Field(description="Context around the found keyword")
+    context: Optional[str] = Field(
+        default=None, description="Context around the found keyword"
+    )
 
 
 def is_binary_file(file_path: Path) -> bool:
