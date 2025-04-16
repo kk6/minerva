@@ -2,14 +2,33 @@
 
 Minervaは、Claude Desktopと連携し、チャットからMarkdown文書の書き出しなどを自動化するツールです。
 
+## プロジェクト概要
+
+Minervaを使用すると、Obsidianのナレッジベース（Vault）内のMarkdownファイルを効率的に管理・操作できます。
+Claude Desktopを通じて、以下の操作が可能です：
+
+- Markdownファイルの作成（write_note）
+- Markdownファイルの読取（read_note）
+- Markdownファイル内のキーワード検索（search_notes）
+
 ## 必要なもの
 
 - Python 3.12 以上
 - [uv](https://github.com/astral-sh/uv)
+- Claude Desktop（MCP対応版）
 
-## インストール
+## 設定方法
 
-依存パッケージがある場合は、事前にインストールしてください。
+保存パッケージがある場合は、事前にインストールしてください。
+
+### 環境変数の設定
+
+`.env.example`をコピーして`.env`ファイルを作成し、以下の環境変数を設定します：
+
+```
+OBSIDIAN_VAULT_ROOT=<Obsidianのvaultルートディレクトリのパス>
+DEFAULT_VAULT=<デフォルトで使用するvault名>
+```
 
 ## MCP Inspector を起動する
 
@@ -26,9 +45,9 @@ uv run mcp install server.py
 
 ## Claude Desktop での使い方
 
-チャットで「write_note を利用して今回の内容のMarkdownを書き出してください」などと入力すると、MinervaがMarkdownファイルを書き出します。
+チャットで「write_note を使用して今回の内容のMarkdownを書き出してください」などと入力すると、Minervaが指定されたフォルダにMarkdownファイルを書き出します。
 
-### 出力例
+### 使用例
 ```
 write_note 関数を使用して、先ほど作成したMarkdown文書を書き出します。
 
@@ -45,10 +64,20 @@ MacOSの場合、以下のコマンドでログを確認できます。
 tail -f ~/Library/Logs/Claude/mcp-server-minerva.log
 ```
 
-## pytest
+## テスト実行
 
 pytestを使用して、テストを実行することができます。
 
 ```bash
 uv run pytest
 ```
+
+## ドキュメント
+
+詳細な仕様や要件については、以下のドキュメントを参照してください：
+
+- [要件定義書](docs/requirements.md) - プロジェクトの要件と仕様の詳細
+
+## ライセンス
+
+[ライセンス情報をここに記載]
