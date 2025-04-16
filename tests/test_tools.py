@@ -17,8 +17,10 @@ class TestWriteNote:
     @pytest.fixture
     def mock_write_setup(self, tmp_path):
         """Fixture providing common mock setup for write tests."""
-        with mock.patch("minerva.tools.write_file") as mock_write_file, \
-             mock.patch("minerva.tools.VAULT_PATH", tmp_path):
+        with (
+            mock.patch("minerva.tools.write_file") as mock_write_file,
+            mock.patch("minerva.tools.VAULT_PATH", tmp_path),
+        ):
             yield {"mock_write_file": mock_write_file, "tmp_path": tmp_path}
 
     @pytest.mark.parametrize(
@@ -30,7 +32,15 @@ class TestWriteNote:
         ],
         ids=["create-new", "overwrite", "no-overwrite"],
     )
-    def test_write_note_file_cases(self, mock_write_setup, write_note_request, is_overwrite, old_content, should_raise, expected_exception):
+    def test_write_note_file_cases(
+        self,
+        mock_write_setup,
+        write_note_request,
+        is_overwrite,
+        old_content,
+        should_raise,
+        expected_exception,
+    ):
         """Test writing a note for create, overwrite, and no-overwrite cases."""
         mock_write_file = mock_write_setup["mock_write_file"]
         tmp_path = mock_write_setup["tmp_path"]
@@ -39,8 +49,12 @@ class TestWriteNote:
             test_file.write_text(old_content)
         write_note_request.is_overwrite = is_overwrite
         if should_raise:
-            mock_write_file.side_effect = FileExistsError("File exists and overwrite is False")
-            with pytest.raises(FileExistsError, match="File exists and overwrite is False"):
+            mock_write_file.side_effect = FileExistsError(
+                "File exists and overwrite is False"
+            )
+            with pytest.raises(
+                FileExistsError, match="File exists and overwrite is False"
+            ):
                 tools.write_note(write_note_request)
             mock_write_file.assert_called_once()
         else:
@@ -79,9 +93,17 @@ class TestWriteNote:
             ("", "cannot be empty", "ValueError"),
         ],
     )
-    def test_write_note_invalid_filename(self, mock_write_setup, write_note_request, filename, expected_message, expected_exception):
+    def test_write_note_invalid_filename(
+        self,
+        mock_write_setup,
+        write_note_request,
+        filename,
+        expected_message,
+        expected_exception,
+    ):
         """If the filename is invalid, ValidationError or ValueError is raised and write_file is not called."""
         import pydantic
+
         mock_write_file = mock_write_setup["mock_write_file"]
         write_note_request.filename = filename
         if expected_exception == "pydantic.ValidationError":
@@ -160,8 +182,10 @@ class TestSearchNotes:
     @pytest.fixture
     def mock_search_setup(self, tmp_path):
         """Fixture providing common mock setup for search tests."""
-        with mock.patch("minerva.tools.search_keyword_in_files") as mock_search, \
-             mock.patch("minerva.tools.VAULT_PATH", tmp_path):
+        with (
+            mock.patch("minerva.tools.search_keyword_in_files") as mock_search,
+            mock.patch("minerva.tools.VAULT_PATH", tmp_path),
+        ):
             yield {"mock_search": mock_search, "tmp_path": tmp_path}
 
     def test_search_notes_returns_results(self, mock_search_setup, search_note_request):

@@ -20,15 +20,6 @@ class FileOperationRequest(BaseModel):
     directory: str = Field(description="Directory for the file operation")
     filename: str = Field(description="Name of the file")
 
-    @field_validator("directory")
-    def validate_directory(cls, v):
-        """
-        Validate the directory path.
-        """
-        if not isinstance(v, str):
-            raise ValueError("Directory must be a string")
-        return v
-
     @field_validator("filename")
     def validate_filename(cls, v):
         """
@@ -38,8 +29,6 @@ class FileOperationRequest(BaseModel):
             raise ValueError("Filename cannot be empty")
         if os.path.isabs(v):
             raise ValueError("Filename cannot be an absolute path")
-        if not isinstance(v, str):
-            raise ValueError("Filename must be a string")
         if any(char in v for char in FORBIDDEN_CHARS):
             raise ValueError(
                 f"Filename contains forbidden characters: {FORBIDDEN_CHARS}"
@@ -84,8 +73,6 @@ class SearchConfig(BaseModel):
         """
         Validate that the directory exists.
         """
-        if not isinstance(v, str):
-            raise ValueError("Directory must be a string")
         path = Path(v)
         if not path.is_dir():
             raise ValueError(f"Directory {v} does not exist")
@@ -96,11 +83,6 @@ class SearchConfig(BaseModel):
         """
         Format the file extensions to include the dot.
         """
-        if v is None:
-            return None
-        if isinstance(v, str):
-            extensions = [f".{ext.lower().lstrip('.')}" for ext in v.split(",")]
-            return extensions
         return [f".{ext.lower().lstrip('.')}" for ext in v]
 
 

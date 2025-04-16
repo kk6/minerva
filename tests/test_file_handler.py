@@ -1,6 +1,7 @@
 import pytest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import pydantic
 
 from minerva.file_handler import (
     FileWriteRequest,
@@ -210,6 +211,17 @@ class TestFileHandler:
         assert not is_binary_file(text_file_path)
         assert is_binary_file(binary_file_path)
 
+    def test_is_binary_file_permission_error(self, mocker, temp_dir):
+        """is_binary_fileでPermissionError/IOErrorが発生した場合はFalseを返す"""
+        from minerva.file_handler import is_binary_file
+
+        dummy_path = Path(temp_dir) / "dummy.txt"
+        dummy_path.touch()
+        mocker.patch("builtins.open", side_effect=PermissionError)
+        assert is_binary_file(dummy_path) is False
+        mocker.patch("builtins.open", side_effect=IOError)
+        assert is_binary_file(dummy_path) is False
+
     def test_search_keyword_basic(self, temp_dir):
         """Test basic keyword search functionality."""
         # Create test files
@@ -299,6 +311,12 @@ class TestFileHandler:
         with pytest.raises(ValueError):
             SearchConfig(directory="non_existent_dir", keyword="test")
 
+    @pytest.mark.parametrize("bad_ext", [123, {"py": 1}, ["txt", 123]])
+    def test_search_config_file_extensions_type_error(self, temp_dir, bad_ext):
+        """SearchConfigのfile_extensionsに不正な型を渡すとValueError"""
+        with pytest.raises(ValueError):
+            SearchConfig(directory=temp_dir, keyword="test", file_extensions=bad_ext)
+
     def test_search_with_multiple_files(self, temp_dir):
         """Test search across multiple files."""
         # Create multiple files with the keyword
@@ -317,3 +335,25 @@ class TestFileHandler:
         found_files = [result.file_path for result in results]
         for i in range(3):
             assert str(Path(temp_dir) / f"file{i}.txt") in found_files
+
+    def test_get_validated_file_path_relative(self, temp_dir):
+        """_get_validated_file_pathで相対パスを渡すとValueError"""
+        from minerva.file_handler import _get_validated_file_path
+
+        with pytest.raises(ValueError, match="Directory must be an absolute path"):
+            _get_validated_file_path("relative/path", "file.txt")
+
+    @pytest.mark.parametrize("bad_dir", [None, 123, 3.14, [], {}])
+    def test_file_operation_request_invalid_directory_type(self, bad_dir):
+        """directoryがstr型でない場合はValidationError（Pydantic v2仕様）"""
+        from minerva.file_handler import FileWriteRequest
+
+        with pytest.raises(
+            pydantic.ValidationError, match="Input should be a valid string"
+        ):
+            FileWriteRequest(
+                directory=bad_dir,
+                filename="test.txt",
+                content="dummy",
+                overwrite=True,
+            )
