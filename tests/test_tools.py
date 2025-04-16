@@ -43,7 +43,7 @@ class TestWriteNote:
         assert result == expected_path
         mock_write_file.assert_called_once()
 
-        # 検証を強化：正しいパラメータで呼ばれていることを確認
+        # Enhanced verification: Check that write_file is called with the correct parameters
         called_request = mock_write_file.call_args[0][0]
         assert called_request.directory == str(tmp_path)
         assert called_request.filename == f"{write_note_request.filename}.md"
@@ -167,7 +167,7 @@ class TestReadNote:
         assert result == expected_content
         mock_read_file.assert_called_once()
 
-        # 検証を強化：正しいパラメータで呼ばれていることを確認
+        # Enhanced verification: Check that read_file is called with the correct parameters
         import os
 
         directory, filename = os.path.split(read_note_request.filepath)
@@ -229,7 +229,7 @@ class TestSearchNotes:
         assert result == fake_result
         mock_search.assert_called_once()
 
-        # 検証を強化：search_keyword_in_filesが正しいパラメータで呼ばれていることを確認
+        # Enhanced verification: Check that search_keyword_in_files is called with the correct parameters
         search_config = mock_search.call_args[0][0]
         assert search_config.directory == str(tmp_path)
         assert search_config.keyword == search_note_request.query
@@ -315,3 +315,114 @@ class TestSearchNotes:
         assert result == fake_result
         search_config = mock_search.call_args[0][0]
         assert search_config.case_sensitive == expected_config
+
+
+class TestIntegrationTests:
+    """Integration tests that test the actual file operations."""
+
+    @pytest.fixture
+    def setup_vault(self, tmp_path):
+        """Set up a temporary vault directory."""
+        mock.patch("minerva.tools.VAULT_PATH", tmp_path).start()
+        # Create some test files in the vault
+        (tmp_path / "note1.md").write_text("This is note 1 with keyword apple")
+        (tmp_path / "note2.md").write_text("This is note 2 with keyword banana")
+        (tmp_path / "note3.md").write_text("This is note 3 with keyword APPLE")
+
+        yield tmp_path
+
+        mock.patch.stopall()
+
+    def test_integration_write_and_read_note(self, setup_vault):
+        """Test writing and then reading a note."""
+        vault_path = setup_vault
+
+        # Create a note
+        write_request = tools.WriteNoteRequest(
+            text="This is a test note", filename="integration_test", is_overwrite=False
+        )
+
+        file_path = tools.write_note(write_request)
+        assert file_path.exists()
+
+        # Read the note back
+        read_request = tools.ReadNoteRequest(filepath=str(file_path))
+
+        content = tools.read_note(read_request)
+        assert content == "This is a test note"
+
+    def test_integration_search_notes(self, setup_vault):
+        """Test searching notes in the vault."""
+        # Search case sensitive
+        search_request1 = tools.SearchNoteRequest(query="apple", case_sensitive=True)
+
+        results1 = tools.search_notes(search_request1)
+        assert len(results1) == 1
+        assert "note1.md" in results1[0].file_path
+
+        # Search case insensitive
+        search_request2 = tools.SearchNoteRequest(query="apple", case_sensitive=False)
+
+        results2 = tools.search_notes(search_request2)
+        assert len(results2) == 2
+
+        # Verify both files are found (note1 and note3)
+        found_files = [result.file_path for result in results2]
+        assert any("note1.md" in path for path in found_files)
+        assert any("note3.md" in path for path in found_files)
+
+    def test_integration_write_with_overwrite(self, setup_vault):
+        """Test overwriting an existing note."""
+        vault_path = setup_vault
+
+        # Create initial note
+        initial_request = tools.WriteNoteRequest(
+            text="Initial content", filename="overwrite_test", is_overwrite=False
+        )
+
+        file_path = tools.write_note(initial_request)
+        assert file_path.exists()
+
+        # Try to overwrite with is_overwrite=False (should fail)
+        with pytest.raises(Exception):
+            tools.write_note(
+                tools.WriteNoteRequest(
+                    text="New content", filename="overwrite_test", is_overwrite=False
+                )
+            )
+
+        # Verify content is still the original
+        read_request = tools.ReadNoteRequest(filepath=str(file_path))
+        content = tools.read_note(read_request)
+        assert content == "Initial content"
+
+        # Overwrite with is_overwrite=True (should succeed)
+        tools.write_note(
+            tools.WriteNoteRequest(
+                text="New content", filename="overwrite_test", is_overwrite=True
+            )
+        )
+
+        # Verify content is updated
+        content = tools.read_note(read_request)
+        assert content == "New content"
+
+    def test_edge_case_empty_file(self, setup_vault):
+        """Test reading and searching an empty file."""
+        vault_path = setup_vault
+
+        # Create an empty file
+        empty_file = vault_path / "empty.md"
+        empty_file.touch()
+
+        # Read empty file
+        read_request = tools.ReadNoteRequest(filepath=str(empty_file))
+        content = tools.read_note(read_request)
+        assert content == ""
+
+        # Search in empty files
+        search_request = tools.SearchNoteRequest(query="anything", case_sensitive=True)
+
+        results = tools.search_notes(search_request)
+        # Empty file should not match any keyword
+        assert not any(result.file_path == str(empty_file) for result in results)

@@ -9,6 +9,9 @@ from minerva.file_handler import (
     write_file,
     FORBIDDEN_CHARS,
     ENCODING,
+    SearchConfig,
+    is_binary_file,
+    search_keyword_in_files,
 )
 
 
@@ -191,3 +194,126 @@ class TestFileHandler:
         )
         with pytest.raises(UnicodeDecodeError):
             read_file(request)
+
+    def test_is_binary_file(self, temp_dir):
+        """Test detecting binary files."""
+        # Create a text file
+        text_file_path = Path(temp_dir) / "text.txt"
+        with open(text_file_path, "w", encoding=ENCODING) as f:
+            f.write("Hello, World!")
+
+        # Create a binary file
+        binary_file_path = Path(temp_dir) / "binary.bin"
+        with open(binary_file_path, "wb") as f:
+            f.write(b"\x00\x01\x02\x03")
+
+        assert not is_binary_file(text_file_path)
+        assert is_binary_file(binary_file_path)
+
+    def test_search_keyword_basic(self, temp_dir):
+        """Test basic keyword search functionality."""
+        # Create test files
+        file1 = Path(temp_dir) / "file1.txt"
+        with open(file1, "w", encoding=ENCODING) as f:
+            f.write("This is a test file with a keyword: apple")
+
+        file2 = Path(temp_dir) / "file2.txt"
+        with open(file2, "w", encoding=ENCODING) as f:
+            f.write("This file doesn't have the keyword")
+
+        config = SearchConfig(directory=temp_dir, keyword="apple", case_sensitive=True)
+
+        results = search_keyword_in_files(config)
+        assert len(results) == 1
+        assert results[0].file_path == str(file1)
+        assert results[0].line_number == 1
+        assert "keyword: apple" in results[0].context
+
+    def test_search_keyword_case_sensitivity(self, temp_dir):
+        """Test case sensitivity in keyword search."""
+        # Create test file
+        file_path = Path(temp_dir) / "case.txt"
+        with open(file_path, "w", encoding=ENCODING) as f:
+            f.write("This file has APPLE and apple")
+
+        # Case sensitive search should find only lowercase
+        config1 = SearchConfig(directory=temp_dir, keyword="apple", case_sensitive=True)
+        results1 = search_keyword_in_files(config1)
+        assert len(results1) == 1
+        assert "apple" in results1[0].context
+
+        # Case insensitive search should find both
+        config2 = SearchConfig(
+            directory=temp_dir, keyword="apple", case_sensitive=False
+        )
+        results2 = search_keyword_in_files(config2)
+        assert len(results2) == 1
+        assert "APPLE and apple" in results2[0].context
+
+    def test_search_with_file_extensions(self, temp_dir):
+        """Test search with file extension filtering."""
+        # Create files with different extensions
+        txt_file = Path(temp_dir) / "file.txt"
+        with open(txt_file, "w", encoding=ENCODING) as f:
+            f.write("This is a text file with keyword")
+
+        py_file = Path(temp_dir) / "file.py"
+        with open(py_file, "w", encoding=ENCODING) as f:
+            f.write("# This is a Python file with keyword")
+
+        # Search only in .txt files
+        config = SearchConfig(
+            directory=temp_dir,
+            keyword="keyword",
+            case_sensitive=True,
+            file_extensions=[".txt"],
+        )
+
+        results = search_keyword_in_files(config)
+        assert len(results) == 1
+        assert results[0].file_path == str(txt_file)
+
+    def test_search_config_validation(self, temp_dir):
+        """Test validation in SearchConfig."""
+        # Test valid config
+        config = SearchConfig(directory=temp_dir, keyword="test", case_sensitive=True)
+        assert config.directory == temp_dir
+        assert config.keyword == "test"
+        assert config.case_sensitive is True
+
+        # Test file extensions formatting
+        config = SearchConfig(
+            directory=temp_dir, keyword="test", file_extensions=["txt", "py"]
+        )
+        assert config.file_extensions == [".txt", ".py"]
+
+        # To test conversion from string to list, appropriate preprocessing is needed
+        extensions_str = "txt,py"
+        extensions_list = extensions_str.split(",")
+        config = SearchConfig(
+            directory=temp_dir, keyword="test", file_extensions=extensions_list
+        )
+        assert config.file_extensions == [".txt", ".py"]
+
+        # Test directory validation
+        with pytest.raises(ValueError):
+            SearchConfig(directory="non_existent_dir", keyword="test")
+
+    def test_search_with_multiple_files(self, temp_dir):
+        """Test search across multiple files."""
+        # Create multiple files with the keyword
+        for i in range(3):
+            file_path = Path(temp_dir) / f"file{i}.txt"
+            with open(file_path, "w", encoding=ENCODING) as f:
+                f.write(f"This is file {i} with the keyword")
+
+        config = SearchConfig(
+            directory=temp_dir, keyword="keyword", case_sensitive=True
+        )
+
+        results = search_keyword_in_files(config)
+        assert len(results) == 3
+        # Verify each file is found
+        found_files = [result.file_path for result in results]
+        for i in range(3):
+            assert str(Path(temp_dir) / f"file{i}.txt") in found_files
