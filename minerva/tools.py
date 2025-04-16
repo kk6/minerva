@@ -80,6 +80,8 @@ def write_note(request: WriteNoteRequest) -> Path:
     Returns:
         Path: The path to the written file.
     """
+    if not request.filename:
+        raise ValueError("Filename cannot be empty")
     try:
         file_write_request = FileWriteRequest(
             directory=str(VAULT_PATH),

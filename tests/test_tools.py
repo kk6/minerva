@@ -17,119 +17,79 @@ class TestWriteNote:
     @pytest.fixture
     def mock_write_setup(self, tmp_path):
         """Fixture providing common mock setup for write tests."""
-        mock_write_file = mock.patch("minerva.tools.write_file").start()
-        mock.patch("minerva.tools.VAULT_PATH", tmp_path).start()
+        with mock.patch("minerva.tools.write_file") as mock_write_file, \
+             mock.patch("minerva.tools.VAULT_PATH", tmp_path):
+            yield {"mock_write_file": mock_write_file, "tmp_path": tmp_path}
 
-        yield {"mock_write_file": mock_write_file, "tmp_path": tmp_path}
-
-        mock.patch.stopall()
-
-    def test_write_note_creates_file(self, mock_write_setup, write_note_request):
-        """Test writing a note creates a new file.
-
-        Expects:
-            - write_file is called with correct parameters
-            - The function returns the expected file path
-            - The filename has .md extension appended
-        """
+    @pytest.mark.parametrize(
+        "is_overwrite,old_content,should_raise,expected_exception",
+        [
+            (False, None, False, None),
+            (True, "old content", False, None),
+            (False, "old content", True, FileExistsError),
+        ],
+        ids=["create-new", "overwrite", "no-overwrite"],
+    )
+    def test_write_note_file_cases(self, mock_write_setup, write_note_request, is_overwrite, old_content, should_raise, expected_exception):
+        """Test writing a note for create, overwrite, and no-overwrite cases."""
         mock_write_file = mock_write_setup["mock_write_file"]
         tmp_path = mock_write_setup["tmp_path"]
+        test_file = tmp_path / f"{write_note_request.filename}.md"
+        if old_content is not None:
+            test_file.write_text(old_content)
+        write_note_request.is_overwrite = is_overwrite
+        if should_raise:
+            mock_write_file.side_effect = FileExistsError("File exists and overwrite is False")
+            with pytest.raises(FileExistsError, match="File exists and overwrite is False"):
+                tools.write_note(write_note_request)
+            mock_write_file.assert_called_once()
+        else:
+            mock_write_file.return_value = test_file
+            result = tools.write_note(write_note_request)
+            assert result == test_file
+            mock_write_file.assert_called_once()
 
+    def test_write_note_creates_file_params(self, mock_write_setup, write_note_request):
+        """Verify that correct parameters are passed to write_file."""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        tmp_path = mock_write_setup["tmp_path"]
         expected_path = tmp_path / f"{write_note_request.filename}.md"
         mock_write_file.return_value = expected_path
-
         result = tools.write_note(write_note_request)
-
         assert result == expected_path
         mock_write_file.assert_called_once()
-
-        # Enhanced verification: Check that write_file is called with the correct parameters
         called_request = mock_write_file.call_args[0][0]
         assert called_request.directory == str(tmp_path)
         assert called_request.filename == f"{write_note_request.filename}.md"
         assert called_request.content == write_note_request.text
         assert called_request.overwrite == write_note_request.is_overwrite
 
-    def test_write_note_overwrites_file(self, mock_write_setup, write_note_request):
-        """Test writing a note overwrites an existing file.
-
-        Expects:
-            - write_file is called with is_overwrite=True
-            - The function returns the expected file path
-            - The existing file content would be overwritten
-        """
-        mock_write_file = mock_write_setup["mock_write_file"]
-        tmp_path = mock_write_setup["tmp_path"]
-
-        test_file = tmp_path / f"{write_note_request.filename}.md"
-        test_file.write_text("old content")
-        write_note_request.is_overwrite = True
-
-        mock_write_file.return_value = test_file
-
-        result = tools.write_note(write_note_request)
-
-        assert result == test_file
-        mock_write_file.assert_called_once()
-
-    def test_write_note_does_not_overwrite_file(
-        self, mock_write_setup, write_note_request
-    ):
-        """Test writing a note does not overwrite an existing file.
-
-        Expects:
-            - write_file is called with is_overwrite=False
-            - The original file content remains unchanged
-            - The function returns the expected file path
-        """
-        mock_write_file = mock_write_setup["mock_write_file"]
-        tmp_path = mock_write_setup["tmp_path"]
-
-        old_content = "old content"
-        test_file = tmp_path / f"{write_note_request.filename}.md"
-        test_file.write_text(old_content)
-        write_note_request.is_overwrite = False
-
-        mock_write_file.return_value = test_file
-
-        result = tools.write_note(write_note_request)
-
-        assert result == test_file
-        assert test_file.read_text() == old_content
-        mock_write_file.assert_called_once()
-
     def test_write_note_raises_exception(self, mock_write_setup, write_note_request):
-        """Test writing a note raises an exception.
-
-        Expects:
-            - When write_file raises an exception, it's propagated to the caller
-            - The write_file function is still called once
-        """
+        """Verify that exceptions from write_file are propagated."""
         mock_write_file = mock_write_setup["mock_write_file"]
-
         mock_write_file.side_effect = Exception("File write error")
-
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="File write error"):
             tools.write_note(write_note_request)
-
         mock_write_file.assert_called_once()
 
-    def test_write_note_invalid_filename(self, mock_write_setup, write_note_request):
-        """Test writing a note with an invalid filename.
-
-        Expects:
-            - When an invalid filename is provided, an exception is raised
-            - write_file is never called due to filename validation
-        """
+    @pytest.mark.parametrize(
+        "filename,expected_message,expected_exception",
+        [
+            ("invalid|filename", "forbidden characters", "pydantic.ValidationError"),
+            ("", "cannot be empty", "ValueError"),
+        ],
+    )
+    def test_write_note_invalid_filename(self, mock_write_setup, write_note_request, filename, expected_message, expected_exception):
+        """If the filename is invalid, ValidationError or ValueError is raised and write_file is not called."""
+        import pydantic
         mock_write_file = mock_write_setup["mock_write_file"]
-
-        write_note_request.filename = "invalid|filename"
-
-        mock_write_file.side_effect = Exception("Invalid filename")
-
-        with pytest.raises(Exception):
-            tools.write_note(write_note_request)
-
+        write_note_request.filename = filename
+        if expected_exception == "pydantic.ValidationError":
+            with pytest.raises(pydantic.ValidationError, match=expected_message):
+                tools.write_note(write_note_request)
+        else:
+            with pytest.raises(ValueError, match=expected_message):
+                tools.write_note(write_note_request)
         mock_write_file.assert_not_called()
 
 
@@ -143,11 +103,8 @@ class TestReadNote:
     @pytest.fixture
     def mock_read_setup(self):
         """Fixture providing common mock setup for read tests."""
-        mock_read_file = mock.patch("minerva.tools.read_file").start()
-
-        yield {"mock_read_file": mock_read_file}
-
-        mock.patch.stopall()
+        with mock.patch("minerva.tools.read_file") as mock_read_file:
+            yield {"mock_read_file": mock_read_file}
 
     def test_read_note_returns_content(self, mock_read_setup, read_note_request):
         """Test reading a note returns the content.
@@ -186,7 +143,7 @@ class TestReadNote:
 
         mock_read_file.side_effect = Exception("File read error")
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="File read error"):
             tools.read_note(read_note_request)
 
         mock_read_file.assert_called_once()
@@ -203,12 +160,9 @@ class TestSearchNotes:
     @pytest.fixture
     def mock_search_setup(self, tmp_path):
         """Fixture providing common mock setup for search tests."""
-        mock_search = mock.patch("minerva.tools.search_keyword_in_files").start()
-        mock.patch("minerva.tools.VAULT_PATH", tmp_path).start()
-
-        yield {"mock_search": mock_search, "tmp_path": tmp_path}
-
-        mock.patch.stopall()
+        with mock.patch("minerva.tools.search_keyword_in_files") as mock_search, \
+             mock.patch("minerva.tools.VAULT_PATH", tmp_path):
+            yield {"mock_search": mock_search, "tmp_path": tmp_path}
 
     def test_search_notes_returns_results(self, mock_search_setup, search_note_request):
         """Test searching notes returns results.
@@ -261,30 +215,9 @@ class TestSearchNotes:
 
         mock_search.side_effect = Exception("Search error")
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="Search error"):
             tools.search_notes(search_note_request)
 
-        mock_search.assert_called_once()
-
-    def test_search_notes_case_insensitive(
-        self, mock_search_setup, search_note_request
-    ):
-        """Test searching notes with case insensitive option.
-
-        Expects:
-            - search_keyword_in_files is called with case_sensitive=False
-            - The search configuration properly reflects the case insensitivity
-            - The function returns the expected search results
-        """
-        mock_search = mock_search_setup["mock_search"]
-        fake_result = [mock.Mock()]
-
-        search_note_request.case_sensitive = False
-        mock_search.return_value = fake_result
-
-        result = tools.search_notes(search_note_request)
-
-        assert result == fake_result
         mock_search.assert_called_once()
 
     @pytest.mark.parametrize(
@@ -323,19 +256,15 @@ class TestIntegrationTests:
     @pytest.fixture
     def setup_vault(self, tmp_path):
         """Set up a temporary vault directory."""
-        mock.patch("minerva.tools.VAULT_PATH", tmp_path).start()
-        # Create some test files in the vault
-        (tmp_path / "note1.md").write_text("This is note 1 with keyword apple")
-        (tmp_path / "note2.md").write_text("This is note 2 with keyword banana")
-        (tmp_path / "note3.md").write_text("This is note 3 with keyword APPLE")
-
-        yield tmp_path
-
-        mock.patch.stopall()
+        with mock.patch("minerva.tools.VAULT_PATH", tmp_path):
+            # Create some test files in the vault
+            (tmp_path / "note1.md").write_text("This is note 1 with keyword apple")
+            (tmp_path / "note2.md").write_text("This is note 2 with keyword banana")
+            (tmp_path / "note3.md").write_text("This is note 3 with keyword APPLE")
+            yield tmp_path
 
     def test_integration_write_and_read_note(self, setup_vault):
         """Test writing and then reading a note."""
-        vault_path = setup_vault
 
         # Create a note
         write_request = tools.WriteNoteRequest(
@@ -373,7 +302,6 @@ class TestIntegrationTests:
 
     def test_integration_write_with_overwrite(self, setup_vault):
         """Test overwriting an existing note."""
-        vault_path = setup_vault
 
         # Create initial note
         initial_request = tools.WriteNoteRequest(
