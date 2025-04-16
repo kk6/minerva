@@ -114,6 +114,30 @@ class TestWriteNote:
                 tools.write_note(write_note_request)
         mock_write_file.assert_not_called()
 
+    def test_write_note_with_subdirectory_path(self, mock_write_setup, write_note_request):
+        """Test to verify that paths with subdirectories are processed correctly"""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        tmp_path = mock_write_setup["tmp_path"]
+
+        # Update filename to include subdirectory
+        write_note_request.filename = "subdir/note_in_subdir"
+        expected_dir_path = tmp_path / "subdir"
+        expected_file_path = expected_dir_path / "note_in_subdir.md"
+
+        mock_write_file.return_value = expected_file_path
+
+        result = tools.write_note(write_note_request)
+        assert result == expected_file_path
+
+        mock_write_file.assert_called_once()
+        called_request = mock_write_file.call_args[0][0]
+
+        # Verify that subdirectory is properly separated and directory path and filename are set correctly
+        assert called_request.directory == str(expected_dir_path)
+        assert called_request.filename == "note_in_subdir.md"
+        assert called_request.content == write_note_request.text
+        assert called_request.overwrite == write_note_request.is_overwrite
+
 
 class TestReadNote:
     @pytest.fixture
@@ -378,3 +402,83 @@ class TestIntegrationTests:
         results = tools.search_notes(search_request)
         # Empty file should not match any keyword
         assert not any(result.file_path == str(empty_file) for result in results)
+
+    def test_integration_write_to_subdirectory(self, setup_vault):
+        """Test for creating a file in a subdirectory"""
+        vault_path = setup_vault
+
+        # Create a note with a path that includes a subdirectory
+        write_request = tools.WriteNoteRequest(
+            text="This is a note in a subdirectory",
+            filename="subdir/note_in_subdir",
+            is_overwrite=False
+        )
+
+        file_path = tools.write_note(write_request)
+
+        # Verify that the file was created
+        assert file_path.exists()
+
+        # Verify that the file was created at the correct path
+        expected_path = vault_path / "subdir" / "note_in_subdir.md"
+        assert file_path == expected_path
+
+        # Verify the content of the created file
+        read_request = tools.ReadNoteRequest(filepath=str(file_path))
+        content = tools.read_note(read_request)
+        assert content == "This is a note in a subdirectory"
+
+    def test_integration_write_to_nested_subdirectory(self, setup_vault):
+        """Test for creating a file in multiple levels of nested subdirectories"""
+        vault_path = setup_vault
+
+        # Create a note with a path that includes multiple levels of subdirectories
+        write_request = tools.WriteNoteRequest(
+            text="This is a note in a nested subdirectory",
+            filename="level1/level2/level3/deep_note",
+            is_overwrite=False
+        )
+
+        file_path = tools.write_note(write_request)
+
+        # Verify that the file was created
+        assert file_path.exists()
+
+        # Verify that the file was created at the correct path
+        expected_path = vault_path / "level1" / "level2" / "level3" / "deep_note.md"
+        assert file_path == expected_path
+
+        # Verify the content of the created file
+        read_request = tools.ReadNoteRequest(filepath=str(file_path))
+        content = tools.read_note(read_request)
+        assert content == "This is a note in a nested subdirectory"
+
+    def test_integration_subdirectory_creation(self, setup_vault):
+        """Test to verify that non-existent subdirectories are automatically created"""
+        vault_path = setup_vault
+
+        # Subdirectory path
+        subdir_path = vault_path / "auto_created_dir"
+
+        # Verify that the subdirectory does not exist
+        assert not subdir_path.exists()
+
+        # Create a note in a non-existent subdirectory
+        write_request = tools.WriteNoteRequest(
+            text="Testing automatic directory creation",
+            filename="auto_created_dir/auto_note",
+            is_overwrite=False
+        )
+
+        file_path = tools.write_note(write_request)
+
+        # Verify that the subdirectory was automatically created
+        assert subdir_path.exists()
+        assert subdir_path.is_dir()
+
+        # Verify that the file was created
+        assert file_path.exists()
+
+        # Verify that the file was created at the correct path
+        expected_path = subdir_path / "auto_note.md"
+        assert file_path == expected_path

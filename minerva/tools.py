@@ -82,10 +82,31 @@ def write_note(request: WriteNoteRequest) -> Path:
     """
     if not request.filename:
         raise ValueError("Filename cannot be empty")
+
+    # If the filename contains path separators, separate into subdirectory and filename
+    path_parts = Path(request.filename)
+
+    # Get subdirectory path and filename
+    subdirs = path_parts.parent
+    base_filename = path_parts.name
+
+    if not base_filename:
+        raise ValueError("Filename cannot be empty")
+
+    # Create the final directory path (connecting the vault root directory and subdirectory path)
+    full_dir_path = VAULT_PATH
+    if str(subdirs) != '.':  # If a subdirectory is specified
+        full_dir_path = full_dir_path / subdirs
+
+    # Create directory if it doesn't exist
+    if not full_dir_path.exists():
+        full_dir_path.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Created directory: {full_dir_path}")
+
     try:
         file_write_request = FileWriteRequest(
-            directory=str(VAULT_PATH),
-            filename=f"{request.filename}.md",
+            directory=str(full_dir_path),
+            filename=f"{base_filename}.md",
             content=request.text,
             overwrite=request.is_overwrite,
         )
