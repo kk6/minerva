@@ -134,6 +134,40 @@ Minerva
 3. MCPサーバーの起動: `uv run mcp dev server.py`
 4. Claude Desktopへのインストール: `uv run mcp install server.py`
 
+### 5.3 依存関係の管理
+
+#### 5.3.1 プロジェクト開発環境と実行環境の違い
+
+Minervaプロジェクトでは、以下の2つの異なる環境での依存関係管理を理解する必要があります：
+
+1. **プロジェクト開発環境**：
+   - `pyproject.toml`と`uv.lock`で管理
+   - 開発、テスト、CI/CD環境で使用
+   - `uv pip install -e .`などで依存関係をインストール
+
+2. **Claude Desktop実行環境**：
+   - `/Users/<ユーザー名>/Library/Application Support/Claude/claude_desktop_config.json`で設定
+   - `uv run --with`コマンドによる一時的な実行環境
+   - 明示的に必要なパッケージをすべて指定する必要あり
+
+#### 5.3.2 Claude Desktop設定の例
+
+```json
+"minerva": {
+  "command": "uv",
+  "args": [
+    "run",
+    "--with",
+    "mcp[cli],python-frontmatter",
+    "mcp",
+    "run",
+    "/path/to/minerva/server.py"
+  ]
+}
+```
+
+重要: パッケージの**インストール名**（例: `python-frontmatter`）と**インポート名**（例: `import frontmatter`）が異なる場合があるため、両方の名前を正確に把握する必要があります。
+
 ## 6. テスト戦略
 
 ### 6.1 単体テスト
