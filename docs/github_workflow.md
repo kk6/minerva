@@ -85,17 +85,56 @@ Issueに基づいて、適切な命名規則に従ったブランチを作成し
 
 ### 3. 開発
 
-ブランチ上で開発を行い、適宜コミットします。コミットメッセージは以下の形式を推奨します：
+ブランチ上で開発を行い、適宜コミットします。コミットメッセージは[Conventional Commits](https://www.conventionalcommits.org/ja/v1.0.0/)の規約に従って以下の形式で記述します：
 
 ```
-タイプ(スコープ): 変更内容の要約
+<type>[optional scope]: <description>
 
-変更内容の詳細説明（必要な場合）
+[optional body]
 
-Issue #番号
+[optional footer(s)]
 ```
 
-例：`feat(obsidian): Add support for note synchronization`
+#### 主なタイプ (type)
+
+- `feat`: 新機能の追加
+- `fix`: バグ修正
+- `docs`: ドキュメントのみの変更
+- `style`: コードの意味に影響を与えない変更（空白、フォーマット、セミコロンの欠落など）
+- `refactor`: バグを修正せず、機能を追加しないコード変更
+- `perf`: パフォーマンスを向上させるコード変更
+- `test`: 不足しているテストの追加または既存のテストの修正
+- `build`: ビルドシステムまたは外部依存関係に影響を与える変更
+- `ci`: CI設定ファイルとスクリプトの変更
+- `chore`: その他の変更（上記に該当しないもの）
+
+#### スコープ (scope)
+
+変更の範囲を示す名詞を括弧内に記述することができます（オプション）：
+- `(obsidian)`
+- `(claude)`
+- `(file-handler)`
+- `(tools)`
+- `(config)`
+など
+
+#### 例
+
+- `feat(obsidian): Add support for note synchronization`
+- `fix(tools): Fix incorrect path handling in search_notes function`
+- `docs: Update installation instructions`
+- `test(file-handler): Add unit tests for write_note function`
+- `refactor: Move common functions to utils module`
+
+フッターには関連するIssue番号を記載します：
+```
+Issue #42
+```
+
+または複数のIssueを閉じる場合：
+```
+Closes #42, #43
+```
 
 ### 4. プルリクエスト作成
 
@@ -120,3 +159,4 @@ Issue #番号
 - [GitHub Flow](https://docs.github.com/ja/get-started/quickstart/github-flow)
 - [Semantic Versioning](https://semver.org/)
 - [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+- [Conventional Commits](https://www.conventionalcommits.org/ja/v1.0.0/)
