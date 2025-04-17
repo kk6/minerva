@@ -26,9 +26,9 @@ class TestWriteNote:
     @pytest.mark.parametrize(
         "is_overwrite,old_content,should_raise,expected_exception",
         [
-            (False, None, False, None),
-            (True, "old content", False, None),
-            (False, "old content", True, FileExistsError),
+            (False, None, False, None),          # Create new file case
+            (True, "old content", False, None),  # Overwrite existing file case
+            (False, "old content", True, FileExistsError),  # No overwrite, file exists case
         ],
         ids=["create-new", "overwrite", "no-overwrite"],
     )
@@ -41,26 +41,67 @@ class TestWriteNote:
         should_raise,
         expected_exception,
     ):
-        """Test writing a note for create, overwrite, and no-overwrite cases."""
+        """Test writing a note for create, overwrite, and no-overwrite cases.
+
+        This test uses AAA (Arrange-Act-Assert) pattern to verify write_note behavior
+        in three scenarios: creating a new file, overwriting an existing file, and
+        attempting to write to an existing file without overwrite permission.
+
+        Arrange:
+            - Setup mock for write_file function
+            - Configure test case with overwrite flag and existing file content
+        Act:
+            - Call write_note with the configured request
+        Assert:
+            - Verify expected exception is raised when should_raise is True
+            - Verify file is correctly written when should_raise is False
+            - Confirm write_file was called with expected parameters
+        """
+        # ==================== Arrange ====================
+        # Extract mocks and paths from fixture
         mock_write_file = mock_write_setup["mock_write_file"]
         tmp_path = mock_write_setup["tmp_path"]
         test_file = tmp_path / f"{write_note_request.filename}.md"
+
+        # Create file with old content if test requires it
         if old_content is not None:
             test_file.write_text(old_content)
+
+        # Configure request with overwrite flag from test case
         write_note_request.is_overwrite = is_overwrite
+
+        # Configure mock based on test case
         if should_raise:
+            # Setup mock to raise exception for negative test case
             mock_write_file.side_effect = FileExistsError(
                 "File exists and overwrite is False"
             )
+
+            # ==================== Act & Assert (exception case) ====================
+            # For exception cases, we need to use pytest.raises context manager
+            # which combines the Act and Assert steps
             with pytest.raises(
                 FileExistsError, match="File exists and overwrite is False"
             ):
+                # Act - Execute the function being tested
                 tools.write_note(write_note_request)
+
+            # ==================== Additional Assertions ====================
+            # Verify the mock was called correctly
             mock_write_file.assert_called_once()
         else:
+            # ==================== Additional Arrange (success case) ====================
+            # Setup return value for successful case
             mock_write_file.return_value = test_file
+
+            # ==================== Act ====================
+            # Execute the function being tested
             result = tools.write_note(write_note_request)
+
+            # ==================== Assert ====================
+            # Verify the result matches expected output
             assert result == test_file
+            # Verify the mock was called exactly once
             mock_write_file.assert_called_once()
 
     def test_write_note_creates_file_params(self, mock_write_setup, write_note_request):
@@ -312,20 +353,37 @@ class TestIntegrationTests:
             yield tmp_path
 
     def test_integration_write_and_read_note(self, setup_vault):
-        """Test writing and then reading a note."""
+        """Test writing and then reading a note.
 
-        # Create a note
+        Arrange:
+            - Create a write note request with test content
+        Act:
+            - Write a note and get the file path
+            - Read the note from the same path
+        Assert:
+            - File exists on disk
+            - Content read from the file matches what was written
+        """
+        # Arrange
         write_request = tools.WriteNoteRequest(
-            text="This is a test note", filename="integration_test", is_overwrite=False
+            text="This is a test note",
+            filename="integration_test",
+            is_overwrite=False
         )
 
+        # Act - Part 1: Writing
         file_path = tools.write_note(write_request)
+
+        # Assert - Part 1: File was created
         assert file_path.exists()
 
-        # Read the note back
+        # Arrange - Part 2: Setup for reading
         read_request = tools.ReadNoteRequest(filepath=str(file_path))
 
+        # Act - Part 2: Reading
         content = tools.read_note(read_request)
+
+        # Assert - Part 2: Content matches
         assert content == "This is a test note"
 
     def test_integration_search_notes(self, setup_vault):
