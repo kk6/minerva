@@ -81,6 +81,8 @@ uv run pytest
 - [技術仕様書](docs/technical_spec.md) - 内部実装の詳細と設計思想
 - [テストガイドライン](docs/test_guidelines.md) - テスト作成のガイドラインとAAA（Arrange-Act-Assert）パターンの解説
 - [開発ワークフロー](docs/development_workflow.md) - 開発プロセス、ブランチ戦略、コードレビュー、リリースフロー
+- [GitHub開発プロセス](docs/github_workflow.md) - GitHubを使用した開発プロセスの詳細
+- [Issueと PR の効果的な活用ガイド](docs/issue_pr_guide.md) - IssueとPRの効果的な活用方法
 
 ## ライセンス
 
