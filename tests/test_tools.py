@@ -188,7 +188,7 @@ class TestWriteNote:
 
         # Verify that subdirectory is properly separated and directory path and filename are set correctly
         assert called_request.directory == str(expected_dir_path)
-        assert called_request.filename == "note_in_subdir"  # ファイル名は拡張子なしで処理される
+        assert called_request.filename == "note_in_subdir"
 
         # Instead of comparing raw content, extract content from frontmatter
         post = frontmatter.loads(called_request.content)
@@ -281,7 +281,6 @@ Content with existing frontmatter"""
 
         # Verify directory path includes default_path
         assert called_request.directory == str(expected_dir_path)
-        # 最新の実装では、ファイル名に.md拡張子が追加された状態で渡される
         assert called_request.filename == "default_path_note.md"
 
 
