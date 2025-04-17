@@ -11,12 +11,14 @@ Minervaは、Obsidian vaultに対してノートの作成、読み取り、検�
 ### 2.1 ノートの作成・更新 (write_note)
 
 #### 機能概要
-指定されたテキストをObsidian vault内のファイルに書き込みます。ファイルが存在しない場合は新規作成し、存在する場合は上書きオプションに基づいて処理します。
+指定されたテキストをObsidian vault内のファイルに書き込みます。ファイルが存在しない場合は新規作成し、存在する場合は上書きオプションに基づいて処理します。コンテンツにはfrontmatter（メタデータ）が自動的に追加されます。
 
 #### パラメータ
 - `text`: ファイルに書き込むコンテンツ
 - `filename`: 書き込むファイル名（`.md`拡張子は自動的に追加されます）
 - `is_overwrite`: ファイルが既に存在する場合に上書きするかどうかのフラグ（デフォルト: False）
+- `author`: frontmatterに追加する著者名（デフォルト: None、指定されない場合はシステム設定の著者名が使用されます）
+- `default_path`: サブディレクトリが指定されていない場合に使用するデフォルトディレクトリ（デフォルト: 環境設定のDEFAULT_NOTE_DIR値）
 
 #### 戻り値
 - 書き込まれたファイルのパス（Path型）
@@ -29,11 +31,15 @@ Minervaは、Obsidian vaultに対してノートの作成、読み取り、検�
 #### 特記事項
 - サブディレクトリを含むパスを指定した場合、自動的にディレクトリが作成されます
 - 複数レベルのディレクトリ（例：`level1/level2/note.md`）もサポートされています
+- すべてのノートには自動的にfrontmatterが追加され、少なくとも著者情報が含まれます
+- 入力コンテンツに既にfrontmatterが含まれている場合は、そのメタデータは保持され、著者情報のみが追加または更新されます
+- サブディレクトリが指定されていない場合、`default_path`パラメータで指定されたディレクトリに保存されます
 
 #### 使用例
 ```python
 from minerva.tools import WriteNoteRequest, write_note
 
+# 基本的な使用例
 request = WriteNoteRequest(
     text="This is a test note",
     filename="example_note",  # .md拡張子は自動的に追加されます
@@ -42,6 +48,35 @@ request = WriteNoteRequest(
 
 file_path = write_note(request)
 print(f"ノートが保存されました: {file_path}")
+
+# 著者情報とデフォルトパスを指定する例
+request_with_author = WriteNoteRequest(
+    text="This is a note with author information",
+    filename="authored_note",
+    is_overwrite=False,
+    author="AI Assistant",
+    default_path="ai_generated"
+)
+
+file_path = write_note(request_with_author)
+print(f"著者情報付きノートが保存されました: {file_path}")
+
+# 既存のfrontmatterを持つコンテンツの例
+frontmatter_content = """---
+title: Existing Title
+tags: [test, frontmatter]
+---
+Content with existing frontmatter"""
+
+request_with_frontmatter = WriteNoteRequest(
+    text=frontmatter_content,
+    filename="frontmatter_note",
+    is_overwrite=False,
+    author="AI Assistant"
+)
+
+file_path = write_note(request_with_frontmatter)
+print(f"frontmatter付きノートが保存されました: {file_path}")
 ```
 
 ### 2.2 ノートの読み取り (read_note)
