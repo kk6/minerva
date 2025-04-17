@@ -1,6 +1,7 @@
 from unittest import mock
 
 import pytest
+import frontmatter
 
 from minerva import tools
 
@@ -12,6 +13,8 @@ class TestWriteNote:
             text="Sample text",
             filename="sample_note",
             is_overwrite=False,
+            author=None,
+            default_path="",
         )
 
     @pytest.fixture
@@ -26,9 +29,14 @@ class TestWriteNote:
     @pytest.mark.parametrize(
         "is_overwrite,old_content,should_raise,expected_exception",
         [
-            (False, None, False, None),          # Create new file case
+            (False, None, False, None),  # Create new file case
             (True, "old content", False, None),  # Overwrite existing file case
-            (False, "old content", True, FileExistsError),  # No overwrite, file exists case
+            (
+                False,
+                "old content",
+                True,
+                FileExistsError,
+            ),  # No overwrite, file exists case
         ],
         ids=["create-new", "overwrite", "no-overwrite"],
     )
@@ -116,7 +124,10 @@ class TestWriteNote:
         called_request = mock_write_file.call_args[0][0]
         assert called_request.directory == str(tmp_path)
         assert called_request.filename == write_note_request.filename
-        assert called_request.content == write_note_request.text
+        # Content now includes frontmatter
+        assert "---" in called_request.content
+        assert "author:" in called_request.content
+        assert "Sample text" in called_request.content
         assert called_request.overwrite == write_note_request.is_overwrite
 
     def test_write_note_raises_exception(self, mock_write_setup, write_note_request):
@@ -155,7 +166,9 @@ class TestWriteNote:
                 tools.write_note(write_note_request)
         mock_write_file.assert_not_called()
 
-    def test_write_note_with_subdirectory_path(self, mock_write_setup, write_note_request):
+    def test_write_note_with_subdirectory_path(
+        self, mock_write_setup, write_note_request
+    ):
         """Test to verify that paths with subdirectories are processed correctly"""
         mock_write_file = mock_write_setup["mock_write_file"]
         tmp_path = mock_write_setup["tmp_path"]
@@ -176,8 +189,99 @@ class TestWriteNote:
         # Verify that subdirectory is properly separated and directory path and filename are set correctly
         assert called_request.directory == str(expected_dir_path)
         assert called_request.filename == "note_in_subdir"
-        assert called_request.content == write_note_request.text
-        assert called_request.overwrite == write_note_request.is_overwrite
+
+        # Instead of comparing raw content, extract content from frontmatter
+        post = frontmatter.loads(called_request.content)
+        assert post.content == write_note_request.text
+
+    def test_write_note_with_author(self, mock_write_setup):
+        """Test to verify that author is properly included in frontmatter"""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        tmp_path = mock_write_setup["tmp_path"]
+
+        # Create request with author
+        request = tools.WriteNoteRequest(
+            text="Content with author",
+            filename="author_note",
+            is_overwrite=False,
+            author="Test Author",
+        )
+
+        expected_path = tmp_path / "author_note.md"
+        mock_write_file.return_value = expected_path
+
+        result = tools.write_note(request)
+        assert result == expected_path
+
+        mock_write_file.assert_called_once()
+        called_request = mock_write_file.call_args[0][0]
+
+        # Parse frontmatter and verify author
+        post = frontmatter.loads(called_request.content)
+        assert post.metadata["author"] == "Test Author"
+        assert post.content == "Content with author"
+
+    def test_write_note_with_existing_frontmatter(self, mock_write_setup):
+        """Test to verify that existing frontmatter is preserved"""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        tmp_path = mock_write_setup["tmp_path"]
+
+        # Content with existing frontmatter
+        frontmatter_content = """---
+title: Existing Title
+tags: [test, frontmatter]
+---
+Content with existing frontmatter"""
+
+        request = tools.WriteNoteRequest(
+            text=frontmatter_content,
+            filename="frontmatter_note",
+            is_overwrite=False,
+            author="New Author",
+        )
+
+        expected_path = tmp_path / "frontmatter_note.md"
+        mock_write_file.return_value = expected_path
+
+        result = tools.write_note(request)
+        assert result == expected_path
+
+        mock_write_file.assert_called_once()
+        called_request = mock_write_file.call_args[0][0]
+
+        # Parse frontmatter and verify all properties
+        post = frontmatter.loads(called_request.content)
+        assert post.metadata["title"] == "Existing Title"
+        assert post.metadata["tags"] == ["test", "frontmatter"]
+        assert post.metadata["author"] == "New Author"
+        assert post.content == "Content with existing frontmatter"
+
+    def test_write_note_with_default_path(self, mock_write_setup):
+        """Test to verify that default_path is used when no subdirectory is specified"""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        tmp_path = mock_write_setup["tmp_path"]
+
+        # Create request with default_path
+        request = tools.WriteNoteRequest(
+            text="Content with default path",
+            filename="default_path_note",
+            is_overwrite=False,
+            default_path="default_dir",
+        )
+
+        expected_dir_path = tmp_path / "default_dir"
+        expected_file_path = expected_dir_path / "default_path_note.md"
+        mock_write_file.return_value = expected_file_path
+
+        result = tools.write_note(request)
+        assert result == expected_file_path
+
+        mock_write_file.assert_called_once()
+        called_request = mock_write_file.call_args[0][0]
+
+        # Verify directory path includes default_path
+        assert called_request.directory == str(expected_dir_path)
+        assert called_request.filename == "default_path_note.md"
 
 
 class TestReadNote:
@@ -362,13 +466,12 @@ class TestIntegrationTests:
             - Read the note from the same path
         Assert:
             - File exists on disk
-            - Content read from the file matches what was written
+            - Content read from the file matches what was written (after parsing frontmatter)
         """
         # Arrange
+        test_content = "This is a test note"
         write_request = tools.WriteNoteRequest(
-            text="This is a test note",
-            filename="integration_test",
-            is_overwrite=False
+            text=test_content, filename="integration_test", is_overwrite=False
         )
 
         # Act - Part 1: Writing
@@ -383,8 +486,9 @@ class TestIntegrationTests:
         # Act - Part 2: Reading
         content = tools.read_note(read_request)
 
-        # Assert - Part 2: Content matches
-        assert content == "This is a test note"
+        # Assert - Part 2: Parse frontmatter and check content
+        post = frontmatter.loads(content)
+        assert post.content == test_content
 
     def test_integration_search_notes(self, setup_vault):
         """Test searching notes in the vault."""
@@ -410,8 +514,9 @@ class TestIntegrationTests:
         """Test overwriting an existing note."""
 
         # Create initial note
+        initial_content = "Initial content"
         initial_request = tools.WriteNoteRequest(
-            text="Initial content", filename="overwrite_test", is_overwrite=False
+            text=initial_content, filename="overwrite_test", is_overwrite=False
         )
 
         file_path = tools.write_note(initial_request)
@@ -428,18 +533,23 @@ class TestIntegrationTests:
         # Verify content is still the original
         read_request = tools.ReadNoteRequest(filepath=str(file_path))
         content = tools.read_note(read_request)
-        assert content == "Initial content"
+
+        # Parse frontmatter and check content
+        post = frontmatter.loads(content)
+        assert post.content == initial_content
 
         # Overwrite with is_overwrite=True (should succeed)
+        new_content = "New content"
         tools.write_note(
             tools.WriteNoteRequest(
-                text="New content", filename="overwrite_test", is_overwrite=True
+                text=new_content, filename="overwrite_test", is_overwrite=True
             )
         )
 
         # Verify content is updated
         content = tools.read_note(read_request)
-        assert content == "New content"
+        post = frontmatter.loads(content)
+        assert post.content == new_content
 
     def test_edge_case_empty_file(self, setup_vault):
         """Test reading and searching an empty file."""
@@ -466,10 +576,11 @@ class TestIntegrationTests:
         vault_path = setup_vault
 
         # Create a note with a path that includes a subdirectory
+        test_content = "This is a note in a subdirectory"
         write_request = tools.WriteNoteRequest(
-            text="This is a note in a subdirectory",
+            text=test_content,
             filename="subdir/note_in_subdir",
-            is_overwrite=False
+            is_overwrite=False,
         )
 
         file_path = tools.write_note(write_request)
@@ -484,17 +595,21 @@ class TestIntegrationTests:
         # Verify the content of the created file
         read_request = tools.ReadNoteRequest(filepath=str(file_path))
         content = tools.read_note(read_request)
-        assert content == "This is a note in a subdirectory"
+
+        # Parse frontmatter and check content
+        post = frontmatter.loads(content)
+        assert post.content == test_content
 
     def test_integration_write_to_nested_subdirectory(self, setup_vault):
         """Test for creating a file in multiple levels of nested subdirectories"""
         vault_path = setup_vault
 
         # Create a note with a path that includes multiple levels of subdirectories
+        test_content = "This is a note in a nested subdirectory"
         write_request = tools.WriteNoteRequest(
-            text="This is a note in a nested subdirectory",
+            text=test_content,
             filename="level1/level2/level3/deep_note",
-            is_overwrite=False
+            is_overwrite=False,
         )
 
         file_path = tools.write_note(write_request)
@@ -509,7 +624,10 @@ class TestIntegrationTests:
         # Verify the content of the created file
         read_request = tools.ReadNoteRequest(filepath=str(file_path))
         content = tools.read_note(read_request)
-        assert content == "This is a note in a nested subdirectory"
+
+        # Parse frontmatter and check content
+        post = frontmatter.loads(content)
+        assert post.content == test_content
 
     def test_integration_subdirectory_creation(self, setup_vault):
         """Test to verify that non-existent subdirectories are automatically created"""
@@ -525,7 +643,7 @@ class TestIntegrationTests:
         write_request = tools.WriteNoteRequest(
             text="Testing automatic directory creation",
             filename="auto_created_dir/auto_note",
-            is_overwrite=False
+            is_overwrite=False,
         )
 
         file_path = tools.write_note(write_request)
@@ -540,3 +658,55 @@ class TestIntegrationTests:
         # Verify that the file was created at the correct path
         expected_path = subdir_path / "auto_note.md"
         assert file_path == expected_path
+
+    def test_integration_write_with_frontmatter(self, setup_vault):
+        """Test writing a note with frontmatter."""
+        # Create a note with frontmatter
+        write_request = tools.WriteNoteRequest(
+            text="This is a test note with frontmatter",
+            filename="frontmatter_test",
+            is_overwrite=False,
+            author="Integration Test",
+        )
+
+        file_path = tools.write_note(write_request)
+        assert file_path.exists()
+
+        # Read the file and verify frontmatter
+        with open(file_path, "r") as f:
+            content = f.read()
+
+        # Verify frontmatter exists
+        assert content.startswith("---")
+
+        # Parse frontmatter
+        post = frontmatter.loads(content)
+        assert post.metadata["author"] == "Integration Test"
+        assert post.content == "This is a test note with frontmatter"
+
+    def test_integration_write_with_default_dir(self, setup_vault):
+        """Test writing a note using the default directory."""
+        vault_path = setup_vault
+
+        # Create a note with default_path
+        write_request = tools.WriteNoteRequest(
+            text="This is a note in the default directory",
+            filename="default_dir_note",
+            is_overwrite=False,
+            default_path="default_notes",
+        )
+
+        file_path = tools.write_note(write_request)
+        assert file_path.exists()
+
+        # Verify that the file was created at the correct path
+        expected_path = vault_path / "default_notes" / "default_dir_note.md"
+        assert file_path == expected_path
+
+        # Verify the content of the created file
+        read_request = tools.ReadNoteRequest(filepath=str(file_path))
+        content = tools.read_note(read_request)
+
+        # Parse frontmatter
+        post = frontmatter.loads(content)
+        assert post.content == "This is a note in the default directory"

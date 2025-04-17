@@ -2,6 +2,7 @@ import logging
 import os
 from pathlib import Path
 
+import frontmatter
 from pydantic import BaseModel, Field, field_validator
 
 from minerva.file_handler import (
@@ -14,7 +15,7 @@ from minerva.file_handler import (
     search_keyword_in_files,
 )
 
-from minerva.config import VAULT_PATH
+from minerva.config import VAULT_PATH, DEFAULT_NOTE_AUTHOR, DEFAULT_NOTE_DIR
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -30,6 +31,8 @@ class WriteNoteRequest(BaseModel):
         text (str): The content to write to the file.
         filename (str): The name of the file to write. If it doesn't have a .md extension, it will be added.
         is_overwrite (bool): Whether to overwrite the file if it exists.
+        author (str): The author name to add to the frontmatter. Default is None.
+        default_dir (str): The default directory to save the file. Default is the value of DEFAULT_NOTE_DIR.
     """
 
     text: str = Field(..., description="The content to write to the file.")
@@ -37,6 +40,12 @@ class WriteNoteRequest(BaseModel):
     is_overwrite: bool = Field(
         False,
         description="Whether to overwrite the file if it exists.",
+    )
+    author: str | None = Field(
+        None, description="The author name to add to the frontmatter."
+    )
+    default_path: str = Field(
+        DEFAULT_NOTE_DIR, description="The default path to save the file."
     )
 
     @field_validator("filename")
@@ -85,12 +94,33 @@ def write_note(request: WriteNoteRequest) -> Path:
     Write a note to a file in the Obsidian vault.
 
     Args:
-        request (WriteNoteRequest): The request object containing the text, filename, and overwrite flag.
+        request (WriteNoteRequest): The request object containing the text, filename, and other options.
+            If the request is made by an AI assistant, it should include its own model name
+            in the 'author' parameter (e.g., 'Claude 3.7 Sonnet', 'GPT-4', etc.).
+
     Returns:
         Path: The path to the written file.
+
+    Note:
+        When this function is called by an AI assistant, the AI should always pass its own
+        model name in the 'author' parameter to be included in the frontmatter of the created note.
+
     """
     if not request.filename:
         raise ValueError("Filename cannot be empty")
+
+    # Check frontmatter
+    # If the text starts with "---", it is assumed to have frontmatter
+    has_frontmatter = request.text.startswith("---\n")
+    if has_frontmatter:
+        # If the text already has frontmatter, load it
+        post = frontmatter.loads(request.text)
+    else:
+        # Create a new frontmatter object
+        post = frontmatter.Post(request.text)
+
+    # Add default frontmatter if it doesn't exist
+    post.metadata["author"] = request.author or DEFAULT_NOTE_AUTHOR
 
     # If the filename contains path separators, separate into subdirectory and filename
     path_parts = Path(request.filename)
@@ -104,8 +134,10 @@ def write_note(request: WriteNoteRequest) -> Path:
 
     # Create the final directory path (connecting the vault root directory and subdirectory path)
     full_dir_path = VAULT_PATH
-    if str(subdirs) != '.':  # If a subdirectory is specified
+    if str(subdirs) != ".":  # If a subdirectory is specified
         full_dir_path = full_dir_path / subdirs
+    elif request.default_path:
+        full_dir_path = full_dir_path / request.default_path
 
     # Create directory if it doesn't exist
     if not full_dir_path.exists():
@@ -113,10 +145,11 @@ def write_note(request: WriteNoteRequest) -> Path:
         logger.info(f"Created directory: {full_dir_path}")
 
     try:
+        content = frontmatter.dumps(post)
         file_write_request = FileWriteRequest(
             directory=str(full_dir_path),
             filename=base_filename,
-            content=request.text,
+            content=content,
             overwrite=request.is_overwrite,
         )
         file_path = write_file(file_write_request)
