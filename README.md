@@ -40,7 +40,7 @@ uv run mcp dev server.py
 
 ## Claude Desktop にインストールする
 ```bash
-uv run mcp install server.py
+uv run mcp install server.py --with python-frontmatter
 ```
 
 ## Claude Desktop での使い方
