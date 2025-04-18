@@ -37,28 +37,24 @@ Minervaは、Obsidian vaultに対してノートの作成、読み取り、検�
 
 #### 使用例
 ```python
-from minerva.tools import WriteNoteRequest, write_note
+from minerva.tools import write_note
 
 # 基本的な使用例
-request = WriteNoteRequest(
+file_path = write_note(
     text="This is a test note",
     filename="example_note",  # .md拡張子は自動的に追加されます
     is_overwrite=False
 )
-
-file_path = write_note(request)
 print(f"ノートが保存されました: {file_path}")
 
 # 著者情報とデフォルトパスを指定する例
-request_with_author = WriteNoteRequest(
+file_path = write_note(
     text="This is a note with author information",
     filename="authored_note",
     is_overwrite=False,
     author="AI Assistant",
     default_path="ai_generated"
 )
-
-file_path = write_note(request_with_author)
 print(f"著者情報付きノートが保存されました: {file_path}")
 
 # 既存のfrontmatterを持つコンテンツの例
@@ -68,14 +64,12 @@ tags: [test, frontmatter]
 ---
 Content with existing frontmatter"""
 
-request_with_frontmatter = WriteNoteRequest(
+file_path = write_note(
     text=frontmatter_content,
     filename="frontmatter_note",
     is_overwrite=False,
     author="AI Assistant"
 )
-
-file_path = write_note(request_with_frontmatter)
 print(f"frontmatter付きノートが保存されました: {file_path}")
 ```
 
@@ -96,13 +90,10 @@ Obsidian vault内の指定されたファイルからコンテンツを読み取
 
 #### 使用例
 ```python
-from minerva.tools import ReadNoteRequest, read_note
+from minerva.tools import read_note
 
-request = ReadNoteRequest(
-    filepath="/path/to/vault/example_note.md"
-)
-
-content = read_note(request)
+# ファイルパスを直接指定する
+content = read_note("/path/to/vault/example_note.md")
 print(f"ノートの内容: {content}")
 ```
 
@@ -131,14 +122,15 @@ Obsidian vault内のすべてのマークダウンファイル（`.md`）から�
 
 #### 使用例
 ```python
-from minerva.tools import SearchNoteRequest, search_notes
+from minerva.tools import search_notes
 
-request = SearchNoteRequest(
-    query="important",
-    case_sensitive=False  # 大文字小文字を区別しない
-)
+# 基本的な使用例（大文字小文字を区別）
+results = search_notes(query="important", case_sensitive=True)
 
-results = search_notes(request)
+# 大文字小文字を区別しない検索
+results = search_notes(query="important", case_sensitive=False)
+
+# 結果の処理
 for result in results:
     print(f"ファイル: {result.file_path}")
     print(f"行番号: {result.line_number}")
