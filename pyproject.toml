@@ -17,3 +17,7 @@ dev = [
     "pytest-cov>=6.1.1",
     "pytest-mock>=3.14.0",
 ]
+
+[[tool.mypy.overrides]]
+module = ["frontmatter"]
+ignore_missing_imports = true

@@ -53,6 +53,8 @@ class WriteNoteRequest(BaseModel):
         """
         Format the filename to ensure it has a .md extension.
         """
+        if not v:
+            raise ValueError("Filename cannot be empty")
         if ".md" not in v:
             v = f"{v}.md"
         return v
@@ -89,14 +91,25 @@ class SearchNoteRequest(BaseModel):
     )
 
 
-def write_note(request: WriteNoteRequest) -> Path:
+def write_note(
+    text: str,
+    filename: str,
+    is_overwrite: bool = False,
+    author: str | None = None,
+    default_path: str = DEFAULT_NOTE_DIR
+) -> Path:
     """
     Write a note to a file in the Obsidian vault.
 
     Args:
-        request (WriteNoteRequest): The request object containing the text, filename, and other options.
+        text: The content to write to the file.
+        filename: The name of the file to write. If it doesn't have a .md extension, it will be added.
+        is_overwrite: Whether to overwrite the file if it exists. Default is False.
+        author: The author name to add to the frontmatter. Default is None.
             If the request is made by an AI assistant, it should include its own model name
-            in the 'author' parameter (e.g., 'Claude 3.7 Sonnet', 'GPT-4', etc.).
+            (e.g., 'Claude 3.7 Sonnet', 'GPT-4', etc.).
+        default_path: The default directory to save the file. Default is the value of DEFAULT_NOTE_DIR.
+
 
     Returns:
         Path: The path to the written file.
@@ -106,8 +119,13 @@ def write_note(request: WriteNoteRequest) -> Path:
         model name in the 'author' parameter to be included in the frontmatter of the created note.
 
     """
-    if not request.filename:
-        raise ValueError("Filename cannot be empty")
+    request = WriteNoteRequest(
+        text=text,
+        filename=filename,
+        is_overwrite=is_overwrite,
+        author=author,
+        default_path=default_path
+    )
 
     # Check frontmatter
     # If the text starts with "---", it is assumed to have frontmatter

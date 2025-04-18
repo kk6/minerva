@@ -92,7 +92,7 @@ class TestWriteNote:
                 FileExistsError, match="File exists and overwrite is False"
             ):
                 # Act - Execute the function being tested
-                tools.write_note(write_note_request)
+                tools.write_note(**write_note_request.model_dump())
 
             # ==================== Additional Assertions ====================
             # Verify the mock was called correctly
@@ -104,7 +104,7 @@ class TestWriteNote:
 
             # ==================== Act ====================
             # Execute the function being tested
-            result = tools.write_note(write_note_request)
+            result = tools.write_note(**write_note_request.model_dump())
 
             # ==================== Assert ====================
             # Verify the result matches expected output
@@ -118,7 +118,7 @@ class TestWriteNote:
         tmp_path = mock_write_setup["tmp_path"]
         expected_path = tmp_path / f"{write_note_request.filename}.md"
         mock_write_file.return_value = expected_path
-        result = tools.write_note(write_note_request)
+        result = tools.write_note(**write_note_request.model_dump())
         assert result == expected_path
         mock_write_file.assert_called_once()
         called_request = mock_write_file.call_args[0][0]
@@ -135,7 +135,7 @@ class TestWriteNote:
         mock_write_file = mock_write_setup["mock_write_file"]
         mock_write_file.side_effect = Exception("File write error")
         with pytest.raises(Exception, match="File write error"):
-            tools.write_note(write_note_request)
+            tools.write_note(**write_note_request.model_dump())
         mock_write_file.assert_called_once()
 
     @pytest.mark.parametrize(
@@ -160,10 +160,10 @@ class TestWriteNote:
         write_note_request.filename = filename
         if expected_exception == "pydantic.ValidationError":
             with pytest.raises(pydantic.ValidationError, match=expected_message):
-                tools.write_note(write_note_request)
+                tools.write_note(**write_note_request.model_dump())
         else:
             with pytest.raises(ValueError, match=expected_message):
-                tools.write_note(write_note_request)
+                tools.write_note(**write_note_request.model_dump())
         mock_write_file.assert_not_called()
 
     def test_write_note_with_subdirectory_path(
@@ -180,7 +180,7 @@ class TestWriteNote:
 
         mock_write_file.return_value = expected_file_path
 
-        result = tools.write_note(write_note_request)
+        result = tools.write_note(**write_note_request.model_dump())
         assert result == expected_file_path
 
         mock_write_file.assert_called_once()
@@ -188,7 +188,7 @@ class TestWriteNote:
 
         # Verify that subdirectory is properly separated and directory path and filename are set correctly
         assert called_request.directory == str(expected_dir_path)
-        assert called_request.filename == "note_in_subdir"
+        assert called_request.filename == "note_in_subdir.md"
 
         # Instead of comparing raw content, extract content from frontmatter
         post = frontmatter.loads(called_request.content)
@@ -199,18 +199,10 @@ class TestWriteNote:
         mock_write_file = mock_write_setup["mock_write_file"]
         tmp_path = mock_write_setup["tmp_path"]
 
-        # Create request with author
-        request = tools.WriteNoteRequest(
-            text="Content with author",
-            filename="author_note",
-            is_overwrite=False,
-            author="Test Author",
-        )
-
         expected_path = tmp_path / "author_note.md"
         mock_write_file.return_value = expected_path
 
-        result = tools.write_note(request)
+        result = tools.write_note(text="Content with author",filename="author_note",is_overwrite=False,author="Test Author")
         assert result == expected_path
 
         mock_write_file.assert_called_once()
@@ -233,17 +225,10 @@ tags: [test, frontmatter]
 ---
 Content with existing frontmatter"""
 
-        request = tools.WriteNoteRequest(
-            text=frontmatter_content,
-            filename="frontmatter_note",
-            is_overwrite=False,
-            author="New Author",
-        )
-
         expected_path = tmp_path / "frontmatter_note.md"
         mock_write_file.return_value = expected_path
 
-        result = tools.write_note(request)
+        result = tools.write_note(text=frontmatter_content,filename="frontmatter_note",is_overwrite=False,author="New Author")
         assert result == expected_path
 
         mock_write_file.assert_called_once()
@@ -261,19 +246,11 @@ Content with existing frontmatter"""
         mock_write_file = mock_write_setup["mock_write_file"]
         tmp_path = mock_write_setup["tmp_path"]
 
-        # Create request with default_path
-        request = tools.WriteNoteRequest(
-            text="Content with default path",
-            filename="default_path_note",
-            is_overwrite=False,
-            default_path="default_dir",
-        )
-
         expected_dir_path = tmp_path / "default_dir"
         expected_file_path = expected_dir_path / "default_path_note.md"
         mock_write_file.return_value = expected_file_path
 
-        result = tools.write_note(request)
+        result = tools.write_note(text="Content with default path",filename="default_path_note",is_overwrite=False,default_path="default_dir")
         assert result == expected_file_path
 
         mock_write_file.assert_called_once()
@@ -470,12 +447,9 @@ class TestIntegrationTests:
         """
         # Arrange
         test_content = "This is a test note"
-        write_request = tools.WriteNoteRequest(
-            text=test_content, filename="integration_test", is_overwrite=False
-        )
 
         # Act - Part 1: Writing
-        file_path = tools.write_note(write_request)
+        file_path = tools.write_note(text=test_content, filename="integration_test", is_overwrite=False)
 
         # Assert - Part 1: File was created
         assert file_path.exists()
@@ -515,20 +489,14 @@ class TestIntegrationTests:
 
         # Create initial note
         initial_content = "Initial content"
-        initial_request = tools.WriteNoteRequest(
-            text=initial_content, filename="overwrite_test", is_overwrite=False
-        )
+        filename = "overwrite_test"
 
-        file_path = tools.write_note(initial_request)
+        file_path = tools.write_note(text=initial_content, filename=filename, is_overwrite=False)
         assert file_path.exists()
 
         # Try to overwrite with is_overwrite=False (should fail)
         with pytest.raises(Exception):
-            tools.write_note(
-                tools.WriteNoteRequest(
-                    text="New content", filename="overwrite_test", is_overwrite=False
-                )
-            )
+            tools.write_note(text="New content", filename=filename, is_overwrite=False)
 
         # Verify content is still the original
         read_request = tools.ReadNoteRequest(filepath=str(file_path))
@@ -540,11 +508,7 @@ class TestIntegrationTests:
 
         # Overwrite with is_overwrite=True (should succeed)
         new_content = "New content"
-        tools.write_note(
-            tools.WriteNoteRequest(
-                text=new_content, filename="overwrite_test", is_overwrite=True
-            )
-        )
+        tools.write_note(text=new_content, filename=filename, is_overwrite=True)
 
         # Verify content is updated
         content = tools.read_note(read_request)
@@ -577,13 +541,8 @@ class TestIntegrationTests:
 
         # Create a note with a path that includes a subdirectory
         test_content = "This is a note in a subdirectory"
-        write_request = tools.WriteNoteRequest(
-            text=test_content,
-            filename="subdir/note_in_subdir",
-            is_overwrite=False,
-        )
 
-        file_path = tools.write_note(write_request)
+        file_path = tools.write_note(text=test_content, filename="subdir/note_in_subdir", is_overwrite=False)
 
         # Verify that the file was created
         assert file_path.exists()
@@ -606,13 +565,8 @@ class TestIntegrationTests:
 
         # Create a note with a path that includes multiple levels of subdirectories
         test_content = "This is a note in a nested subdirectory"
-        write_request = tools.WriteNoteRequest(
-            text=test_content,
-            filename="level1/level2/level3/deep_note",
-            is_overwrite=False,
-        )
 
-        file_path = tools.write_note(write_request)
+        file_path = tools.write_note(text=test_content, filename="level1/level2/level3/deep_note", is_overwrite=False)
 
         # Verify that the file was created
         assert file_path.exists()
@@ -639,14 +593,7 @@ class TestIntegrationTests:
         # Verify that the subdirectory does not exist
         assert not subdir_path.exists()
 
-        # Create a note in a non-existent subdirectory
-        write_request = tools.WriteNoteRequest(
-            text="Testing automatic directory creation",
-            filename="auto_created_dir/auto_note",
-            is_overwrite=False,
-        )
-
-        file_path = tools.write_note(write_request)
+        file_path = tools.write_note(text="Testing automatic directory creation", filename="auto_created_dir/auto_note", is_overwrite=False)
 
         # Verify that the subdirectory was automatically created
         assert subdir_path.exists()
@@ -661,15 +608,8 @@ class TestIntegrationTests:
 
     def test_integration_write_with_frontmatter(self, setup_vault):
         """Test writing a note with frontmatter."""
-        # Create a note with frontmatter
-        write_request = tools.WriteNoteRequest(
-            text="This is a test note with frontmatter",
-            filename="frontmatter_test",
-            is_overwrite=False,
-            author="Integration Test",
-        )
 
-        file_path = tools.write_note(write_request)
+        file_path = tools.write_note(text="This is a test note with frontmatter", filename="frontmatter_test", is_overwrite=False, author="Integration Test")
         assert file_path.exists()
 
         # Read the file and verify frontmatter
@@ -688,15 +628,7 @@ class TestIntegrationTests:
         """Test writing a note using the default directory."""
         vault_path = setup_vault
 
-        # Create a note with default_path
-        write_request = tools.WriteNoteRequest(
-            text="This is a note in the default directory",
-            filename="default_dir_note",
-            is_overwrite=False,
-            default_path="default_notes",
-        )
-
-        file_path = tools.write_note(write_request)
+        file_path = tools.write_note(text="This is a note in the default directory", filename="default_dir_note", is_overwrite=False, default_path="default_notes")
         assert file_path.exists()
 
         # Verify that the file was created at the correct path
