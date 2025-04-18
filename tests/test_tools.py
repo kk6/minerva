@@ -202,7 +202,12 @@ class TestWriteNote:
         expected_path = tmp_path / "author_note.md"
         mock_write_file.return_value = expected_path
 
-        result = tools.write_note(text="Content with author",filename="author_note",is_overwrite=False,author="Test Author")
+        result = tools.write_note(
+            text="Content with author",
+            filename="author_note",
+            is_overwrite=False,
+            author="Test Author",
+        )
         assert result == expected_path
 
         mock_write_file.assert_called_once()
@@ -228,7 +233,12 @@ Content with existing frontmatter"""
         expected_path = tmp_path / "frontmatter_note.md"
         mock_write_file.return_value = expected_path
 
-        result = tools.write_note(text=frontmatter_content,filename="frontmatter_note",is_overwrite=False,author="New Author")
+        result = tools.write_note(
+            text=frontmatter_content,
+            filename="frontmatter_note",
+            is_overwrite=False,
+            author="New Author",
+        )
         assert result == expected_path
 
         mock_write_file.assert_called_once()
@@ -250,7 +260,12 @@ Content with existing frontmatter"""
         expected_file_path = expected_dir_path / "default_path_note.md"
         mock_write_file.return_value = expected_file_path
 
-        result = tools.write_note(text="Content with default path",filename="default_path_note",is_overwrite=False,default_path="default_dir")
+        result = tools.write_note(
+            text="Content with default path",
+            filename="default_path_note",
+            is_overwrite=False,
+            default_path="default_dir",
+        )
         assert result == expected_file_path
 
         mock_write_file.assert_called_once()
@@ -350,7 +365,7 @@ class TestSearchNotes:
 
         result = tools.search_notes(
             query=search_note_request.query,
-            case_sensitive=search_note_request.case_sensitive
+            case_sensitive=search_note_request.case_sensitive,
         )
 
         assert result == fake_result
@@ -373,7 +388,10 @@ class TestSearchNotes:
         search_note_request.query = ""
 
         with pytest.raises(ValueError, match="Query cannot be empty"):
-            tools.search_notes(query=search_note_request.query, case_sensitive=search_note_request.case_sensitive)
+            tools.search_notes(
+                query=search_note_request.query,
+                case_sensitive=search_note_request.case_sensitive,
+            )
 
     def test_search_notes_raises_exception(
         self, mock_search_setup, search_note_request
@@ -391,7 +409,7 @@ class TestSearchNotes:
         with pytest.raises(Exception, match="Search error"):
             tools.search_notes(
                 query=search_note_request.query,
-                case_sensitive=search_note_request.case_sensitive
+                case_sensitive=search_note_request.case_sensitive,
             )
 
         mock_search.assert_called_once()
@@ -421,7 +439,7 @@ class TestSearchNotes:
 
         result = tools.search_notes(
             query=search_note_request.query,
-            case_sensitive=search_note_request.case_sensitive
+            case_sensitive=search_note_request.case_sensitive,
         )
 
         assert result == fake_result
@@ -458,7 +476,9 @@ class TestIntegrationTests:
         test_content = "This is a test note"
 
         # Act - Part 1: Writing
-        file_path = tools.write_note(text=test_content, filename="integration_test", is_overwrite=False)
+        file_path = tools.write_note(
+            text=test_content, filename="integration_test", is_overwrite=False
+        )
 
         # Assert - Part 1: File was created
         assert file_path.exists()
@@ -493,7 +513,9 @@ class TestIntegrationTests:
         initial_content = "Initial content"
         filename = "overwrite_test"
 
-        file_path = tools.write_note(text=initial_content, filename=filename, is_overwrite=False)
+        file_path = tools.write_note(
+            text=initial_content, filename=filename, is_overwrite=False
+        )
         assert file_path.exists()
 
         # Try to overwrite with is_overwrite=False (should fail)
@@ -540,7 +562,9 @@ class TestIntegrationTests:
         # Create a note with a path that includes a subdirectory
         test_content = "This is a note in a subdirectory"
 
-        file_path = tools.write_note(text=test_content, filename="subdir/note_in_subdir", is_overwrite=False)
+        file_path = tools.write_note(
+            text=test_content, filename="subdir/note_in_subdir", is_overwrite=False
+        )
 
         # Verify that the file was created
         assert file_path.exists()
@@ -563,7 +587,11 @@ class TestIntegrationTests:
         # Create a note with a path that includes multiple levels of subdirectories
         test_content = "This is a note in a nested subdirectory"
 
-        file_path = tools.write_note(text=test_content, filename="level1/level2/level3/deep_note", is_overwrite=False)
+        file_path = tools.write_note(
+            text=test_content,
+            filename="level1/level2/level3/deep_note",
+            is_overwrite=False,
+        )
 
         # Verify that the file was created
         assert file_path.exists()
@@ -589,7 +617,11 @@ class TestIntegrationTests:
         # Verify that the subdirectory does not exist
         assert not subdir_path.exists()
 
-        file_path = tools.write_note(text="Testing automatic directory creation", filename="auto_created_dir/auto_note", is_overwrite=False)
+        file_path = tools.write_note(
+            text="Testing automatic directory creation",
+            filename="auto_created_dir/auto_note",
+            is_overwrite=False,
+        )
 
         # Verify that the subdirectory was automatically created
         assert subdir_path.exists()
@@ -605,7 +637,12 @@ class TestIntegrationTests:
     def test_integration_write_with_frontmatter(self, setup_vault):
         """Test writing a note with frontmatter."""
 
-        file_path = tools.write_note(text="This is a test note with frontmatter", filename="frontmatter_test", is_overwrite=False, author="Integration Test")
+        file_path = tools.write_note(
+            text="This is a test note with frontmatter",
+            filename="frontmatter_test",
+            is_overwrite=False,
+            author="Integration Test",
+        )
         assert file_path.exists()
 
         # Read the file and verify frontmatter
@@ -624,7 +661,12 @@ class TestIntegrationTests:
         """Test writing a note using the default directory."""
         vault_path = setup_vault
 
-        file_path = tools.write_note(text="This is a note in the default directory", filename="default_dir_note", is_overwrite=False, default_path="default_notes")
+        file_path = tools.write_note(
+            text="This is a note in the default directory",
+            filename="default_dir_note",
+            is_overwrite=False,
+            default_path="default_notes",
+        )
         assert file_path.exists()
 
         # Verify that the file was created at the correct path

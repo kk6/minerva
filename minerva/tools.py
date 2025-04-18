@@ -96,7 +96,7 @@ def write_note(
     filename: str,
     is_overwrite: bool = False,
     author: str | None = None,
-    default_path: str = DEFAULT_NOTE_DIR
+    default_path: str = DEFAULT_NOTE_DIR,
 ) -> Path:
     """
     Write a note to a file in the Obsidian vault.
@@ -124,7 +124,7 @@ def write_note(
         filename=filename,
         is_overwrite=is_overwrite,
         author=author,
-        default_path=default_path
+        default_path=default_path,
     )
 
     # Check frontmatter
@@ -204,10 +204,7 @@ def read_note(filepath: str) -> str:
     return content
 
 
-def search_notes(
-    query: str,
-    case_sensitive: bool = True
-) -> list[SearchResult]:
+def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     """
     Search for a keyword in all files in the Obsidian vault.
 
@@ -228,9 +225,7 @@ def search_notes(
             case_sensitive=case_sensitive,
         )
         matching_files = search_keyword_in_files(search_config)
-        logger.info(
-            f"Found {len(matching_files)} files matching the query: {query}"
-        )
+        logger.info(f"Found {len(matching_files)} files matching the query: {query}")
     except Exception as e:
         logger.error(f"Error searching files: {e}")
         raise
