@@ -287,7 +287,7 @@ class TestReadNote:
 
         mock_read_file.return_value = expected_content
 
-        result = tools.read_note(read_note_request)
+        result = tools.read_note(read_note_request.filepath)
 
         assert result == expected_content
         mock_read_file.assert_called_once()
@@ -312,7 +312,7 @@ class TestReadNote:
         mock_read_file.side_effect = Exception("File read error")
 
         with pytest.raises(Exception, match="File read error"):
-            tools.read_note(read_note_request)
+            tools.read_note(read_note_request.filepath)
 
         mock_read_file.assert_called_once()
 
@@ -454,11 +454,8 @@ class TestIntegrationTests:
         # Assert - Part 1: File was created
         assert file_path.exists()
 
-        # Arrange - Part 2: Setup for reading
-        read_request = tools.ReadNoteRequest(filepath=str(file_path))
-
         # Act - Part 2: Reading
-        content = tools.read_note(read_request)
+        content = tools.read_note(str(file_path))
 
         # Assert - Part 2: Parse frontmatter and check content
         post = frontmatter.loads(content)
@@ -499,8 +496,7 @@ class TestIntegrationTests:
             tools.write_note(text="New content", filename=filename, is_overwrite=False)
 
         # Verify content is still the original
-        read_request = tools.ReadNoteRequest(filepath=str(file_path))
-        content = tools.read_note(read_request)
+        content = tools.read_note(str(file_path))
 
         # Parse frontmatter and check content
         post = frontmatter.loads(content)
@@ -511,7 +507,7 @@ class TestIntegrationTests:
         tools.write_note(text=new_content, filename=filename, is_overwrite=True)
 
         # Verify content is updated
-        content = tools.read_note(read_request)
+        content = tools.read_note(str(file_path))
         post = frontmatter.loads(content)
         assert post.content == new_content
 
@@ -524,8 +520,7 @@ class TestIntegrationTests:
         empty_file.touch()
 
         # Read empty file
-        read_request = tools.ReadNoteRequest(filepath=str(empty_file))
-        content = tools.read_note(read_request)
+        content = tools.read_note(str(empty_file))
         assert content == ""
 
         # Search in empty files
@@ -552,8 +547,7 @@ class TestIntegrationTests:
         assert file_path == expected_path
 
         # Verify the content of the created file
-        read_request = tools.ReadNoteRequest(filepath=str(file_path))
-        content = tools.read_note(read_request)
+        content = tools.read_note(str(file_path))
 
         # Parse frontmatter and check content
         post = frontmatter.loads(content)
@@ -576,8 +570,7 @@ class TestIntegrationTests:
         assert file_path == expected_path
 
         # Verify the content of the created file
-        read_request = tools.ReadNoteRequest(filepath=str(file_path))
-        content = tools.read_note(read_request)
+        content = tools.read_note(str(file_path))
 
         # Parse frontmatter and check content
         post = frontmatter.loads(content)
@@ -636,8 +629,7 @@ class TestIntegrationTests:
         assert file_path == expected_path
 
         # Verify the content of the created file
-        read_request = tools.ReadNoteRequest(filepath=str(file_path))
-        content = tools.read_note(read_request)
+        content = tools.read_note(str(file_path))
 
         # Parse frontmatter
         post = frontmatter.loads(content)

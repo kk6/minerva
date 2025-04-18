@@ -180,23 +180,23 @@ def write_note(
     return file_path
 
 
-def read_note(request: ReadNoteRequest) -> str:
+def read_note(filepath: str) -> str:
     """
     Read a note from a file in the Obsidian vault.
 
     Args:
-        request (ReadNoteRequest): The request object containing the filepath.
+        filepath (str): The full path of the file to read.
     Returns:
         str: The content of the file.
     """
-    directory, filename = os.path.split(request.filepath)
+    directory, filename = os.path.split(filepath)
     try:
         file_read_request = FileReadRequest(
             directory=directory,
             filename=filename,
         )
         content = read_file(file_read_request)
-        logger.info(f"File read from {request.filepath}")
+        logger.info(f"File read from {filepath}")
     except Exception as e:
         logger.error(f"Error reading file: {e}")
         raise
