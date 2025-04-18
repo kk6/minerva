@@ -204,28 +204,32 @@ def read_note(filepath: str) -> str:
     return content
 
 
-def search_notes(request: SearchNoteRequest) -> list[SearchResult]:
+def search_notes(
+    query: str,
+    case_sensitive: bool = True
+) -> list[SearchResult]:
     """
     Search for a keyword in all files in the Obsidian vault.
 
     Args:
-        request (SearchNoteRequest): The request object containing the query and case sensitivity flag.
+        query (str): The keyword to search for.
+        case_sensitive (bool): Whether the search should be case sensitive. Default is True.
     Returns:
         list[SearchResult]: A list of search results containing file paths, line numbers and context.
     """
-    if not request.query:
+    if not query:
         raise ValueError("Query cannot be empty")
 
     try:
         search_config = SearchConfig(
             directory=str(VAULT_PATH),
-            keyword=request.query,
+            keyword=query,
             file_extensions=[".md"],
-            case_sensitive=request.case_sensitive,
+            case_sensitive=case_sensitive,
         )
         matching_files = search_keyword_in_files(search_config)
         logger.info(
-            f"Found {len(matching_files)} files matching the query: {request.query}"
+            f"Found {len(matching_files)} files matching the query: {query}"
         )
     except Exception as e:
         logger.error(f"Error searching files: {e}")

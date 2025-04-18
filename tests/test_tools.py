@@ -348,7 +348,10 @@ class TestSearchNotes:
 
         mock_search.return_value = fake_result
 
-        result = tools.search_notes(search_note_request)
+        result = tools.search_notes(
+            query=search_note_request.query,
+            case_sensitive=search_note_request.case_sensitive
+        )
 
         assert result == fake_result
         mock_search.assert_called_once()
@@ -370,7 +373,7 @@ class TestSearchNotes:
         search_note_request.query = ""
 
         with pytest.raises(ValueError, match="Query cannot be empty"):
-            tools.search_notes(search_note_request)
+            tools.search_notes(query=search_note_request.query, case_sensitive=search_note_request.case_sensitive)
 
     def test_search_notes_raises_exception(
         self, mock_search_setup, search_note_request
@@ -386,7 +389,10 @@ class TestSearchNotes:
         mock_search.side_effect = Exception("Search error")
 
         with pytest.raises(Exception, match="Search error"):
-            tools.search_notes(search_note_request)
+            tools.search_notes(
+                query=search_note_request.query,
+                case_sensitive=search_note_request.case_sensitive
+            )
 
         mock_search.assert_called_once()
 
@@ -413,7 +419,10 @@ class TestSearchNotes:
         search_note_request.case_sensitive = case_sensitive
         mock_search.return_value = fake_result
 
-        result = tools.search_notes(search_note_request)
+        result = tools.search_notes(
+            query=search_note_request.query,
+            case_sensitive=search_note_request.case_sensitive
+        )
 
         assert result == fake_result
         search_config = mock_search.call_args[0][0]
@@ -464,16 +473,12 @@ class TestIntegrationTests:
     def test_integration_search_notes(self, setup_vault):
         """Test searching notes in the vault."""
         # Search case sensitive
-        search_request1 = tools.SearchNoteRequest(query="apple", case_sensitive=True)
-
-        results1 = tools.search_notes(search_request1)
+        results1 = tools.search_notes(query="apple", case_sensitive=True)
         assert len(results1) == 1
         assert "note1.md" in results1[0].file_path
 
         # Search case insensitive
-        search_request2 = tools.SearchNoteRequest(query="apple", case_sensitive=False)
-
-        results2 = tools.search_notes(search_request2)
+        results2 = tools.search_notes(query="apple", case_sensitive=False)
         assert len(results2) == 2
 
         # Verify both files are found (note1 and note3)
@@ -524,9 +529,7 @@ class TestIntegrationTests:
         assert content == ""
 
         # Search in empty files
-        search_request = tools.SearchNoteRequest(query="anything", case_sensitive=True)
-
-        results = tools.search_notes(search_request)
+        results = tools.search_notes(query="anything", case_sensitive=True)
         # Empty file should not match any keyword
         assert not any(result.file_path == str(empty_file) for result in results)
 
