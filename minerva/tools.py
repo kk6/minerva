@@ -96,7 +96,7 @@ def _prepare_frontmatter(
     text: str,
     author: str | None = None,
     is_new_note: bool = True,
-    existing_frontmatter: dict | None = None
+    existing_frontmatter: dict | None = None,
 ) -> frontmatter.Post:
     """
     Prepare frontmatter from text content
@@ -141,8 +141,7 @@ def _prepare_frontmatter(
 
 
 def _build_file_path(
-    filename: str,
-    default_path: str = DEFAULT_NOTE_DIR
+    filename: str, default_path: str = DEFAULT_NOTE_DIR
 ) -> tuple[Path, str]:
     """
     Build file path from filename
@@ -179,26 +178,36 @@ def _build_file_path(
 def _read_existing_frontmatter(file_path: Path) -> dict | None:
     """
     Read frontmatter from existing file
-
+    
     Args:
         file_path: Path to the file to read
-
+        
     Returns:
         dict | None: Existing frontmatter data (None if unable to read)
+        
+    Raises:
+        PermissionError: When the file exists but cannot be accessed due to permission issues
     """
     if not file_path.exists():
         return None
-
+        
     try:
         with open(file_path, "r") as f:
             content = f.read()
             if content.startswith("---\n"):  # If frontmatter exists
                 post = frontmatter.loads(content)
                 return post.metadata
-    except Exception:
-        logger.warning(f"Failed to read existing file {file_path} for metadata")
-
-    return None
+            # No frontmatter found in file
+            return {}
+    except PermissionError as e:
+        logger.error(f"Permission denied when reading file {file_path}: {e}")
+        raise
+    except UnicodeDecodeError as e:
+        logger.warning(f"File {file_path} cannot be decoded as text (possibly binary): {e}")
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to read existing file {file_path} for metadata: {e}")
+        return None
 
 
 def _prepare_note_for_writing(
@@ -206,7 +215,7 @@ def _prepare_note_for_writing(
     filename: str,
     author: str | None = None,
     default_path: str = DEFAULT_NOTE_DIR,
-    is_new_note: bool = True
+    is_new_note: bool = True,
 ) -> tuple[Path, str, str]:
     """
     Private function to prepare a note for writing.
@@ -271,7 +280,7 @@ def create_note(
             filename=filename,
             author=author,
             default_path=default_path,
-            is_new_note=True
+            is_new_note=True,
         )
 
         # Create the FileWriteRequest with overwrite=False to ensure we don't overwrite existing files
@@ -321,13 +330,15 @@ def edit_note(
             filename=filename,
             author=author,
             default_path=default_path,
-            is_new_note=False
+            is_new_note=False,
         )
 
         # Check if the file exists before attempting to edit it
         file_path = full_dir_path / base_filename
         if not file_path.exists():
-            raise FileNotFoundError(f"Cannot edit note. File {file_path} does not exist")
+            raise FileNotFoundError(
+                f"Cannot edit note. File {file_path} does not exist"
+            )
 
         # Create the FileWriteRequest with overwrite=True since we're editing an existing file
         file_write_request = FileWriteRequest(
@@ -388,28 +399,29 @@ def write_note(
         default_path=default_path,
     )
 
-    # Build file path
-    full_dir_path, base_filename = _build_file_path(request.filename, request.default_path)
-
-    # Check existing frontmatter
-    file_path = full_dir_path / base_filename
-    existing_frontmatter = _read_existing_frontmatter(file_path)
-
-    # Prepare frontmatter
-    post = _prepare_frontmatter(
-        text=request.text,
-        author=request.author,
-        is_new_note=not file_path.exists(),
-        existing_frontmatter=existing_frontmatter,
-    )
-
-    # Create directory if it doesn't exist
-    if not full_dir_path.exists():
-        full_dir_path.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created directory: {full_dir_path}")
-
     try:
-        content = frontmatter.dumps(post)
+        # Determine if this is a new note based on file existence
+        full_dir_path, base_filename = _build_file_path(
+            request.filename, request.default_path
+        )
+        file_path = full_dir_path / base_filename
+        is_new_note = not file_path.exists()
+        
+        # Prepare note for writing - reuse the common function
+        full_dir_path, base_filename, content = _prepare_note_for_writing(
+            text=request.text,
+            filename=request.filename,
+            author=request.author,
+            default_path=request.default_path,
+            is_new_note=is_new_note,
+        )
+
+        # Create directory if it doesn't exist
+        if not full_dir_path.exists():
+            full_dir_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created directory: {full_dir_path}")
+
+        # Create the file write request
         file_write_request = FileWriteRequest(
             directory=str(full_dir_path),
             filename=base_filename,
@@ -418,12 +430,10 @@ def write_note(
         )
         file_path = write_file(file_write_request)
         logger.info(f"File written to {file_path}")
+        return file_path
     except Exception as e:
         logger.error(f"Error writing file: {e}")
         raise
-
-    # Return the file path
-    return file_path
 
 
 def read_note(filepath: str) -> str:

@@ -308,7 +308,9 @@ class TestCreateNote:
         called_request = mock_write_file.call_args[0][0]
         assert called_request.directory == str(tmp_path)
         assert called_request.filename == "new_note.md"
-        assert called_request.overwrite is False  # Should always be False for create_note
+        assert (
+            called_request.overwrite is False
+        )  # Should always be False for create_note
 
         # Check frontmatter
         post = frontmatter.loads(called_request.content)
@@ -362,7 +364,7 @@ class TestCreateNote:
         test_file = tmp_path / "date_test.md"
         mock_write_file.return_value = test_file
 
-        result = tools.create_note(
+        tools.create_note(
             text="Note with created date",
             filename="date_test",
             default_path="",
@@ -481,7 +483,7 @@ class TestEditNote:
         mock_exists.return_value = True
         mock_write_file.return_value = test_file
 
-        result = tools.edit_note(
+        tools.edit_note(
             text="Note with updated date",
             filename="date_update_test",
             default_path="",
