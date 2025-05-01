@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime
 from pathlib import Path
 
 import frontmatter
@@ -91,58 +92,197 @@ class SearchNoteRequest(BaseModel):
     )
 
 
-def _prepare_note_for_writing(
+def _generate_note_metadata(
     text: str,
-    filename: str,
     author: str | None = None,
-    default_path: str = DEFAULT_NOTE_DIR
-) -> tuple[Path, str, str]:
+    is_new_note: bool = True,
+    existing_frontmatter: dict | None = None,
+) -> frontmatter.Post:
     """
-    Private function to prepare a note for writing.
+    Generate or update YAML frontmatter metadata for a note.
+
+    This function processes only the metadata portion of a note (frontmatter),
+    handling both creation of new metadata and updating of existing metadata.
+    It does not perform any file operations or path manipulations.
 
     Args:
-        text: The content to write to the file.
-        filename: The name of the file to write.
-        author: The author name to add to the frontmatter.
-        default_path: The default directory to save the file.
+        text: The text content of the note (with or without existing frontmatter)
+        author: The author name to include in the metadata
+        is_new_note: Whether this is a new note (True) or an update to existing note (False)
+        existing_frontmatter: Existing frontmatter data from the file (if any)
 
     Returns:
-        tuple: (full_dir_path, base_filename, prepared_content)
+        frontmatter.Post: Post object with properly processed frontmatter
+
+    Note:
+        This function only handles the metadata portion of a note.
+        It does not perform any file path resolution or file I/O operations.
     """
-    # Check frontmatter
-    # If the text starts with "---", it is assumed to have frontmatter
+    # Get current time in ISO format
+    now = datetime.now().isoformat()
+
+    # Check and load frontmatter
     has_frontmatter = text.startswith("---\n")
     if has_frontmatter:
-        # If the text already has frontmatter, load it
+        # Load existing frontmatter
         post = frontmatter.loads(text)
     else:
-        # Create a new frontmatter object
+        # Create new frontmatter object
         post = frontmatter.Post(text)
 
-    # Add default frontmatter if it doesn't exist
+    # Add author information
     post.metadata["author"] = author or DEFAULT_NOTE_AUTHOR
 
-    # Format filename to ensure it has a .md extension
-    if ".md" not in filename:
+    # Preserve created field from existing frontmatter
+    if existing_frontmatter and "created" in existing_frontmatter:
+        post.metadata["created"] = existing_frontmatter["created"]
+
+    # Add created field for new notes (don't overwrite if exists)
+    if is_new_note and "created" not in post.metadata:
+        post.metadata["created"] = now
+
+    # Add updated field for note updates (always update with current time)
+    if not is_new_note:
+        post.metadata["updated"] = now
+
+    return post
+
+
+def _build_file_path(
+    filename: str, default_path: str = DEFAULT_NOTE_DIR
+) -> tuple[Path, str]:
+    """
+    Resolve and build the complete file path from a filename.
+
+    This function focuses on path handling operations:
+    1. Ensuring the proper .md extension
+    2. Separating subdirectory components from the filename
+    3. Building the full directory path including vault root
+
+    Args:
+        filename: The filename (may include subdirectories)
+        default_path: The default path to use if no subdirectory is specified
+
+    Returns:
+        tuple: (directory_path, base_filename)
+            - directory_path: The fully resolved directory path (Path object)
+            - base_filename: The filename component with .md extension
+
+    Raises:
+        ValueError: If the resulting filename is empty
+    """
+    # Add .md extension if missing
+    if not filename.endswith(".md"):
         filename = f"{filename}.md"
 
-    # If the filename contains path separators, separate into subdirectory and filename
+    # Parse path components
     path_parts = Path(filename)
-
-    # Get subdirectory path and filename
     subdirs = path_parts.parent
     base_filename = path_parts.name
 
     if not base_filename:
         raise ValueError("Filename cannot be empty")
 
-    # Create the final directory path (connecting the vault root directory and subdirectory path)
+    # Create final directory path
     full_dir_path = VAULT_PATH
-    if str(subdirs) != ".":  # If a subdirectory is specified
+    if str(subdirs) != ".":  # If subdirectory is specified
         full_dir_path = full_dir_path / subdirs
     elif isinstance(default_path, str) and default_path.strip() != "":
         full_dir_path = full_dir_path / default_path
 
+    return full_dir_path, base_filename
+
+
+def _read_existing_frontmatter(file_path: Path) -> dict | None:
+    """
+    Read and extract frontmatter metadata from an existing file.
+
+    This function focuses only on retrieving the YAML frontmatter metadata
+    from an existing file, without modifying the file or its content.
+
+    Args:
+        file_path: Path to the file to read
+
+    Returns:
+        dict | None: Existing frontmatter metadata as a dictionary, or:
+            - Empty dict ({}) if the file exists but has no frontmatter
+            - None if the file doesn't exist or can't be read as text
+
+    Raises:
+        PermissionError: When the file exists but cannot be accessed due to permission issues
+    """
+    if not file_path.exists():
+        return None
+
+    try:
+        with open(file_path, "r") as f:
+            content = f.read()
+            if content.startswith("---\n"):  # If frontmatter exists
+                post = frontmatter.loads(content)
+                return post.metadata
+            # No frontmatter found in file
+            return {}
+    except PermissionError as e:
+        logger.error(f"Permission denied when reading file {file_path}: {e}")
+        raise
+    except UnicodeDecodeError as e:
+        logger.warning(
+            f"File {file_path} cannot be decoded as text (possibly binary): {e}"
+        )
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to read existing file {file_path} for metadata: {e}")
+        return None
+
+
+def _assemble_complete_note(
+    text: str,
+    filename: str,
+    author: str | None = None,
+    default_path: str = DEFAULT_NOTE_DIR,
+    is_new_note: bool = True,
+) -> tuple[Path, str, str]:
+    """
+    Assemble a complete note by combining file path resolution, metadata generation, and content preparation.
+
+    This function coordinates the entire note preparation process by:
+    1. Resolving the file path and filename
+    2. Reading existing frontmatter if the file exists
+    3. Generating appropriate metadata
+    4. Assembling the final note content with frontmatter
+
+    This function acts as a coordinator between path handling and metadata handling,
+    preparing everything needed for the actual file writing operation.
+
+    Args:
+        text: The content to write to the file
+        filename: The name of the file to write
+        author: The author name to add to the frontmatter
+        default_path: The default directory to save the file
+        is_new_note: Whether this is a new note (True) or an update to an existing note (False)
+
+    Returns:
+        tuple: (full_dir_path, base_filename, prepared_content)
+            - full_dir_path: The complete directory path where the file will be written
+            - base_filename: The properly formatted filename (with .md extension)
+            - prepared_content: The complete note content with frontmatter
+    """
+    # Build file path
+    full_dir_path, base_filename = _build_file_path(filename, default_path)
+
+    # Check existing frontmatter
+    file_path = full_dir_path / base_filename
+    existing_frontmatter = _read_existing_frontmatter(file_path)
+
+    # Generate metadata
+    post = _generate_note_metadata(
+        text=text,
+        author=author,
+        is_new_note=is_new_note,
+        existing_frontmatter=existing_frontmatter,
+    )
+
+    # Convert Post object to string with frontmatter
     content = frontmatter.dumps(post)
 
     return full_dir_path, base_filename, content
@@ -173,11 +313,12 @@ def create_note(
     """
     try:
         # Prepare note for writing
-        full_dir_path, base_filename, content = _prepare_note_for_writing(
+        full_dir_path, base_filename, content = _assemble_complete_note(
             text=text,
             filename=filename,
             author=author,
-            default_path=default_path
+            default_path=default_path,
+            is_new_note=True,
         )
 
         # Create the FileWriteRequest with overwrite=False to ensure we don't overwrite existing files
@@ -185,7 +326,7 @@ def create_note(
             directory=str(full_dir_path),
             filename=base_filename,
             content=content,
-            overwrite=False,  # Never overwrite when creating new notes
+            overwrite=False,
         )
 
         file_path = write_file(file_write_request)
@@ -222,24 +363,27 @@ def edit_note(
     """
     try:
         # Prepare note for writing
-        full_dir_path, base_filename, content = _prepare_note_for_writing(
+        full_dir_path, base_filename, content = _assemble_complete_note(
             text=text,
             filename=filename,
             author=author,
-            default_path=default_path
+            default_path=default_path,
+            is_new_note=False,
         )
 
         # Check if the file exists before attempting to edit it
         file_path = full_dir_path / base_filename
         if not file_path.exists():
-            raise FileNotFoundError(f"Cannot edit note. File {file_path} does not exist")
+            raise FileNotFoundError(
+                f"Cannot edit note. File {file_path} does not exist"
+            )
 
         # Create the FileWriteRequest with overwrite=True since we're editing an existing file
         file_write_request = FileWriteRequest(
             directory=str(full_dir_path),
             filename=base_filename,
             content=content,
-            overwrite=True,  # Always overwrite when editing notes
+            overwrite=True,
         )
 
         file_path = write_file(file_write_request)
@@ -293,43 +437,29 @@ def write_note(
         default_path=default_path,
     )
 
-    # Check frontmatter
-    # If the text starts with "---", it is assumed to have frontmatter
-    has_frontmatter = request.text.startswith("---\n")
-    if has_frontmatter:
-        # If the text already has frontmatter, load it
-        post = frontmatter.loads(request.text)
-    else:
-        # Create a new frontmatter object
-        post = frontmatter.Post(request.text)
-
-    # Add default frontmatter if it doesn't exist
-    post.metadata["author"] = request.author or DEFAULT_NOTE_AUTHOR
-
-    # If the filename contains path separators, separate into subdirectory and filename
-    path_parts = Path(request.filename)
-
-    # Get subdirectory path and filename
-    subdirs = path_parts.parent
-    base_filename = path_parts.name
-
-    if not base_filename:
-        raise ValueError("Filename cannot be empty")
-
-    # Create the final directory path (connecting the vault root directory and subdirectory path)
-    full_dir_path = VAULT_PATH
-    if str(subdirs) != ".":  # If a subdirectory is specified
-        full_dir_path = full_dir_path / subdirs
-    elif request.default_path:
-        full_dir_path = full_dir_path / request.default_path
-
-    # Create directory if it doesn't exist
-    if not full_dir_path.exists():
-        full_dir_path.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created directory: {full_dir_path}")
-
     try:
-        content = frontmatter.dumps(post)
+        # Determine if this is a new note based on file existence
+        full_dir_path, base_filename = _build_file_path(
+            request.filename, request.default_path
+        )
+        file_path = full_dir_path / base_filename
+        is_new_note = not file_path.exists()
+
+        # Prepare note for writing - reuse the common function
+        full_dir_path, base_filename, content = _assemble_complete_note(
+            text=request.text,
+            filename=request.filename,
+            author=request.author,
+            default_path=request.default_path,
+            is_new_note=is_new_note,
+        )
+
+        # Create directory if it doesn't exist
+        if not full_dir_path.exists():
+            full_dir_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created directory: {full_dir_path}")
+
+        # Create the file write request
         file_write_request = FileWriteRequest(
             directory=str(full_dir_path),
             filename=base_filename,
@@ -338,12 +468,10 @@ def write_note(
         )
         file_path = write_file(file_write_request)
         logger.info(f"File written to {file_path}")
+        return file_path
     except Exception as e:
         logger.error(f"Error writing file: {e}")
         raise
-
-    # Return the file path
-    return file_path
 
 
 def read_note(filepath: str) -> str:
