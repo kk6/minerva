@@ -178,19 +178,19 @@ def _build_file_path(
 def _read_existing_frontmatter(file_path: Path) -> dict | None:
     """
     Read frontmatter from existing file
-    
+
     Args:
         file_path: Path to the file to read
-        
+
     Returns:
         dict | None: Existing frontmatter data (None if unable to read)
-        
+
     Raises:
         PermissionError: When the file exists but cannot be accessed due to permission issues
     """
     if not file_path.exists():
         return None
-        
+
     try:
         with open(file_path, "r") as f:
             content = f.read()
@@ -203,7 +203,9 @@ def _read_existing_frontmatter(file_path: Path) -> dict | None:
         logger.error(f"Permission denied when reading file {file_path}: {e}")
         raise
     except UnicodeDecodeError as e:
-        logger.warning(f"File {file_path} cannot be decoded as text (possibly binary): {e}")
+        logger.warning(
+            f"File {file_path} cannot be decoded as text (possibly binary): {e}"
+        )
         return None
     except Exception as e:
         logger.warning(f"Failed to read existing file {file_path} for metadata: {e}")
@@ -406,7 +408,7 @@ def write_note(
         )
         file_path = full_dir_path / base_filename
         is_new_note = not file_path.exists()
-        
+
         # Prepare note for writing - reuse the common function
         full_dir_path, base_filename, content = _prepare_note_for_writing(
             text=request.text,
