@@ -140,7 +140,7 @@ def _prepare_note_for_writing(
     full_dir_path = VAULT_PATH
     if str(subdirs) != ".":  # If a subdirectory is specified
         full_dir_path = full_dir_path / subdirs
-    elif default_path:
+    elif isinstance(default_path, str) and default_path.strip() != "":
         full_dir_path = full_dir_path / default_path
 
     content = frontmatter.dumps(post)
