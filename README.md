@@ -7,9 +7,11 @@ Minervaは、Claude Desktopと連携し、チャットからMarkdown文書の書
 Minervaを使用すると、Obsidianのナレッジベース（Vault）内のMarkdownファイルを効率的に管理・操作できます。
 Claude Desktopを通じて、以下の操作が可能です：
 
-- Markdownファイルの作成（write_note）
+- Markdownファイルの新規作成（create_note）
+- Markdownファイルの編集（edit_note）
 - Markdownファイルの読取（read_note）
 - Markdownファイル内のキーワード検索（search_notes）
+- Markdownファイルの作成・更新（write_note）※後方互換性のため提供
 
 ## 必要なもの
 
