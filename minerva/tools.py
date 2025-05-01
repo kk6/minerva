@@ -92,23 +92,31 @@ class SearchNoteRequest(BaseModel):
     )
 
 
-def _prepare_frontmatter(
+def _generate_note_metadata(
     text: str,
     author: str | None = None,
     is_new_note: bool = True,
     existing_frontmatter: dict | None = None,
 ) -> frontmatter.Post:
     """
-    Prepare frontmatter from text content
+    Generate or update YAML frontmatter metadata for a note.
+
+    This function processes only the metadata portion of a note (frontmatter),
+    handling both creation of new metadata and updating of existing metadata.
+    It does not perform any file operations or path manipulations.
 
     Args:
-        text: The text content of the note
-        author: The author name
-        is_new_note: Whether this is a new note or an update
-        existing_frontmatter: Existing frontmatter data (if any)
+        text: The text content of the note (with or without existing frontmatter)
+        author: The author name to include in the metadata
+        is_new_note: Whether this is a new note (True) or an update to existing note (False)
+        existing_frontmatter: Existing frontmatter data from the file (if any)
 
     Returns:
-        frontmatter.Post: Post object with processed frontmatter
+        frontmatter.Post: Post object with properly processed frontmatter
+
+    Note:
+        This function only handles the metadata portion of a note.
+        It does not perform any file path resolution or file I/O operations.
     """
     # Get current time in ISO format
     now = datetime.now().isoformat()
@@ -144,17 +152,27 @@ def _build_file_path(
     filename: str, default_path: str = DEFAULT_NOTE_DIR
 ) -> tuple[Path, str]:
     """
-    Build file path from filename
+    Resolve and build the complete file path from a filename.
+
+    This function focuses on path handling operations:
+    1. Ensuring the proper .md extension
+    2. Separating subdirectory components from the filename
+    3. Building the full directory path including vault root
 
     Args:
         filename: The filename (may include subdirectories)
-        default_path: The default path
+        default_path: The default path to use if no subdirectory is specified
 
     Returns:
         tuple: (directory_path, base_filename)
+            - directory_path: The fully resolved directory path (Path object)
+            - base_filename: The filename component with .md extension
+
+    Raises:
+        ValueError: If the resulting filename is empty
     """
     # Add .md extension if missing
-    if ".md" not in filename:
+    if not filename.endswith(".md"):
         filename = f"{filename}.md"
 
     # Parse path components
@@ -177,13 +195,18 @@ def _build_file_path(
 
 def _read_existing_frontmatter(file_path: Path) -> dict | None:
     """
-    Read frontmatter from existing file
+    Read and extract frontmatter metadata from an existing file.
+
+    This function focuses only on retrieving the YAML frontmatter metadata
+    from an existing file, without modifying the file or its content.
 
     Args:
         file_path: Path to the file to read
 
     Returns:
-        dict | None: Existing frontmatter data (None if unable to read)
+        dict | None: Existing frontmatter metadata as a dictionary, or:
+            - Empty dict ({}) if the file exists but has no frontmatter
+            - None if the file doesn't exist or can't be read as text
 
     Raises:
         PermissionError: When the file exists but cannot be accessed due to permission issues
@@ -212,7 +235,7 @@ def _read_existing_frontmatter(file_path: Path) -> dict | None:
         return None
 
 
-def _prepare_note_for_writing(
+def _assemble_complete_note(
     text: str,
     filename: str,
     author: str | None = None,
@@ -220,17 +243,29 @@ def _prepare_note_for_writing(
     is_new_note: bool = True,
 ) -> tuple[Path, str, str]:
     """
-    Private function to prepare a note for writing.
+    Assemble a complete note by combining file path resolution, metadata generation, and content preparation.
+
+    This function coordinates the entire note preparation process by:
+    1. Resolving the file path and filename
+    2. Reading existing frontmatter if the file exists
+    3. Generating appropriate metadata
+    4. Assembling the final note content with frontmatter
+
+    This function acts as a coordinator between path handling and metadata handling,
+    preparing everything needed for the actual file writing operation.
 
     Args:
-        text: The content to write to the file.
-        filename: The name of the file to write.
-        author: The author name to add to the frontmatter.
-        default_path: The default directory to save the file.
-        is_new_note: Whether this is a new note (True) or an update to an existing note (False).
+        text: The content to write to the file
+        filename: The name of the file to write
+        author: The author name to add to the frontmatter
+        default_path: The default directory to save the file
+        is_new_note: Whether this is a new note (True) or an update to an existing note (False)
 
     Returns:
         tuple: (full_dir_path, base_filename, prepared_content)
+            - full_dir_path: The complete directory path where the file will be written
+            - base_filename: The properly formatted filename (with .md extension)
+            - prepared_content: The complete note content with frontmatter
     """
     # Build file path
     full_dir_path, base_filename = _build_file_path(filename, default_path)
@@ -239,14 +274,15 @@ def _prepare_note_for_writing(
     file_path = full_dir_path / base_filename
     existing_frontmatter = _read_existing_frontmatter(file_path)
 
-    # Prepare frontmatter
-    post = _prepare_frontmatter(
+    # Generate metadata
+    post = _generate_note_metadata(
         text=text,
         author=author,
         is_new_note=is_new_note,
         existing_frontmatter=existing_frontmatter,
     )
 
+    # Convert Post object to string with frontmatter
     content = frontmatter.dumps(post)
 
     return full_dir_path, base_filename, content
@@ -277,7 +313,7 @@ def create_note(
     """
     try:
         # Prepare note for writing
-        full_dir_path, base_filename, content = _prepare_note_for_writing(
+        full_dir_path, base_filename, content = _assemble_complete_note(
             text=text,
             filename=filename,
             author=author,
@@ -327,7 +363,7 @@ def edit_note(
     """
     try:
         # Prepare note for writing
-        full_dir_path, base_filename, content = _prepare_note_for_writing(
+        full_dir_path, base_filename, content = _assemble_complete_note(
             text=text,
             filename=filename,
             author=author,
@@ -410,7 +446,7 @@ def write_note(
         is_new_note = not file_path.exists()
 
         # Prepare note for writing - reuse the common function
-        full_dir_path, base_filename, content = _prepare_note_for_writing(
+        full_dir_path, base_filename, content = _assemble_complete_note(
             text=request.text,
             filename=request.filename,
             author=request.author,
