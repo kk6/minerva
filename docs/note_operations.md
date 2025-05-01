@@ -219,9 +219,58 @@ for result in results:
     print("---")
 ```
 
-## 3. ファイルパス処理
+## 3. フロントマターのメタデータ
 
-### 3.1 サブディレクトリのサポート
+### 3.1 自動追加されるメタデータ
+
+ノートの作成・編集時に、以下のメタデータが自動的にフロントマターに追加されます：
+
+- `author`: 著者情報（パラメータで指定するか、デフォルト値が使用されます）
+- `created`: ノートの作成日時（ISO形式、新規作成時のみ自動追加）
+- `updated`: ノートの更新日時（ISO形式、更新時のみ自動追加）
+
+これらのメタデータは、ノートの管理や検索に役立ちます。また、既存のノートを更新する場合、元の`created`フィールドは保持されます。
+
+#### 日時フォーマット
+
+日時情報はISO 8601形式で格納されます（例: `2025-05-02T12:34:56.789012`）。
+これにより以下のようなメリットがあります：
+
+- 日時の解析が容易
+- ソート可能な形式
+- 国際的に標準化された形式
+
+#### 使用例
+
+```python
+from minerva.tools import create_note, edit_note, read_note
+import frontmatter
+
+# 新規ノートの作成（created フィールドが自動的に追加される）
+file_path = create_note(
+    text="This is a new note with creation date",
+    filename="dated_note"
+)
+
+# ノートの内容を読み取る
+content = read_note(str(file_path))
+note = frontmatter.loads(content)
+print(f"作成日: {note.metadata['created']}")  # ISO形式の作成日が表示される
+
+# ノートの編集（updated フィールドが自動的に追加される）
+file_path = edit_note(
+    text="This note was updated",
+    filename="dated_note"
+)
+
+# 更新後のノートを読み取る
+content = read_note(str(file_path))
+note = frontmatter.loads(content)
+print(f"作成日: {note.metadata['created']}")  # 元の作成日が保持されている
+print(f"更新日: {note.metadata['updated']}")  # 新しい更新日が表示される
+```
+
+### 3.2 サブディレクトリのサポート
 
 ノート作成機能は以下のようなサブディレクトリの作成と利用をサポートしています：
 
@@ -229,7 +278,7 @@ for result in results:
 - 指定されたサブディレクトリが存在しない場合、自動的に作成されます
 - 複数レベルのネストされたディレクトリもサポートされています（例：`level1/level2/level3/note.md`）
 
-### 3.2 ファイル名のバリデーション
+### 3.3 ファイル名のバリデーション
 
 ファイル名に関する制約：
 
