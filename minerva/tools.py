@@ -96,7 +96,7 @@ def _prepare_note_for_writing(
     filename: str,
     author: str | None = None,
     default_path: str = DEFAULT_NOTE_DIR
-) -> tuple[Path, Path, str]:
+) -> tuple[Path, str, str]:
     """
     Private function to prepare a note for writing.
 
@@ -142,11 +142,6 @@ def _prepare_note_for_writing(
         full_dir_path = full_dir_path / subdirs
     elif default_path:
         full_dir_path = full_dir_path / default_path
-
-    # Create directory if it doesn't exist
-    if not full_dir_path.exists():
-        full_dir_path.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created directory: {full_dir_path}")
 
     content = frontmatter.dumps(post)
 
