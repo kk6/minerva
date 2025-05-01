@@ -447,6 +447,178 @@ class TestSearchNotes:
         assert search_config.case_sensitive == expected_config
 
 
+class TestCreateNote:
+    @pytest.fixture
+    def mock_write_setup(self, tmp_path):
+        """Fixture providing common mock setup for write tests."""
+        with (
+            mock.patch("minerva.tools.write_file") as mock_write_file,
+            mock.patch("minerva.tools.VAULT_PATH", tmp_path),
+        ):
+            yield {"mock_write_file": mock_write_file, "tmp_path": tmp_path}
+
+    def test_create_note_new_file(self, mock_write_setup):
+        """Test creating a new note when file doesn't exist."""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        tmp_path = mock_write_setup["tmp_path"]
+        test_file = tmp_path / "new_note.md"
+        mock_write_file.return_value = test_file
+
+        result = tools.create_note(
+            text="New note content",
+            filename="new_note",
+            author="Test Author",
+            default_path="",  # Set to empty string to avoid subdirectory creation
+        )
+
+        assert result == test_file
+        mock_write_file.assert_called_once()
+
+        # Verify parameters passed to write_file
+        called_request = mock_write_file.call_args[0][0]
+        assert called_request.directory == str(tmp_path)
+        assert called_request.filename == "new_note.md"
+        assert called_request.overwrite is False  # Should always be False for create_note
+
+        # Check frontmatter
+        post = frontmatter.loads(called_request.content)
+        assert post.metadata["author"] == "Test Author"
+        assert post.content == "New note content"
+
+    def test_create_note_existing_file(self, mock_write_setup):
+        """Test attempting to create a note that already exists raises an error."""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        mock_write_file.side_effect = FileExistsError("File already exists")
+
+        with pytest.raises(FileExistsError, match="File already exists"):
+            tools.create_note(
+                text="This should fail",
+                filename="existing_note",
+                default_path="",  # Set to empty string to avoid subdirectory creation
+            )
+
+        mock_write_file.assert_called_once()
+
+        # Verify overwrite is False
+        called_request = mock_write_file.call_args[0][0]
+        assert called_request.overwrite is False
+
+    def test_create_note_with_subdirectory(self, mock_write_setup):
+        """Test creating a note in a subdirectory."""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        tmp_path = mock_write_setup["tmp_path"]
+        expected_dir_path = tmp_path / "subdir"
+        expected_file_path = expected_dir_path / "subdir_note.md"
+        mock_write_file.return_value = expected_file_path
+
+        result = tools.create_note(
+            text="Note in subdirectory",
+            filename="subdir/subdir_note",
+            default_path="",  # Set to empty string to avoid subdirectory creation
+        )
+
+        assert result == expected_file_path
+        mock_write_file.assert_called_once()
+
+        # Verify directory and filename
+        called_request = mock_write_file.call_args[0][0]
+        assert called_request.directory == str(expected_dir_path)
+        assert called_request.filename == "subdir_note.md"
+
+
+class TestEditNote:
+    @pytest.fixture
+    def mock_write_setup(self, tmp_path):
+        """Fixture providing common mock setup for write tests."""
+        with (
+            mock.patch("minerva.tools.write_file") as mock_write_file,
+            mock.patch("minerva.tools.VAULT_PATH", tmp_path),
+            mock.patch("pathlib.Path.exists") as mock_exists,
+        ):
+            yield {
+                "mock_write_file": mock_write_file,
+                "tmp_path": tmp_path,
+                "mock_exists": mock_exists,
+            }
+
+    def test_edit_note_existing_file(self, mock_write_setup):
+        """Test editing an existing note."""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        mock_exists = mock_write_setup["mock_exists"]
+        tmp_path = mock_write_setup["tmp_path"]
+        test_file = tmp_path / "edit_note.md"
+
+        # Mock file existence check
+        mock_exists.return_value = True
+        mock_write_file.return_value = test_file
+
+        result = tools.edit_note(
+            text="Updated content",
+            filename="edit_note",
+            author="Editor",
+            default_path="",  # Set to empty string to avoid subdirectory creation
+        )
+
+        assert result == test_file
+        mock_write_file.assert_called_once()
+
+        # Verify parameters passed to write_file
+        called_request = mock_write_file.call_args[0][0]
+        assert called_request.directory == str(tmp_path)
+        assert called_request.filename == "edit_note.md"
+        assert called_request.overwrite is True  # Should always be True for edit_note
+
+        # Check frontmatter
+        post = frontmatter.loads(called_request.content)
+        assert post.metadata["author"] == "Editor"
+        assert post.content == "Updated content"
+
+    def test_edit_note_nonexistent_file(self, mock_write_setup):
+        """Test attempting to edit a note that doesn't exist raises an error."""
+        mock_exists = mock_write_setup["mock_exists"]
+        mock_write_file = mock_write_setup["mock_write_file"]
+
+        # Mock file existence check to return False
+        mock_exists.return_value = False
+
+        with pytest.raises(FileNotFoundError, match="does not exist"):
+            tools.edit_note(
+                text="This should fail",
+                filename="nonexistent_note",
+                default_path="",  # Set to empty string to avoid subdirectory creation
+            )
+
+        # write_file should not be called if the file doesn't exist
+        mock_write_file.assert_not_called()
+
+    def test_edit_note_with_default_path(self, mock_write_setup):
+        """Test editing a note with a custom default path."""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        mock_exists = mock_write_setup["mock_exists"]
+        tmp_path = mock_write_setup["tmp_path"]
+        custom_dir = "custom_dir"
+        expected_dir_path = tmp_path / custom_dir
+        expected_file_path = expected_dir_path / "custom_note.md"
+
+        # Mock file existence check
+        mock_exists.return_value = True
+        mock_write_file.return_value = expected_file_path
+
+        result = tools.edit_note(
+            text="Note with custom path",
+            filename="custom_note",
+            default_path=custom_dir,
+        )
+
+        assert result == expected_file_path
+        mock_write_file.assert_called_once()
+
+        # Verify directory includes custom path
+        called_request = mock_write_file.call_args[0][0]
+        assert called_request.directory == str(expected_dir_path)
+        assert called_request.filename == "custom_note.md"
+
+
 class TestIntegrationTests:
     """Integration tests that test the actual file operations."""
 
@@ -679,3 +851,120 @@ class TestIntegrationTests:
         # Parse frontmatter
         post = frontmatter.loads(content)
         assert post.content == "This is a note in the default directory"
+
+    def test_integration_create_note(self, setup_vault):
+        """Integration test for creating a new note."""
+        vault_path = setup_vault
+        filename = "create_test"
+        file_path = vault_path / f"{filename}.md"
+
+        # Ensure file doesn't exist initially
+        if file_path.exists():
+            file_path.unlink()
+
+        test_content = "This is a new note created with create_note"
+
+        # Create a new note
+        created_path = tools.create_note(
+            text=test_content,
+            filename=filename,
+            author="Create Test",
+            default_path="",  # Set to empty string to avoid subdirectory creationして、デフォルトのサブディレクトリを使用しない
+        )
+
+        # Verify file was created at the expected path
+        assert created_path.exists()
+        assert created_path == file_path
+
+        # Read the content back and verify
+        content = tools.read_note(str(created_path))
+        post = frontmatter.loads(content)
+        assert post.content == test_content
+        assert post.metadata["author"] == "Create Test"
+
+        # Attempt to create the same note again (should fail)
+        with pytest.raises(FileExistsError):
+            tools.create_note(
+                text="This should fail",
+                filename=filename,
+                default_path="",  # Set to empty string to avoid subdirectory creation
+            )
+
+    def test_integration_edit_note(self, setup_vault):
+        """Integration test for editing an existing note."""
+        vault_path = setup_vault
+        filename = "edit_test"
+        file_path = vault_path / f"{filename}.md"
+
+        # Create an initial note with write_note
+        initial_content = "Initial note content"
+        tools.write_note(
+            text=initial_content,
+            filename=filename,
+            is_overwrite=False,
+            default_path="",  # Set to empty string to avoid subdirectory creation
+        )
+
+        # Verify file exists with initial content
+        assert file_path.exists()
+        initial_read = tools.read_note(str(file_path))
+        initial_post = frontmatter.loads(initial_read)
+        assert initial_post.content == initial_content
+
+        # Edit the note
+        updated_content = "Updated content with edit_note"
+        edited_path = tools.edit_note(
+            text=updated_content,
+            filename=filename,
+            author="Editor",
+            default_path="",  # Set to empty string to avoid subdirectory creation
+        )
+
+        # Verify file was edited
+        assert edited_path == file_path
+        updated_read = tools.read_note(str(edited_path))
+        updated_post = frontmatter.loads(updated_read)
+        assert updated_post.content == updated_content
+        assert updated_post.metadata["author"] == "Editor"
+
+    def test_integration_edit_nonexistent_note(self, setup_vault):
+        """Integration test verifying edit_note fails for nonexistent notes."""
+        nonexistent_filename = "does_not_exist"
+
+        # Attempt to edit a nonexistent note
+        with pytest.raises(FileNotFoundError):
+            tools.edit_note(
+                text="This should fail",
+                filename=nonexistent_filename,
+                default_path="",  # Set to empty string to avoid subdirectory creation
+            )
+
+    def test_integration_create_edit_workflow(self, setup_vault):
+        """Integration test for create -> edit workflow."""
+        vault_path = setup_vault
+        filename = "workflow_test"
+        file_path = vault_path / f"{filename}.md"
+
+        # Step 1: Create a new note
+        initial_content = "Initial content via create_note"
+        tools.create_note(
+            text=initial_content,
+            filename=filename,
+            default_path="",  # Set to empty string to avoid subdirectory creation
+        )
+
+        # Verify creation worked
+        assert file_path.exists()
+
+        # Step 2: Edit the created note
+        updated_content = "Updated via edit_note"
+        tools.edit_note(
+            text=updated_content,
+            filename=filename,
+            default_path="",  # Set to empty string to avoid subdirectory creation
+        )
+
+        # Verify edit worked
+        content = tools.read_note(str(file_path))
+        post = frontmatter.loads(content)
+        assert post.content == updated_content
