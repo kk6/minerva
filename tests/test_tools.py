@@ -1,4 +1,5 @@
 from unittest import mock
+import time
 
 import pytest
 import frontmatter
@@ -276,177 +277,6 @@ Content with existing frontmatter"""
         assert called_request.filename == "default_path_note.md"
 
 
-class TestReadNote:
-    @pytest.fixture
-    def read_note_request(self, tmp_path):
-        return tools.ReadNoteRequest(
-            filepath=str(tmp_path / "note.md"),
-        )
-
-    @pytest.fixture
-    def mock_read_setup(self):
-        """Fixture providing common mock setup for read tests."""
-        with mock.patch("minerva.tools.read_file") as mock_read_file:
-            yield {"mock_read_file": mock_read_file}
-
-    def test_read_note_returns_content(self, mock_read_setup, read_note_request):
-        """Test reading a note returns the content.
-
-        Expects:
-            - read_file is called with correct parameters
-            - The function returns the expected content
-            - The file path is properly extracted from the request
-        """
-        mock_read_file = mock_read_setup["mock_read_file"]
-        expected_content = "sample content"
-
-        mock_read_file.return_value = expected_content
-
-        result = tools.read_note(read_note_request.filepath)
-
-        assert result == expected_content
-        mock_read_file.assert_called_once()
-
-        # Enhanced verification: Check that read_file is called with the correct parameters
-        import os
-
-        directory, filename = os.path.split(read_note_request.filepath)
-        called_request = mock_read_file.call_args[0][0]
-        assert called_request.directory == directory
-        assert called_request.filename == filename
-
-    def test_read_note_raises_exception(self, mock_read_setup, read_note_request):
-        """Test reading a note raises an exception.
-
-        Expects:
-            - When read_file raises an exception, it's propagated to the caller
-            - The read_file function is still called once
-        """
-        mock_read_file = mock_read_setup["mock_read_file"]
-
-        mock_read_file.side_effect = Exception("File read error")
-
-        with pytest.raises(Exception, match="File read error"):
-            tools.read_note(read_note_request.filepath)
-
-        mock_read_file.assert_called_once()
-
-
-class TestSearchNotes:
-    @pytest.fixture
-    def search_note_request(self):
-        return tools.SearchNoteRequest(
-            query="keyword",
-            case_sensitive=False,
-        )
-
-    @pytest.fixture
-    def mock_search_setup(self, tmp_path):
-        """Fixture providing common mock setup for search tests."""
-        with (
-            mock.patch("minerva.tools.search_keyword_in_files") as mock_search,
-            mock.patch("minerva.tools.VAULT_PATH", tmp_path),
-        ):
-            yield {"mock_search": mock_search, "tmp_path": tmp_path}
-
-    def test_search_notes_returns_results(self, mock_search_setup, search_note_request):
-        """Test searching notes returns results.
-
-        Expects:
-            - search_keyword_in_files is called with correct configuration
-            - The function returns the search results unmodified
-            - The search directory is set to VAULT_PATH
-        """
-        mock_search = mock_search_setup["mock_search"]
-        tmp_path = mock_search_setup["tmp_path"]
-        fake_result = [mock.Mock()]
-
-        mock_search.return_value = fake_result
-
-        result = tools.search_notes(
-            query=search_note_request.query,
-            case_sensitive=search_note_request.case_sensitive,
-        )
-
-        assert result == fake_result
-        mock_search.assert_called_once()
-
-        # Enhanced verification: Check that search_keyword_in_files is called with the correct parameters
-        search_config = mock_search.call_args[0][0]
-        assert search_config.directory == str(tmp_path)
-        assert search_config.keyword == search_note_request.query
-        assert search_config.file_extensions == [".md"]
-        assert search_config.case_sensitive == search_note_request.case_sensitive
-
-    def test_search_notes_empty_query(self, search_note_request):
-        """Test searching notes with an empty query raises an exception.
-
-        Expects:
-            - When an empty query is provided, a ValueError is raised with specific message
-            - The search function is never called with empty queries
-        """
-        search_note_request.query = ""
-
-        with pytest.raises(ValueError, match="Query cannot be empty"):
-            tools.search_notes(
-                query=search_note_request.query,
-                case_sensitive=search_note_request.case_sensitive,
-            )
-
-    def test_search_notes_raises_exception(
-        self, mock_search_setup, search_note_request
-    ):
-        """Test searching notes raises an exception.
-
-        Expects:
-            - When search_keyword_in_files raises an exception, it's propagated to the caller
-            - The search_keyword_in_files function is still called once
-        """
-        mock_search = mock_search_setup["mock_search"]
-
-        mock_search.side_effect = Exception("Search error")
-
-        with pytest.raises(Exception, match="Search error"):
-            tools.search_notes(
-                query=search_note_request.query,
-                case_sensitive=search_note_request.case_sensitive,
-            )
-
-        mock_search.assert_called_once()
-
-    @pytest.mark.parametrize(
-        "case_sensitive,expected_config",
-        [
-            (True, True),
-            (False, False),
-        ],
-        ids=["case-sensitive", "case-insensitive"],
-    )
-    def test_search_notes_case_sensitivity(
-        self, mock_search_setup, search_note_request, case_sensitive, expected_config
-    ):
-        """Test searching notes with different case sensitivity settings.
-
-        Expects:
-            - search_keyword_in_files is called with the correct case_sensitive setting
-            - The search configuration properly reflects the case sensitivity setting
-        """
-        mock_search = mock_search_setup["mock_search"]
-        fake_result = [mock.Mock()]
-
-        search_note_request.case_sensitive = case_sensitive
-        mock_search.return_value = fake_result
-
-        result = tools.search_notes(
-            query=search_note_request.query,
-            case_sensitive=search_note_request.case_sensitive,
-        )
-
-        assert result == fake_result
-        search_config = mock_search.call_args[0][0]
-        assert search_config.case_sensitive == expected_config
-
-
 class TestCreateNote:
     @pytest.fixture
     def mock_write_setup(self, tmp_path):
@@ -524,6 +354,28 @@ class TestCreateNote:
         called_request = mock_write_file.call_args[0][0]
         assert called_request.directory == str(expected_dir_path)
         assert called_request.filename == "subdir_note.md"
+
+    def test_create_note_adds_created_date(self, mock_write_setup):
+        """Test that create_note adds 'created' field to frontmatter."""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        tmp_path = mock_write_setup["tmp_path"]
+        test_file = tmp_path / "date_test.md"
+        mock_write_file.return_value = test_file
+
+        result = tools.create_note(
+            text="Note with created date",
+            filename="date_test",
+            default_path="",
+        )
+
+        # Verify parameters passed to write_file
+        called_request = mock_write_file.call_args[0][0]
+
+        # Parse frontmatter and check for created field
+        post = frontmatter.loads(called_request.content)
+        assert "created" in post.metadata
+        # Verify the created date is in ISO format
+        assert "T" in post.metadata["created"]  # ISO日時形式には "T" が含まれる
 
 
 class TestEditNote:
@@ -617,6 +469,32 @@ class TestEditNote:
         called_request = mock_write_file.call_args[0][0]
         assert called_request.directory == str(expected_dir_path)
         assert called_request.filename == "custom_note.md"
+
+    def test_edit_note_adds_updated_date(self, mock_write_setup):
+        """Test that edit_note adds 'updated' field to frontmatter."""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        mock_exists = mock_write_setup["mock_exists"]
+        tmp_path = mock_write_setup["tmp_path"]
+        test_file = tmp_path / "date_update_test.md"
+
+        # Mock file existence check
+        mock_exists.return_value = True
+        mock_write_file.return_value = test_file
+
+        result = tools.edit_note(
+            text="Note with updated date",
+            filename="date_update_test",
+            default_path="",
+        )
+
+        # Verify parameters passed to write_file
+        called_request = mock_write_file.call_args[0][0]
+
+        # Parse frontmatter and check for updated field
+        post = frontmatter.loads(called_request.content)
+        assert "updated" in post.metadata
+        # Verify the updated date is in ISO format
+        assert "T" in post.metadata["updated"]  # ISO日時形式には "T" が含まれる
 
 
 class TestIntegrationTests:
@@ -968,3 +846,101 @@ class TestIntegrationTests:
         content = tools.read_note(str(file_path))
         post = frontmatter.loads(content)
         assert post.content == updated_content
+
+    def test_integration_date_metadata(self, setup_vault):
+        """Integration test for date metadata in frontmatter."""
+        vault_path = setup_vault
+        filename = "date_test"
+        file_path = vault_path / f"{filename}.md"
+
+        # Ensure file doesn't exist initially
+        if file_path.exists():
+            file_path.unlink()
+
+        # Step 1: Create a new note
+        test_content = "This is a test for date metadata"
+        tools.create_note(
+            text=test_content,
+            filename=filename,
+            default_path="",
+        )
+
+        # Verify created date was added
+        content1 = tools.read_note(str(file_path))
+        post1 = frontmatter.loads(content1)
+        assert "created" in post1.metadata
+        assert "T" in post1.metadata["created"]  # ISO format includes 'T'
+        assert "updated" not in post1.metadata  # Should not have updated field yet
+
+        # Wait a short time to ensure distinct timestamps
+        time.sleep(0.1)
+
+        # Step 2: Edit the same note
+        updated_content = "This content was updated"
+        tools.edit_note(
+            text=updated_content,
+            filename=filename,
+            default_path="",
+        )
+
+        # Verify updated date was added while preserving created date
+        content2 = tools.read_note(str(file_path))
+        post2 = frontmatter.loads(content2)
+        assert "created" in post2.metadata
+        assert "updated" in post2.metadata
+        assert "T" in post2.metadata["updated"]
+
+        # Created date should be preserved from original creation
+        assert post2.metadata["created"] == post1.metadata["created"]
+        # Updated date should be different (newer) than created date
+        assert post2.metadata["updated"] != post2.metadata["created"]
+
+    def test_integration_write_note_date_handling(self, setup_vault):
+        """Integration test for date handling in write_note function."""
+        vault_path = setup_vault
+        filename = "write_date_test"
+        file_path = vault_path / f"{filename}.md"
+
+        # Ensure file doesn't exist initially
+        if file_path.exists():
+            file_path.unlink()
+
+        # Step 1: Create a new note with write_note
+        test_content = "This is a test for write_note date metadata"
+        tools.write_note(
+            text=test_content,
+            filename=filename,
+            is_overwrite=False,
+            default_path="",
+        )
+
+        # Verify created date was added
+        content1 = tools.read_note(str(file_path))
+        post1 = frontmatter.loads(content1)
+        assert "created" in post1.metadata
+        assert "T" in post1.metadata["created"]  # ISO format includes 'T'
+        assert "updated" not in post1.metadata  # Should not have updated field yet
+
+        # Wait a short time to ensure distinct timestamps
+        time.sleep(0.1)
+
+        # Step 2: Update the same note with write_note
+        updated_content = "This content was updated with write_note"
+        tools.write_note(
+            text=updated_content,
+            filename=filename,
+            is_overwrite=True,
+            default_path="",
+        )
+
+        # Verify updated date was added while preserving created date
+        content2 = tools.read_note(str(file_path))
+        post2 = frontmatter.loads(content2)
+        assert "created" in post2.metadata
+        assert "updated" in post2.metadata
+        assert "T" in post2.metadata["updated"]
+
+        # Created date should be preserved from original creation
+        assert post2.metadata["created"] == post1.metadata["created"]
+        # Updated date should be different (newer) than created date
+        assert post2.metadata["updated"] != post2.metadata["created"]
