@@ -91,6 +91,171 @@ class SearchNoteRequest(BaseModel):
     )
 
 
+def _prepare_note_for_writing(
+    text: str,
+    filename: str,
+    author: str | None = None,
+    default_path: str = DEFAULT_NOTE_DIR
+) -> tuple[Path, Path, str]:
+    """
+    Private function to prepare a note for writing.
+
+    Args:
+        text: The content to write to the file.
+        filename: The name of the file to write.
+        author: The author name to add to the frontmatter.
+        default_path: The default directory to save the file.
+
+    Returns:
+        tuple: (full_dir_path, base_filename, prepared_content)
+    """
+    # Check frontmatter
+    # If the text starts with "---", it is assumed to have frontmatter
+    has_frontmatter = text.startswith("---\n")
+    if has_frontmatter:
+        # If the text already has frontmatter, load it
+        post = frontmatter.loads(text)
+    else:
+        # Create a new frontmatter object
+        post = frontmatter.Post(text)
+
+    # Add default frontmatter if it doesn't exist
+    post.metadata["author"] = author or DEFAULT_NOTE_AUTHOR
+
+    # Format filename to ensure it has a .md extension
+    if ".md" not in filename:
+        filename = f"{filename}.md"
+
+    # If the filename contains path separators, separate into subdirectory and filename
+    path_parts = Path(filename)
+
+    # Get subdirectory path and filename
+    subdirs = path_parts.parent
+    base_filename = path_parts.name
+
+    if not base_filename:
+        raise ValueError("Filename cannot be empty")
+
+    # Create the final directory path (connecting the vault root directory and subdirectory path)
+    full_dir_path = VAULT_PATH
+    if str(subdirs) != ".":  # If a subdirectory is specified
+        full_dir_path = full_dir_path / subdirs
+    elif default_path:
+        full_dir_path = full_dir_path / default_path
+
+    # Create directory if it doesn't exist
+    if not full_dir_path.exists():
+        full_dir_path.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Created directory: {full_dir_path}")
+
+    content = frontmatter.dumps(post)
+
+    return full_dir_path, base_filename, content
+
+
+def create_note(
+    text: str,
+    filename: str,
+    author: str | None = None,
+    default_path: str = DEFAULT_NOTE_DIR,
+) -> Path:
+    """
+    Create a new note in the Obsidian vault. Fails if the note already exists.
+
+    Args:
+        text: The content to write to the file.
+        filename: The name of the file to write. If it doesn't have a .md extension, it will be added.
+        author: The author name to add to the frontmatter. Default is None.
+            If the request is made by an AI assistant, it should include its own model name
+            (e.g., 'Claude 3.7 Sonnet', 'GPT-4', etc.).
+        default_path: The default directory to save the file. Default is the value of DEFAULT_NOTE_DIR.
+
+    Returns:
+        Path: The path to the created file.
+
+    Raises:
+        FileExistsError: If the file already exists.
+    """
+    try:
+        # Prepare note for writing
+        full_dir_path, base_filename, content = _prepare_note_for_writing(
+            text=text,
+            filename=filename,
+            author=author,
+            default_path=default_path
+        )
+
+        # Create the FileWriteRequest with overwrite=False to ensure we don't overwrite existing files
+        file_write_request = FileWriteRequest(
+            directory=str(full_dir_path),
+            filename=base_filename,
+            content=content,
+            overwrite=False,  # Never overwrite when creating new notes
+        )
+
+        file_path = write_file(file_write_request)
+        logger.info(f"New note created at {file_path}")
+        return file_path
+
+    except Exception as e:
+        logger.error(f"Error creating note: {e}")
+        raise
+
+
+def edit_note(
+    text: str,
+    filename: str,
+    author: str | None = None,
+    default_path: str = DEFAULT_NOTE_DIR,
+) -> Path:
+    """
+    Edit an existing note in the Obsidian vault. Fails if the note doesn't exist.
+
+    Args:
+        text: The new content to write to the file.
+        filename: The name of the file to edit. If it doesn't have a .md extension, it will be added.
+        author: The author name to add to the frontmatter. Default is None.
+            If the request is made by an AI assistant, it should include its own model name
+            (e.g., 'Claude 3.7 Sonnet', 'GPT-4', etc.).
+        default_path: The default directory to save the file. Default is the value of DEFAULT_NOTE_DIR.
+
+    Returns:
+        Path: The path to the edited file.
+
+    Raises:
+        FileNotFoundError: If the file doesn't exist.
+    """
+    try:
+        # Prepare note for writing
+        full_dir_path, base_filename, content = _prepare_note_for_writing(
+            text=text,
+            filename=filename,
+            author=author,
+            default_path=default_path
+        )
+
+        # Check if the file exists before attempting to edit it
+        file_path = full_dir_path / base_filename
+        if not file_path.exists():
+            raise FileNotFoundError(f"Cannot edit note. File {file_path} does not exist")
+
+        # Create the FileWriteRequest with overwrite=True since we're editing an existing file
+        file_write_request = FileWriteRequest(
+            directory=str(full_dir_path),
+            filename=base_filename,
+            content=content,
+            overwrite=True,  # Always overwrite when editing notes
+        )
+
+        file_path = write_file(file_write_request)
+        logger.info(f"Note edited at {file_path}")
+        return file_path
+
+    except Exception as e:
+        logger.error(f"Error editing note: {e}")
+        raise
+
+
 def write_note(
     text: str,
     filename: str,
@@ -100,6 +265,9 @@ def write_note(
 ) -> Path:
     """
     Write a note to a file in the Obsidian vault.
+
+    This function is maintained for backward compatibility.
+    For new code, consider using create_note() or edit_note() for more explicit intent.
 
     Args:
         text: The content to write to the file.
@@ -118,6 +286,9 @@ def write_note(
         When this function is called by an AI assistant, the AI should always pass its own
         model name in the 'author' parameter to be included in the frontmatter of the created note.
 
+    Deprecated:
+        This function is maintained for backward compatibility.
+        For new code, consider using create_note() or edit_note() for more explicit intent.
     """
     request = WriteNoteRequest(
         text=text,
