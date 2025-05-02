@@ -19,6 +19,9 @@ dev = [
     "pytest-mock>=3.14.0",
 ]
 
+[project.scripts]
+minerva = "minerva.__main__:main"
+
 [[tool.mypy.overrides]]
 module = ["frontmatter"]
 ignore_missing_imports = true

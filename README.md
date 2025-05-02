@@ -37,12 +37,12 @@ DEFAULT_VAULT=<デフォルトで使用するvault名>
 プロジェクトルートで以下を実行してください。
 
 ```bash
-uv run mcp dev server.py
+uv run mcp dev src/minerva/server.py:mcp
 ```
 
 ## Claude Desktop にインストールする
 ```bash
-uv run mcp install server.py --with python-frontmatter
+uv run mcp install src/minerva/server.py:mcp -f .env --with python-frontmatter
 ```
 
 ## Claude Desktop での使い方
@@ -73,6 +73,7 @@ pytestを使用して、テストを実行することができます。
 ```bash
 uv run pytest
 ```
+
 ## 将来の開発方針
 
 Minervaは現在、基本的なノート操作（作成、読取、検索）をサポートしていますが、今後は以下の機能の実装を検討しています：
@@ -110,6 +111,23 @@ Minervaの目標は、Claude Desktopと連携してObsidianの操作を自然言
 - [開発ワークフロー](docs/development_workflow.md) - 開発プロセス、ブランチ戦略、コードレビュー、リリースフロー
 - [GitHub開発プロセス](docs/github_workflow.md) - GitHubを使用した開発プロセスの詳細
 - [Issueと PR の効果的な活用ガイド](docs/issue_pr_guide.md) - IssueとPRの効果的な活用方法
+
+## 開発ガイド
+
+### Claude Desktop からの起動時の import エラーについて
+
+Claude Desktop から Minerva サーバーを起動する場合、Python の import パス（sys.path）がコマンドライン実行時と異なるため、
+`from minerva.tools import ...` のような絶対importで「No module named 'minerva'」エラーが発生することがあります。
+
+この問題を回避するため、`server.py` の先頭で以下のように sys.path に親ディレクトリを追加しています。
+
+```python
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+```
+
+これにより、コマンドライン実行・Claude Desktop どちらの環境でも minerva パッケージの import エラーが発生しなくなります。
 
 ## ライセンス
 
