@@ -223,15 +223,15 @@ def _read_existing_frontmatter(file_path: Path) -> dict | None:
             # No frontmatter found in file
             return {}
     except PermissionError as e:
-        logger.error(f"Permission denied when reading file {file_path}: {e}")
+        logger.error("Permission denied when reading file %s: %s", file_path, e)
         raise
     except UnicodeDecodeError as e:
         logger.warning(
-            f"File {file_path} cannot be decoded as text (possibly binary): {e}"
+            "File %s cannot be decoded as text (possibly binary): %s", file_path, e
         )
         return None
     except Exception as e:
-        logger.warning(f"Failed to read existing file {file_path} for metadata: {e}")
+        logger.warning("Failed to read existing file %s for metadata: %s", file_path, e)
         return None
 
 
@@ -330,11 +330,11 @@ def create_note(
         )
 
         file_path = write_file(file_write_request)
-        logger.info(f"New note created at {file_path}")
+        logger.info("New note created at %s", file_path)
         return file_path
 
     except Exception as e:
-        logger.error(f"Error creating note: {e}")
+        logger.error("Error creating note: %s", e)
         raise
 
 
@@ -375,7 +375,7 @@ def edit_note(
         file_path = full_dir_path / base_filename
         if not file_path.exists():
             raise FileNotFoundError(
-                f"Cannot edit note. File {file_path} does not exist"
+                "Cannot edit note. File %s does not exist", file_path
             )
 
         # Create the FileWriteRequest with overwrite=True since we're editing an existing file
@@ -387,11 +387,11 @@ def edit_note(
         )
 
         file_path = write_file(file_write_request)
-        logger.info(f"Note edited at {file_path}")
+        logger.info("Note edited at %s", file_path)
         return file_path
 
     except Exception as e:
-        logger.error(f"Error editing note: {e}")
+        logger.error("Error editing note: %s", e)
         raise
 
 
@@ -457,7 +457,7 @@ def write_note(
         # Create directory if it doesn't exist
         if not full_dir_path.exists():
             full_dir_path.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Created directory: {full_dir_path}")
+            logger.info("Created directory: %s", full_dir_path)
 
         # Create the file write request
         file_write_request = FileWriteRequest(
@@ -467,10 +467,10 @@ def write_note(
             overwrite=request.is_overwrite,
         )
         file_path = write_file(file_write_request)
-        logger.info(f"File written to {file_path}")
+        logger.info("File written to %s", file_path)
         return file_path
     except Exception as e:
-        logger.error(f"Error writing file: {e}")
+        logger.error("Error writing file: %s", e)
         raise
 
 
@@ -490,9 +490,9 @@ def read_note(filepath: str) -> str:
             filename=filename,
         )
         content = read_file(file_read_request)
-        logger.info(f"File read from {filepath}")
+        logger.info("File read from %s", filepath)
     except Exception as e:
-        logger.error(f"Error reading file: {e}")
+        logger.error("Error reading file: %s", e)
         raise
 
     return content
@@ -519,9 +519,9 @@ def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
             case_sensitive=case_sensitive,
         )
         matching_files = search_keyword_in_files(search_config)
-        logger.info(f"Found {len(matching_files)} files matching the query: {query}")
+        logger.info("Found %s files matching the query: %s", len(matching_files), query)
     except Exception as e:
-        logger.error(f"Error searching files: {e}")
+        logger.error("Error searching files: %s", e)
         raise
 
     return matching_files

@@ -109,7 +109,7 @@ def is_binary_file(file_path: Path) -> bool:
             chunk = f.read(1024)
             return b"\0" in chunk
     except (IOError, PermissionError) as e:
-        logger.warning(f"Error checking if file is binary: {e}")
+        logger.warning("Error checking if file is binary: %s", e)
         return False
 
 
@@ -167,10 +167,11 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
                                 break  # Stop after finding first match in this file
                 except (UnicodeDecodeError, PermissionError):
                     # Ignore read errors and continue
-                    logger.warning(f"Could not read file {file_path}. Skipping.")
+                    sanitized_path = str(file_path).replace('\n', '_').replace('\r', '_')
+                    logger.warning("Could not read file %s. Skipping.", sanitized_path)
 
     except Exception as e:
-        logger.error(f"Error during search: {e}")
+        logger.error("Error during search: %s", e)
         raise
 
     return matching_files
