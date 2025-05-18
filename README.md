@@ -1,5 +1,7 @@
 # Minerva
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/kk6/minerva)
+
 Minervaは、Claude Desktopと連携し、チャットからMarkdown文書の書き出しなどを自動化するツールです。
 
 ## プロジェクト概要
