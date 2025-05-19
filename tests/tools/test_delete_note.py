@@ -87,8 +87,9 @@ class TestDeleteNote:
 
     def test_delete_note_missing_parameters(self):
         """Test calling delete_note without required parameters."""
+        import pydantic
         with pytest.raises(
-            ValueError, match="Either filename or filepath must be provided"
+            pydantic.ValidationError, match="Either filename or filepath must be provided"
         ):
             tools.delete_note()
 
