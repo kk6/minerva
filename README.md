@@ -115,6 +115,7 @@ Minervaの目標は、Claude Desktopと連携してObsidianの操作を自然言
 - [開発ワークフロー](docs/development_workflow.md) - 開発プロセス、ブランチ戦略、コードレビュー、リリースフロー
 - [GitHub開発プロセス](docs/github_workflow.md) - GitHubを使用した開発プロセスの詳細
 - [Issueと PR の効果的な活用ガイド](docs/issue_pr_guide.md) - IssueとPRの効果的な活用方法
+- [GitHub Copilot カスタム指示ガイドライン](docs/copilot_guidelines.md) - GitHub Copilotのカスタム指示を使用した開発ガイドライン
 
 ## 開発ガイド
 
