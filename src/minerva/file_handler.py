@@ -53,6 +53,12 @@ class FileReadRequest(FileOperationRequest):
     """
 
 
+class FileDeleteRequest(FileOperationRequest):
+    """
+    Request model for deleting a file.
+    """
+
+
 class SearchConfig(BaseModel):
     """
     Configuration model for search operations.
@@ -167,7 +173,9 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
                                 break  # Stop after finding first match in this file
                 except (UnicodeDecodeError, PermissionError):
                     # Ignore read errors and continue
-                    sanitized_path = str(file_path).replace('\n', '_').replace('\r', '_')
+                    sanitized_path = (
+                        str(file_path).replace("\n", "_").replace("\r", "_")
+                    )
                     logger.warning("Could not read file %s. Skipping.", sanitized_path)
 
     except Exception as e:
@@ -224,3 +232,19 @@ def read_file(request: FileReadRequest) -> str:
     with open(file_path, "r", encoding=ENCODING) as f:
         content = f.read()
     return content
+
+
+def delete_file(request: FileDeleteRequest) -> Path:
+    """
+    Delete a file in the specified directory.
+    """
+    file_path = _get_validated_file_path(request.directory, request.filename)
+
+    # Check if the file exists
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {file_path} does not exist")
+
+    # Delete the file
+    file_path.unlink()
+    logger.info("File %s deleted successfully", file_path)
+    return file_path

@@ -6,8 +6,10 @@ import pydantic
 from minerva.file_handler import (
     FileWriteRequest,
     FileReadRequest,
+    FileDeleteRequest,
     read_file,
     write_file,
+    delete_file,
     FORBIDDEN_CHARS,
     ENCODING,
     SearchConfig,
@@ -468,6 +470,7 @@ class TestFileHandler:
         assert len(results) == 1
         assert results[0].file_path == str(file1)
         assert results[0].line_number == 1
+        assert results[0].context is not None
         assert "keyword: apple" in results[0].context
 
     def test_search_keyword_case_sensitivity(self, temp_dir):
@@ -495,6 +498,7 @@ class TestFileHandler:
 
         # ==================== Assert (Case-sensitive) ====================
         assert len(results1) == 1
+        assert results1[0].context is not None
         assert "apple" in results1[0].context
 
         # ==================== Act (Case-insensitive) ====================
@@ -506,6 +510,7 @@ class TestFileHandler:
 
         # ==================== Assert (Case-insensitive) ====================
         assert len(results2) == 1
+        assert results2[0].context is not None
         assert "APPLE and apple" in results2[0].context
 
     def test_search_with_file_extensions(self, temp_dir):
@@ -572,7 +577,9 @@ class TestFileHandler:
         extensions_str = "txt,py"
         extensions_list = extensions_str.split(",")
         config = SearchConfig(
-            directory=temp_dir, keyword="test", file_extensions=extensions_list
+            directory=temp_dir,
+            keyword="test",
+            file_extensions=[str(ext) for ext in extensions_list],
         )
         assert config.file_extensions == [".txt", ".py"]
 
@@ -691,6 +698,7 @@ class TestFileHandler:
         # ==================== Assert ====================
         assert len(results) == 1
         assert results[0].file_path == str(large_file)
+        assert results[0].context is not None
         assert "KEYWORD_TO_FIND" in results[0].context
 
     def test_search_keyword_exception_handling(self, temp_dir, mocker):
@@ -737,13 +745,13 @@ class TestFileHandler:
         # ==================== Arrange & Act & Assert ====================
         from minerva.file_handler import FileOperationRequest
 
-        # Test that directories must be provided
+        # Test that directories must be provided (using None instead of empty string)
         with pytest.raises(pydantic.ValidationError):
-            FileOperationRequest(filename="test.txt")
+            FileOperationRequest(directory=None, filename="test.txt")  # type: ignore
 
         # Test that filenames must be provided
         with pytest.raises(pydantic.ValidationError):
-            FileOperationRequest(directory="/tmp")
+            FileOperationRequest(directory="/tmp", filename=None)  # type: ignore
 
         # Test valid instance
         request = FileOperationRequest(directory="/tmp", filename="test.txt")
@@ -782,7 +790,7 @@ class TestFileHandler:
 
         # Test invalid file_path type
         with pytest.raises(pydantic.ValidationError):
-            SearchResult(file_path=123)
+            SearchResult(file_path=123)  # type: ignore
 
     def test_search_with_mocked_os_walk(self, temp_dir, mocker, create_test_file):
         """Test search with mocked os.walk functionality.
@@ -878,3 +886,116 @@ class TestFileHandler:
         # Real file and file2.py shouldn't be in results
         assert not any(str(test_file) == path for path in result_paths)
         assert not any("file2.py" in path for path in result_paths)
+
+    def test_delete_file_success(self, temp_dir):
+        """Test deleting a file successfully.
+
+        Arrange:
+            - Create a file to be deleted
+            - Prepare a delete request
+        Act:
+            - Call delete_file with the request
+        Assert:
+            - Verify the function returns the correct path
+            - Verify the file no longer exists in the filesystem
+        """
+        # ==================== Arrange ====================
+        # Create the file to be deleted
+        file_path = Path(temp_dir) / "to_delete.txt"
+        with open(file_path, "w", encoding=ENCODING) as f:
+            f.write("This file will be deleted")
+
+        # Verify the file exists before deletion
+        assert file_path.exists()
+
+        # Create a request to delete the file
+        request = FileDeleteRequest(
+            directory=temp_dir,
+            filename="to_delete.txt",
+        )
+
+        # ==================== Act ====================
+        result_path = delete_file(request)
+
+        # ==================== Assert ====================
+        assert result_path == file_path
+        assert not file_path.exists()
+
+    def test_delete_file_not_found(self, temp_dir):
+        """Test deleting a file that does not exist.
+
+        Arrange:
+            - Prepare a delete request for a non-existent file
+        Act & Assert:
+            - Verify FileNotFoundError is raised when attempting to delete
+        """
+        # ==================== Arrange ====================
+        # Create a request for a non-existent file
+        request = FileDeleteRequest(
+            directory=temp_dir,
+            filename="non_existent.txt",
+        )
+
+        # ==================== Act & Assert ====================
+        with pytest.raises(FileNotFoundError):
+            delete_file(request)
+
+    def test_delete_file_invalid_directory(self):
+        """Test deleting a file with an invalid directory.
+
+        Arrange:
+            - Prepare a delete request with a relative (invalid) directory path
+        Act & Assert:
+            - Verify ValueError is raised with appropriate message
+        """
+        # ==================== Arrange ====================
+        # Create a request with an invalid directory
+        request = FileDeleteRequest(
+            directory="invalid_directory",
+            filename="test.txt",
+        )
+
+        # ==================== Act & Assert ====================
+        with pytest.raises(ValueError) as excinfo:
+            delete_file(request)
+        assert str(excinfo.value) == "Directory must be an absolute path"
+
+    def test_delete_file_and_check_existence(self, temp_dir):
+        """Test deleting a file and verifying it's truly gone.
+
+        Arrange:
+            - Create multiple files
+            - Prepare a delete request for one of them
+        Act:
+            - Delete one file
+        Assert:
+            - Verify the specific file is gone
+            - Verify other files are untouched
+        """
+        # ==================== Arrange ====================
+        # Create multiple files
+        file1 = Path(temp_dir) / "file1.txt"
+        file2 = Path(temp_dir) / "file2.txt"
+        file3 = Path(temp_dir) / "file3.txt"
+
+        for file in [file1, file2, file3]:
+            with open(file, "w", encoding=ENCODING) as f:
+                f.write(f"Content for {file.name}")
+
+        # Verify all files exist
+        assert file1.exists() and file2.exists() and file3.exists()
+
+        # Create a request to delete one specific file
+        request = FileDeleteRequest(
+            directory=temp_dir,
+            filename="file2.txt",
+        )
+
+        # ==================== Act ====================
+        delete_file(request)
+
+        # ==================== Assert ====================
+        # File2 should be gone, but file1 and file3 should still exist
+        assert file1.exists()
+        assert not file2.exists()
+        assert file3.exists()

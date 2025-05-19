@@ -30,3 +30,45 @@ Group imports in the following order:
 - Structure tests following the AAA pattern (Arrange-Act-Assert)
 - Include appropriate docstrings in test functions
 - Update corresponding tests when the code being tested changes
+
+## Docstrings
+- Docstrings should be written in English
+- Use Google-style docstrings for all functions and methods
+- Include parameters, return values, exceptions, and examples in docstrings
+- Use `:param` for parameters, `:return` for return values, and `:raises` for exceptions
+- Use `:example` for usage examples
+- Use `:note` for additional notes
+- Use `:warning` for warnings
+- Use `:see_also` for related functions or classes
+- Use `:todo` for future improvements or features
+- Use `:deprecated` for deprecated functions or classes
+- Use `:type` for parameter types
+- Use `:rtype` for return types
+
+## Docstring Example
+```python
+def example_function(param1: str, param2: int) -> bool:
+    """
+    Example function that does something.
+
+    :param param1: Description of the first parameter.
+    :param param2: Description of the second parameter.
+    :return: True if successful, False otherwise.
+    :raises ValueError: If param2 is negative.
+    :note: This is an example note.
+    :warning: This is an example warning.
+    :see_also: `another_function`
+    """
+    ...
+
+
+def another_function():
+    """
+    Another function that does something else.
+    """
+    ...
+```
+
+## Comments
+- Comments should be in English
+- Use inline comments sparingly

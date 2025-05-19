@@ -155,6 +155,19 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
 - 読み取り/書き込み/検索操作の組み合わせ
 - エッジケース（空ファイル、サブディレクトリなど）の処理
 
+### 5.3 コードカバレッジ
+
+Minervaプロジェクトのコードカバレッジ状況（2025年5月20日時点）：
+
+- 全体カバレッジ: 89%（目標: 90%以上）
+- モジュール別カバレッジ:
+  - file_handler.py: 96%
+  - tools.py: 93%
+  - config.py: 100%
+  - server.py, __main__.py: カバレッジ対象外（インフラ層コード）
+
+カバレッジレポートは `pytest --cov=minerva --cov-report=html` コマンドで生成され、`htmlcov/` ディレクトリに保存されます。
+
 ## 6. 将来の拡張
 
 ### 6.1 潜在的な機能拡張
