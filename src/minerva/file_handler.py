@@ -133,11 +133,6 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
     """
     matching_files = []
 
-    # Create a regex pattern if case sensitivity is disabled
-    if not config.case_sensitive:
-        # Use re.escape to safely handle meta characters as regex
-        pattern = re.compile(re.escape(config.keyword), re.IGNORECASE)
-
     try:
         # Recursively search the directory
         for root, _, files in os.walk(config.directory):
@@ -161,6 +156,10 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
                             if config.case_sensitive:
                                 found = config.keyword in line
                             else:
+                                # Compile the pattern only when needed
+                                pattern = re.compile(
+                                    re.escape(config.keyword), re.IGNORECASE
+                                )
                                 found = pattern.search(line) is not None
 
                             if found:
@@ -200,6 +199,12 @@ def _get_validated_file_path(directory: str, filename: str) -> Path:
 def write_file(request: FileWriteRequest) -> Path:
     """
     Write the content to a file in the specified directory.
+    Args:
+        request (FileWriteRequest): Request object containing directory, filename, and content.
+    Returns:
+        file_path (Path): Path to the written file.
+    Raises:
+        FileExistsError: If the file already exists and overwrite is set to False.
     """
     file_path = _get_validated_file_path(request.directory, request.filename)
 
@@ -221,6 +226,12 @@ def write_file(request: FileWriteRequest) -> Path:
 def read_file(request: FileReadRequest) -> str:
     """
     Read the content from a file in the specified directory.
+    Args:
+        request (FileReadRequest): Request object containing directory and filename.
+    Returns:
+        content (str): Content of the file.
+    Raises:
+        FileNotFoundError: If the file does not exist.
     """
     file_path = _get_validated_file_path(request.directory, request.filename)
 
@@ -237,6 +248,13 @@ def read_file(request: FileReadRequest) -> str:
 def delete_file(request: FileDeleteRequest) -> Path:
     """
     Delete a file in the specified directory.
+
+    Args:
+        request (FileDeleteRequest): Request object containing directory and filename.
+    Returns:
+        file_path (Path): Path to the deleted file.
+    Raises:
+        FileNotFoundError: If the file does not exist.
     """
     file_path = _get_validated_file_path(request.directory, request.filename)
 

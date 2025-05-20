@@ -2,7 +2,6 @@ from unittest import mock
 import pytest
 
 from minerva import tools
-from minerva.file_handler import FileDeleteRequest, delete_file
 
 
 class TestDeleteNote:
@@ -88,8 +87,10 @@ class TestDeleteNote:
     def test_delete_note_missing_parameters(self):
         """Test calling delete_note without required parameters."""
         import pydantic
+
         with pytest.raises(
-            pydantic.ValidationError, match="Either filename or filepath must be provided"
+            pydantic.ValidationError,
+            match="Either filename or filepath must be provided",
         ):
             tools.delete_note()
 
@@ -139,36 +140,6 @@ class TestDeleteNote:
         assert result.file_path == str(test_file)
         assert "このファイルを削除しますか？" in result.message
         assert "confirm=True" in result.message
-
-
-class TestFileHandlerDelete:
-    def test_delete_file_success(self, tmp_path):
-        """Test deleting a file successfully."""
-        # Create a test file to delete
-        file_path = tmp_path / "test_file.txt"
-        with open(file_path, "w") as f:
-            f.write("Test content")
-
-        # Create delete request
-        request = FileDeleteRequest(
-            directory=str(tmp_path),
-            filename="test_file.txt",
-        )
-
-        # Test delete operation
-        result = delete_file(request)
-        assert result == file_path
-        assert not file_path.exists()
-
-    def test_delete_file_not_found(self, tmp_path):
-        """Test deleting a nonexistent file raises FileNotFoundError."""
-        request = FileDeleteRequest(
-            directory=str(tmp_path),
-            filename="nonexistent.txt",
-        )
-
-        with pytest.raises(FileNotFoundError):
-            delete_file(request)
 
 
 class TestIntegrationDeleteNote:

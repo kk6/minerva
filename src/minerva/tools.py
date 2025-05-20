@@ -634,6 +634,9 @@ def delete_note(
         logger.info("Note deleted at %s", deleted_path)
         return deleted_path
 
+    except FileNotFoundError as e:
+        logger.error("File not found: %s", e)
+        raise
     except Exception as e:
         logger.error("Error deleting note: %s", e)
         raise
