@@ -64,8 +64,8 @@ Minervaプロジェクトでは、GitHub Actionsを使用して自動的にリ�
 自動リリースプロセスが何らかの理由で機能しない場合、以下の手順で手動リリースを行うことができます：
 
 1. 最新の `main` ブランチを取得: `git checkout main && git pull`
-2. 依存関係をインストール: `uv pip install python-semantic-release`
-3. バージョン更新を実行: `semantic-release version`
+2. 依存関係をインストール: `uv add --dev python-semantic-release`
+3. バージョン更新を実行: `uv run semantic-release version`
 4. 変更をプッシュ: `git push && git push --tags`
 
 ## バージョンの一貫性チェック

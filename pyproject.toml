@@ -32,4 +32,4 @@ ignore_missing_imports = true
 version_variable = ["src/minerva/__version__.py:__version__", "pyproject.toml:version"]
 branch = "main"
 commit_message = "chore(release): {version} [skip ci]"
-build_command = "python -m build"
+build_command = "uv build"

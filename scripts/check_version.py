@@ -49,7 +49,7 @@ def main():
         print(f"pyproject.toml: {pyproject_version}")
 
         if version_py_version != pyproject_version:
-            print("Error: Version numbers do not match")
+            print(f"Error: Version numbers do not match ({version_py_version} != {pyproject_version})")
             return 1
 
         print("OK: All version numbers match")
