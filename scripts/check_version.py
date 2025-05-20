@@ -9,7 +9,7 @@ This script checks if the version numbers are consistent in the following locati
 import os
 import re
 import sys
-import tomli
+import tomllib
 
 
 def get_version_from_version_py():
@@ -35,7 +35,7 @@ def get_version_from_pyproject():
         "pyproject.toml",
     )
     with open(pyproject_file, "rb") as f:
-        pyproject = tomli.load(f)
+        pyproject = tomllib.load(f)
     return pyproject["project"]["version"]
 
 
