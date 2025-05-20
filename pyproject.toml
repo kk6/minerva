@@ -1,6 +1,6 @@
 [project]
 name = "minerva"
-version = "0.1.0"
+version = "0.3.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -17,6 +17,8 @@ dev = [
     "pytest>=8.3.5",
     "pytest-cov>=6.1.1",
     "pytest-mock>=3.14.0",
+    "python-semantic-release>=9.21.1",
+    "tomli>=2.2.1",
 ]
 
 [project.scripts]
@@ -25,3 +27,9 @@ minerva = "minerva.__main__:main"
 [[tool.mypy.overrides]]
 module = ["frontmatter"]
 ignore_missing_imports = true
+
+[tool.semantic_release]
+version_variable = ["src/minerva/__version__.py:__version__", "pyproject.toml:version"]
+branch = "main"
+commit_message = "chore(release): {version} [skip ci]"
+build_command = "python -m build"
