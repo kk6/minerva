@@ -133,6 +133,13 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
     """
     matching_files = []
 
+    if config.case_sensitive:
+        # Compile the pattern only once for case-sensitive search
+        pattern = re.compile(re.escape(config.keyword))
+    else:
+        # Compile the pattern only once for case-insensitive search
+        pattern = re.compile(re.escape(config.keyword), re.IGNORECASE)
+
     try:
         # Recursively search the directory
         for root, _, files in os.walk(config.directory):
@@ -156,10 +163,6 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
                             if config.case_sensitive:
                                 found = config.keyword in line
                             else:
-                                # Compile the pattern only when needed
-                                pattern = re.compile(
-                                    re.escape(config.keyword), re.IGNORECASE
-                                )
                                 found = pattern.search(line) is not None
 
                             if found:
