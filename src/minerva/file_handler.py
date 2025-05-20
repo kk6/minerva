@@ -263,6 +263,10 @@ def delete_file(request: FileDeleteRequest) -> Path:
         raise FileNotFoundError(f"File {file_path} does not exist")
 
     # Delete the file
-    file_path.unlink()
-    logger.info("File %s deleted successfully", file_path)
+    try:
+        file_path.unlink()
+        logger.info("File %s deleted successfully", file_path)
+    except OSError as e:
+        logger.warning("Failed to delete file %s: %s", file_path, e)
+        raise
     return file_path
