@@ -53,6 +53,12 @@ class FileReadRequest(FileOperationRequest):
     """
 
 
+class FileDeleteRequest(FileOperationRequest):
+    """
+    Request model for deleting a file.
+    """
+
+
 class SearchConfig(BaseModel):
     """
     Configuration model for search operations.
@@ -127,9 +133,11 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
     """
     matching_files = []
 
-    # Create a regex pattern if case sensitivity is disabled
-    if not config.case_sensitive:
-        # Use re.escape to safely handle meta characters as regex
+    if config.case_sensitive:
+        # Compile the pattern only once for case-sensitive search
+        pattern = re.compile(re.escape(config.keyword))
+    else:
+        # Compile the pattern only once for case-insensitive search
         pattern = re.compile(re.escape(config.keyword), re.IGNORECASE)
 
     try:
@@ -167,7 +175,9 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
                                 break  # Stop after finding first match in this file
                 except (UnicodeDecodeError, PermissionError):
                     # Ignore read errors and continue
-                    sanitized_path = str(file_path).replace('\n', '_').replace('\r', '_')
+                    sanitized_path = (
+                        str(file_path).replace("\n", "_").replace("\r", "_")
+                    )
                     logger.warning("Could not read file %s. Skipping.", sanitized_path)
 
     except Exception as e:
@@ -192,6 +202,12 @@ def _get_validated_file_path(directory: str, filename: str) -> Path:
 def write_file(request: FileWriteRequest) -> Path:
     """
     Write the content to a file in the specified directory.
+    Args:
+        request (FileWriteRequest): Request object containing directory, filename, and content.
+    Returns:
+        file_path (Path): Path to the written file.
+    Raises:
+        FileExistsError: If the file already exists and overwrite is set to False.
     """
     file_path = _get_validated_file_path(request.directory, request.filename)
 
@@ -213,6 +229,12 @@ def write_file(request: FileWriteRequest) -> Path:
 def read_file(request: FileReadRequest) -> str:
     """
     Read the content from a file in the specified directory.
+    Args:
+        request (FileReadRequest): Request object containing directory and filename.
+    Returns:
+        content (str): Content of the file.
+    Raises:
+        FileNotFoundError: If the file does not exist.
     """
     file_path = _get_validated_file_path(request.directory, request.filename)
 
@@ -224,3 +246,36 @@ def read_file(request: FileReadRequest) -> str:
     with open(file_path, "r", encoding=ENCODING) as f:
         content = f.read()
     return content
+
+
+def delete_file(request: FileDeleteRequest) -> Path:
+    """
+    Delete a file in the specified directory.
+
+    Args:
+        request (FileDeleteRequest): Request object containing directory and filename.
+    Returns:
+        file_path (Path): Path to the deleted file.
+    Raises:
+        FileNotFoundError: If the file does not exist.
+    """
+    file_path = _get_validated_file_path(request.directory, request.filename)
+
+    # Check if the file exists
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {file_path} does not exist")
+
+    # Delete the file
+    try:
+        file_path.unlink()
+        logger.info("File %s deleted successfully", file_path)
+    except OSError as e:
+        logger.warning(
+            "Failed to delete file %s. Error type: %s. Error message: %s"
+            "This might be due to insufficient permissions, the file being in use, or other OS-level issues.",
+            file_path,
+            type(e).__name__,
+            e,
+        )
+        raise
+    return file_path

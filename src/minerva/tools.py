@@ -4,13 +4,15 @@ from datetime import datetime
 from pathlib import Path
 
 import frontmatter
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from minerva.file_handler import (
     FileWriteRequest,
     write_file,
     FileReadRequest,
     read_file,
+    FileDeleteRequest,
+    delete_file,
     SearchConfig,
     SearchResult,
     search_keyword_in_files,
@@ -72,6 +74,70 @@ class ReadNoteRequest(BaseModel):
     """
 
     filepath: str = Field(..., description="The full path of the file to read.")
+
+
+class DeleteConfirmationResult(BaseModel):
+    """
+    Result model for delete note confirmation.
+
+    This model contains the file path that would be deleted and a confirmation message.
+
+    Attributes:
+        file_path (str): The path to the file that would be deleted.
+        message (str): Confirmation message.
+    """
+
+    file_path: str = Field(
+        ..., description="The path to the file that would be deleted."
+    )
+    message: str = Field(..., description="Confirmation message.")
+
+
+class DeleteNoteRequest(BaseModel):
+    """
+    Request model for deleting a note.
+
+    This model contains either the filename or the full filepath of the note to delete.
+
+    Attributes:
+        filename (str, optional): The name of the file to delete. If it doesn't have a .md extension, it will be added.
+        filepath (str, optional): The full path of the file to delete. If provided, filename is ignored.
+        default_path (str): The default directory to look for the file. Default is the value of DEFAULT_NOTE_DIR.
+        confirm (bool): Whether to confirm the deletion. If False, only returns what would be deleted without actually deleting.
+    """
+
+    filename: str | None = Field(None, description="The name of the file to delete.")
+    filepath: str | None = Field(
+        None, description="The full path of the file to delete."
+    )
+    default_path: str = Field(
+        DEFAULT_NOTE_DIR, description="The default path to look for the file."
+    )
+    confirm: bool = Field(
+        False,
+        description="Whether to confirm the deletion. If False, only returns what would be deleted without actually deleting.",
+    )
+
+    @field_validator("filename")
+    def format_filename(cls, v):
+        """
+        Format the filename to ensure it has a .md extension if not None.
+        """
+        if v is not None:
+            if not v:
+                raise ValueError("Filename cannot be empty")
+            if ".md" not in v:
+                v = f"{v}.md"
+        return v
+
+    @model_validator(mode="after")
+    def validate_input(cls, model):
+        """
+        Validate that at least one of filename or filepath is provided.
+        """
+        if model.filename is None and model.filepath is None:
+            raise ValueError("Either filename or filepath must be provided")
+        return model
 
 
 class SearchNoteRequest(BaseModel):
@@ -498,6 +564,83 @@ def read_note(filepath: str) -> str:
     return content
 
 
+def delete_note(
+    filename: str | None = None,
+    filepath: str | None = None,
+    default_path: str = DEFAULT_NOTE_DIR,
+    confirm: bool = False,
+) -> Path | DeleteConfirmationResult:
+    """
+    Delete a note from the Obsidian vault.
+
+    Args:
+        filename (str, optional): The name of the file to delete. If it doesn't have a .md extension, it will be added.
+        filepath (str, optional): The full path of the file to delete. If provided, filename is ignored.
+        default_path (str): The default directory to look for the file. Default is the value of DEFAULT_NOTE_DIR.
+        confirm (bool): Whether to confirm the deletion. Default is False, which means only return what would be deleted.
+
+    Returns:
+        Path | DeleteConfirmationResult:
+            - Path: The path to the deleted file if confirm is True.
+            - DeleteConfirmationResult: Object with file path and confirmation message if confirm is False.
+
+    Raises:
+        ValueError: If neither filename nor filepath is provided.
+        FileNotFoundError: If the file doesn't exist.
+    """
+    # Validate input parameters using the request model
+    request = DeleteNoteRequest(
+        filename=filename,
+        filepath=filepath,
+        default_path=default_path,
+        confirm=confirm,
+    )
+
+    try:
+        # Handle case when filepath is directly provided
+        if request.filepath:
+            file_path = Path(request.filepath)
+        # Handle case when filename is provided
+        else:
+            # filename is guaranteed to be not None here due to model validation
+            assert request.filename is not None
+            # Build file path
+            full_dir_path, base_filename = _build_file_path(
+                request.filename, request.default_path
+            )
+            file_path = full_dir_path / base_filename
+
+        # Check if file exists
+        if not file_path.exists():
+            raise FileNotFoundError(f"File {file_path} does not exist")
+
+        # If confirm is False, only return what would be deleted
+        if not request.confirm:
+            message = f"このファイルを削除しますか？: {file_path}\n削除するには confirm=True を指定してください。"
+            return DeleteConfirmationResult(
+                file_path=str(file_path),
+                message=message,
+            )
+
+        # Proceed with deletion
+        file_delete_request = FileDeleteRequest(
+            directory=str(file_path.parent),
+            filename=file_path.name,
+        )
+
+        # Delete the file
+        deleted_path = delete_file(file_delete_request)
+        logger.info("Note deleted at %s", deleted_path)
+        return deleted_path
+
+    except FileNotFoundError as e:
+        logger.error("File not found: %s", e)
+        raise
+    except Exception as e:
+        logger.error("Error deleting note: %s", e)
+        raise
+
+
 def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     """
     Search for a keyword in all files in the Obsidian vault.
@@ -520,8 +663,17 @@ def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
         )
         matching_files = search_keyword_in_files(search_config)
         logger.info("Found %s files matching the query: %s", len(matching_files), query)
+    except PermissionError as e:
+        logger.error("Permission denied during search: %s", e)
+        raise PermissionError(f"Permission denied when searching files: {e}") from e
+    except IOError as e:
+        logger.error("File I/O error during search: %s", e)
+        raise IOError(f"Failed to search files in vault: {e}") from e
+    except ValueError as e:
+        logger.error("Invalid value in search operation: %s", e)
+        raise ValueError(f"Invalid search parameters: {e}") from e
     except Exception as e:
-        logger.error("Error searching files: %s", e)
-        raise
+        logger.error("Unexpected error searching files: %s", e)
+        raise RuntimeError(f"Unexpected error occurred during search: {e}") from e
 
     return matching_files
