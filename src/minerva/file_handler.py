@@ -272,7 +272,7 @@ def delete_file(request: FileDeleteRequest) -> Path:
     except OSError as e:
         logger.warning(
             "Failed to delete file %s. Error type: %s. Error message: %s"
-            "This might be due to insufficient permittions, the file being in use, or other OS-level issues.",
+            "This might be due to insufficient permissions, the file being in use, or other OS-level issues.",
             file_path, type(e).__name__, e
         )
         raise
