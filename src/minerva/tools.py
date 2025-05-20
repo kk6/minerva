@@ -599,8 +599,7 @@ def delete_note(
     try:
         # Handle case when filepath is directly provided
         if request.filepath:
-            directory, file_name = os.path.split(request.filepath)
-            file_path = Path(directory) / file_name
+            file_path = Path(request.filepath)
         # Handle case when filename is provided
         else:
             # filename is guaranteed to be not None here due to model validation
