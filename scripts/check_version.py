@@ -10,15 +10,13 @@ import os
 import re
 import sys
 import tomllib
+from pathlib import Path
 
 
 def get_version_from_version_py():
     """Get version number from __version__.py"""
-    version_file = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "src",
-        "minerva",
-        "__version__.py",
+    version_file = (
+        Path(__file__).resolve().parent.parent / "src" / "minerva" / "__version__.py"
     )
     with open(version_file, "r") as f:
         content = f.read()
@@ -49,7 +47,9 @@ def main():
         print(f"pyproject.toml: {pyproject_version}")
 
         if version_py_version != pyproject_version:
-            print(f"Error: Version numbers do not match ({version_py_version} != {pyproject_version})")
+            print(
+                f"Error: Version numbers do not match ({version_py_version} != {pyproject_version})"
+            )
             return 1
 
         print("OK: All version numbers match")
