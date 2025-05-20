@@ -18,6 +18,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from mcp.server.fastmcp import FastMCP
 
+from minerva.__version__ import __version__
+
 from minerva.tools import (
     read_note,
     search_notes,
@@ -30,7 +32,7 @@ from minerva.tools import (
 logger = logging.getLogger(__name__)
 
 # Create an MCP server
-mcp = FastMCP("minerva", "0.2.0")
+mcp = FastMCP("minerva", __version__)
 
 mcp.add_tool(read_note)
 mcp.add_tool(search_notes)
