@@ -273,7 +273,9 @@ def delete_file(request: FileDeleteRequest) -> Path:
         logger.warning(
             "Failed to delete file %s. Error type: %s. Error message: %s"
             "This might be due to insufficient permissions, the file being in use, or other OS-level issues.",
-            file_path, type(e).__name__, e
+            file_path,
+            type(e).__name__,
+            e,
         )
         raise
     return file_path
