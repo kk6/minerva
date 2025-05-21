@@ -1,3 +1,7 @@
+---
+applyTo: '**'
+---
+
 # Minerva Project Reference
 
 ## Project Overview

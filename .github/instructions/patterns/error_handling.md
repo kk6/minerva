@@ -1,3 +1,7 @@
+---
+applyTo: 'src/**/*.py'
+---
+
 # Error Handling Patterns for Minerva
 
 ## Basic Principles

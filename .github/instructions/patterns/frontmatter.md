@@ -1,3 +1,7 @@
+---
+applyTo: 'src/**/*.py'
+---
+
 # Frontmatter Processing Patterns for Minerva
 
 ## Basic Concepts

@@ -1,3 +1,7 @@
+---
+applyTo: 'tests/**/*.py'
+---
+
 # Testing Patterns for Minerva
 
 ## Arrange-Act-Assert (AAA) Pattern

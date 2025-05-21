@@ -1,3 +1,7 @@
+---
+applyTo: 'src/**/*.py'
+---
+
 # Logging Patterns for Minerva
 
 Please use the following patterns for logging in the Minerva project.

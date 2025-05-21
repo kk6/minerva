@@ -1,3 +1,7 @@
+---
+applyTo: '**'
+---
+
 # Commit Message Guidelines for Minerva
 
 The Minerva project follows the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for commit messages. Detailed rules are described in `docs/github_workflow.md`.
