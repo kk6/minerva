@@ -1,7 +1,7 @@
 from minerva.server import mcp
 
 
-def main():
+def main() -> None:
     mcp.run(transport="stdio")
 
 

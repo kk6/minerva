@@ -21,7 +21,7 @@ class FileOperationRequest(BaseModel):
     filename: str = Field(description="Name of the file")
 
     @field_validator("filename")
-    def validate_filename(cls, v):
+    def validate_filename(cls, v: str) -> str:
         """
         Validate the filename.
         """
@@ -75,7 +75,7 @@ class SearchConfig(BaseModel):
     )
 
     @field_validator("directory")
-    def directory_must_exist(cls, v):
+    def directory_must_exist(cls, v: str) -> str:
         """
         Validate that the directory exists.
         """
@@ -85,7 +85,7 @@ class SearchConfig(BaseModel):
         return v
 
     @field_validator("file_extensions")
-    def format_extensions(cls, v):
+    def format_extensions(cls, v: list[str]) -> list[str]:
         """
         Format the file extensions to include the dot.
         """
