@@ -130,6 +130,7 @@ def get_tags_request_factory(mock_vault_path: Path):
     Returns:
         A factory function that creates GetTagsRequest objects
     """
+
     def _make_request(filename: str, subdir: str = ""):
         """
         Create a GetTagsRequest object for a specified file
@@ -161,6 +162,7 @@ def add_tag_request_factory(mock_vault_path: Path):
     Returns:
         A factory function that creates AddTagRequest objects
     """
+
     def _make_request(filename: str, tag: str, subdir: str = ""):
         """
         Create an AddTagRequest object for a specified file and tag
@@ -193,6 +195,7 @@ def remove_tag_request_factory(mock_vault_path: Path):
     Returns:
         A factory function that creates RemoveTagRequest objects
     """
+
     def _make_request(filename: str, tag: str, subdir: str = ""):
         """
         Create a RemoveTagRequest object for a specified file and tag
@@ -230,7 +233,9 @@ def test_validate_tag():
     assert _validate_tag("validtag")
     assert _validate_tag("valid-tag")
     assert _validate_tag("valid_tag")
-    assert _validate_tag("tag with space")  # Spaces are allowed by _validate_tag, normalization handles them for storage
+    assert _validate_tag(
+        "tag with space"
+    )  # Spaces are allowed by _validate_tag, normalization handles them for storage
     assert not _validate_tag("")  # Empty string is invalid
     assert not _validate_tag("tag,with,comma")
     assert not _validate_tag("tag<invalid>")

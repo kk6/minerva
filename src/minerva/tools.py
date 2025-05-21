@@ -1802,7 +1802,9 @@ def list_all_tags(request: ListAllTagsRequest) -> list[str]:
             files_processed_count += 1
             # Create GetTagsRequest for each file
             # No need for default_path here as we're providing a full filepath
-            get_tags_request = GetTagsRequest(filename=None, filepath=str(file_path), default_path=DEFAULT_NOTE_DIR)
+            get_tags_request = GetTagsRequest(
+                filename=None, filepath=str(file_path), default_path=DEFAULT_NOTE_DIR
+            )
 
             # get_tags is fault-tolerant for individual file issues
             tags_in_file = get_tags(get_tags_request)
@@ -1909,7 +1911,9 @@ def find_notes_with_tag(request: FindNotesWithTagRequest) -> list[str]:
     try:
         for file_path in effective_directory_path.rglob("*.md"):
             files_processed_count += 1
-            get_tags_request = GetTagsRequest(filename=None, filepath=str(file_path), default_path=DEFAULT_NOTE_DIR)
+            get_tags_request = GetTagsRequest(
+                filename=None, filepath=str(file_path), default_path=DEFAULT_NOTE_DIR
+            )
 
             # get_tags is fault-tolerant
             tags_in_file = get_tags(get_tags_request)
