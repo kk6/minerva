@@ -257,7 +257,7 @@ class TestIntegrationTests:
             text=test_content,
             filename=filename,
             author="Create Test",
-            default_path="",  # Set to empty string to avoid subdirectory creationして、デフォルトのサブディレクトリを使用しない
+            default_path="",  # Set to empty string to avoid subdirectory creation
         )
 
         # Verify file was created at the expected path

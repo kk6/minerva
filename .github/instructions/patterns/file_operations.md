@@ -99,10 +99,17 @@ def _build_file_path(filename: str, default_path: str = DEFAULT_NOTE_DIR) -> tup
     Returns:
         tuple: (directory_path, base_filename)
     """
+    # Check if filename is empty before processing
+    if not filename:
+        raise ValueError("Filename cannot be empty")
+
     # Parse path components
     path_parts = Path(filename)
     subdirs = path_parts.parent
     base_filename = path_parts.name
+
+    if not base_filename:
+        raise ValueError("Filename cannot be empty")
 
     # Create final directory path
     full_dir_path = VAULT_PATH
@@ -167,8 +174,21 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
                     sanitized_path = str(file_path).replace('\n', '_').replace('\r', '_')
                     logger.warning("Could not read file %s. Skipping.", sanitized_path)
 
-    except Exception as e:
-        logger.error("Error during search: %s", e)
+    except OSError as e:
+        logger.error(
+            "OS error during search for keyword '%s' in directory '%s': %s",
+            config.keyword,
+            config.directory,
+            e,
+        )
+        raise
+    except Exception as e:  # Keep for truly unexpected
+        logger.error(
+            "Unexpected error during search for keyword '%s' in directory '%s': %s",
+            config.keyword,
+            config.directory,
+            e,
+        )
         raise
 
     return matching_files

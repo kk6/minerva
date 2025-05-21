@@ -154,49 +154,70 @@ file_path = write_note(
 print(f"frontmatter付きノートが保存されました: {file_path}")
 ```
 
-### 2.4 ノートの削除 (delete_note)
+### 2.4 ノートの削除 (2段階プロセス)
 
-#### 機能概要
-Obsidian vault内の既存のファイルを削除します。削除前に確認オプションを提供し、誤削除を防止できます。
+Minervaでは、ノートの削除は誤った削除を防ぐために2段階のプロセスで行われます：
 
-#### パラメータ
+1. `get_note_delete_confirmation`: 削除対象のファイルを確認
+2. `perform_note_delete`: 実際にファイルを削除
+
+#### 2.4.1 ノートの削除確認 (get_note_delete_confirmation)
+
+##### 機能概要
+Obsidian vault内の削除対象となるファイルが存在するかを確認し、削除確認情報を返します。
+
+##### パラメータ
 - `filename`: 削除するファイル名（`.md`拡張子は自動的に追加されます）（オプション）
 - `filepath`: 削除するファイルの完全なパス（指定された場合、filenameは無視されます）（オプション）
 - `default_path`: サブディレクトリが指定されていない場合に使用するデフォルトディレクトリ（デフォルト: 環境設定のDEFAULT_NOTE_DIR値）
-- `confirm`: 削除を確認するかどうかのフラグ（デフォルト: False）
-  - `False`の場合: 実際に削除は行わず、削除対象のファイルパスと確認メッセージを返します
-  - `True`の場合: 実際にファイルを削除します
 
-#### 戻り値
-- `confirm=True`の場合: 削除されたファイルのパス（Path型）
-- `confirm=False`の場合: 削除確認情報（DeleteConfirmationResult型）
+##### 戻り値
+- 削除確認情報（DeleteConfirmationResult型）
   - `file_path`: 削除対象のファイルパス
   - `message`: 確認メッセージ
 
-#### 例外
+##### 例外
+- `ValueError`: filenameとfilepathの両方が指定されていない場合
+- `FileNotFoundError`: 削除対象のファイルが存在しない場合
+
+#### 2.4.2 ノートの削除実行 (perform_note_delete)
+
+##### 機能概要
+Obsidian vault内の既存のファイルを実際に削除します。
+
+##### パラメータ
+- `filename`: 削除するファイル名（`.md`拡張子は自動的に追加されます）（オプション）
+- `filepath`: 削除するファイルの完全なパス（指定された場合、filenameは無視されます）（オプション）
+- `default_path`: サブディレクトリが指定されていない場合に使用するデフォルトディレクトリ（デフォルト: 環境設定のDEFAULT_NOTE_DIR値）
+
+##### 戻り値
+- 削除されたファイルのパス（Path型）
+
+##### 例外
 - `ValueError`: filenameとfilepathの両方が指定されていない場合
 - `FileNotFoundError`: 削除対象のファイルが存在しない場合
 
 #### 使用例
 ```python
-from minerva.tools import delete_note
+from minerva.tools import get_note_delete_confirmation, perform_note_delete
 
-# 確認ステップありの削除
-# Step 1: 削除前の確認（デフォルトはconfirm=False）
-confirmation = delete_note(filename="note_to_delete")
-print(confirmation.message)  # "このファイルを削除しますか？: /path/to/note_to_delete.md"
+# 削除前の確認
+confirmation = get_note_delete_confirmation(filename="note_to_delete")
+print(confirmation.message)  # "File found at /path/to/note_to_delete.md. To delete, call 'perform_note_delete' with the same identification parameters."
 
-# Step 2: 確認後、実際に削除
-deleted_path = delete_note(filename="note_to_delete", confirm=True)
+# 確認後、実際に削除
+deleted_path = perform_note_delete(filename="note_to_delete")
 print(f"ファイルが削除されました: {deleted_path}")
 
-# 直接削除（確認なし）
-deleted_path = delete_note(
-    filepath="/path/to/another_note.md",
-    confirm=True
-)
+# パスを直接指定して削除（確認 → 削除の2段階）
+confirmation = get_note_delete_confirmation(filepath="/path/to/another_note.md")
+print(confirmation.message)
+
+deleted_path = perform_note_delete(filepath="/path/to/another_note.md")
 print(f"ファイルが削除されました: {deleted_path}")
 ```
+
+> **注意**: 以前は単一の `delete_note` 関数で確認と削除を1つの関数で行っていましたが、より明示的な2段階プロセスに変更されました。この変更により、誤ってファイルを削除するリスクが低減されます。
 
 ### 2.5 ノートの読み取り (read_note)
 
@@ -326,9 +347,14 @@ print(f"更新日: {note.metadata['updated']}")  # 新しい更新日が表示�
 
 ファイル名に関する制約：
 
-- 空のファイル名は許可されません
+- 空のファイル名は許可されません（各ステップで厳密なチェックが行われます）
 - ファイル名に禁止文字（`<>:"/\|?*`）を含めることはできません
 - 絶対パスをファイル名として使用することはできません
+
+バリデーションは複数のレベルで行われます：
+1. リクエストモデルのバリデーション（Pydanticによる入力検証）
+2. `_build_file_path`関数内での追加検証
+3. 下位層のファイル操作関数での検証
 
 ## 4. エラー処理
 

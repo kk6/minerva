@@ -183,6 +183,74 @@ pytest tests/test_file_handler.py::TestFileHandler::test_write_file_success
 
 継続的インテグレーションパイプラインでは、すべてのプルリクエストに対して自動的にテストが実行されます。テストが失敗した場合、プルリクエストはマージできません。
 
-## 7. まとめ
+## 7. 新しいテスト
+
+### 7.1 サーバーテスト (`test_server.py`)
+
+サーバーモジュールのテストが追加され、MCP (Model Context Protocol) サーバーが適切に設定され、すべてのツールが正しく登録されていることを検証します。
+
+```python
+def test_server_initialization():
+    """Test that the MCP server initializes correctly."""
+    # ツールが登録されていることを確認
+    assert hasattr(mcp, "tools")
+    assert len(mcp.tools) > 0
+    
+    # 必要なツールがすべて登録されていることを確認
+    tool_functions = [t.function for t in mcp.tools]
+    assert read_note in tool_functions
+    assert search_notes in tool_functions
+    assert create_note in tool_functions
+    assert edit_note in tool_functions
+    assert get_note_delete_confirmation in tool_functions
+    assert perform_note_delete in tool_functions
+```
+
+### 7.2 プライベート関数テスト (`test_private_functions.py`)
+
+内部ヘルパー関数のテストが追加され、これらの関数が期待通りに動作することを検証します。これは特に、コードの広範な改善と整理に関連して重要です。
+
+```python
+def test_read_existing_frontmatter_with_datetime():
+    """Test that datetime values in frontmatter are converted to ISO format strings."""
+    # テスト用の日付を含むfrontmatterファイルを作成
+    mock_date = datetime(2025, 5, 1, 12, 30, 45)
+    post = frontmatter.Post("Test content")
+    post.metadata["created"] = mock_date
+    
+    # 一時ファイルに書き込み
+    temp_file = tmp_path / "date_test.md"
+    with open(temp_file, "w") as f:
+        f.write(frontmatter.dumps(post))
+        
+    # 関数を実行
+    metadata = _read_existing_frontmatter(temp_file)
+    
+    # datetimeがISO文字列に変換されたことを確認
+    assert isinstance(metadata["created"], str)
+    assert metadata["created"] == mock_date.isoformat()
+```
+
+### 7.3 エラー処理テスト
+
+エラー処理機能の改善に伴い、対応するテストも強化されました。特に、ファイル名のバリデーションと適切なエラーメッセージに焦点を当てています。
+
+```python
+def test_empty_filename_validation():
+    """Test that empty filenames are properly rejected."""
+    # 空のファイル名でリクエストを作成
+    with pytest.raises(ValueError, match="Filename cannot be empty"):
+        WriteNoteRequest(text="Content", filename="")
+        
+    # 空のパス部分を持つファイル名でも検証
+    with pytest.raises(ValueError, match="Filename cannot be empty"):
+        full_dir_path, base_filename = _build_file_path("path/to/")
+```
+
+### 7.4 メインメソッドテスト (`test_main.py`)
+
+アプリケーションのエントリーポイントとしての`__main__.py`の機能をテストします。このテストは、コマンドラインからアプリケーションが正しく起動されることを検証します。
+
+## 8. まとめ
 
 テストは製品コードと同様に重要なアセットです。テストコードも読みやすく、メンテナンスしやすく、そして何よりも信頼性の高いものにしましょう。Arrange-Act-Assertパターンを一貫して適用することで、テストの意図と構造が明確になり、長期的なメンテナンス性が向上します。

@@ -107,3 +107,58 @@ class TestCreateNote:
         assert "created" in post.metadata
         # Verify the created date is in ISO format
         assert "T" in str(post.metadata["created"])  # ISO format contains 'T'
+
+    def test_create_note_io_error(self, mock_write_setup):
+        """Test handling of IOError during note creation."""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        mock_write_file.side_effect = IOError("I/O Error")
+
+        with pytest.raises(IOError, match="I/O Error"):
+            tools.create_note(
+                text="This should fail with IOError",
+                filename="io_error_note",
+                default_path="",
+            )
+
+        mock_write_file.assert_called_once()
+
+    def test_create_note_os_error(self, mock_write_setup):
+        """Test handling of OSError during note creation."""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        mock_write_file.side_effect = OSError("OS Error")
+
+        with pytest.raises(OSError, match="OS Error"):
+            tools.create_note(
+                text="This should fail with OSError",
+                filename="os_error_note",
+                default_path="",
+            )
+
+        mock_write_file.assert_called_once()
+
+    def test_create_note_value_error(self, mock_write_setup):
+        """Test handling of ValueError during note creation."""
+        # Simulate _build_file_path or Pydantic validation errors
+        with mock.patch("minerva.tools._assemble_complete_note") as mock_assemble:
+            mock_assemble.side_effect = ValueError("Invalid input")
+
+            with pytest.raises(ValueError, match="Invalid input"):
+                tools.create_note(
+                    text="This should fail with ValueError",
+                    filename="invalid_note",
+                    default_path="",
+                )
+
+    def test_create_note_unexpected_error(self, mock_write_setup):
+        """Test handling of unexpected errors during note creation."""
+        mock_write_file = mock_write_setup["mock_write_file"]
+        mock_write_file.side_effect = Exception("Unexpected error")
+
+        with pytest.raises(Exception, match="Unexpected error"):
+            tools.create_note(
+                text="This should fail with unexpected error",
+                filename="error_note",
+                default_path="",
+            )
+
+        mock_write_file.assert_called_once()

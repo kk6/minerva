@@ -44,6 +44,51 @@ class TestReadNote:
         assert called_request.directory == directory
         assert called_request.filename == filename
 
+    def test_read_note_file_not_found(self, mock_read_setup, read_note_request):
+        """Test reading a note when the file doesn't exist.
+
+        Expects:
+            - When read_file raises FileNotFoundError, it's propagated to the caller
+            - The error is properly logged
+        """
+        mock_read_file = mock_read_setup["mock_read_file"]
+        mock_read_file.side_effect = FileNotFoundError("File not found")
+
+        with pytest.raises(FileNotFoundError, match="File not found"):
+            tools.read_note(read_note_request.filepath)
+
+        mock_read_file.assert_called_once()
+
+    def test_read_note_file_system_error(self, mock_read_setup, read_note_request):
+        """Test reading a note when a file system error occurs.
+
+        Expects:
+            - When read_file raises IOError, it's propagated to the caller
+            - The error is properly logged
+        """
+        mock_read_file = mock_read_setup["mock_read_file"]
+        mock_read_file.side_effect = IOError("Permission denied")
+
+        with pytest.raises(IOError, match="Permission denied"):
+            tools.read_note(read_note_request.filepath)
+
+        mock_read_file.assert_called_once()
+
+    def test_read_note_os_error(self, mock_read_setup, read_note_request):
+        """Test reading a note when an OS error occurs.
+
+        Expects:
+            - When read_file raises OSError, it's propagated to the caller
+            - The error is properly logged
+        """
+        mock_read_file = mock_read_setup["mock_read_file"]
+        mock_read_file.side_effect = OSError("File system error")
+
+        with pytest.raises(OSError, match="File system error"):
+            tools.read_note(read_note_request.filepath)
+
+        mock_read_file.assert_called_once()
+
     def test_read_note_raises_exception(self, mock_read_setup, read_note_request):
         """Test reading a note raises an exception.
 

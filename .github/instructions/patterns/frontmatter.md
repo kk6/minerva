@@ -87,7 +87,12 @@ def _read_existing_frontmatter(file_path: Path) -> dict | None:
             content = f.read()
             if content.startswith("---\n"):  # If frontmatter exists
                 post = frontmatter.loads(content)
-                return post.metadata
+                metadata = dict(post.metadata)
+                # 日付型の値が文字列として一貫して処理されるようにする
+                for key, value in metadata.items():
+                    if isinstance(value, datetime):
+                        metadata[key] = value.isoformat()
+                return metadata
             # No frontmatter found in file
             return {}
     except PermissionError as e:
@@ -96,6 +101,11 @@ def _read_existing_frontmatter(file_path: Path) -> dict | None:
     except UnicodeDecodeError as e:
         logger.warning(
             "File %s cannot be decoded as text (possibly binary): %s", file_path, e
+        )
+        return None
+    except (IOError, OSError) as e:
+        logger.warning(
+            "I/O or OS error reading existing file %s for metadata: %s", file_path, e
         )
         return None
     except Exception as e:

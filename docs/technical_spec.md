@@ -34,6 +34,12 @@ Minervaは階層化されたアーキテクチャを採用しています：
 
 - すべての例外は適切にログに記録され、上位レイヤーに伝播されます
 - ファイル操作関連のエラーは詳細な情報とともに捕捉されます
+- エラータイプに基づいて異なるログレベルとメッセージが使用されます：
+  - `PermissionError`: アクセス権限の問題を明確に識別
+  - `IOError/OSError`: ファイルシステム操作に関連するエラー
+  - `UnicodeDecodeError`: テキストとして読み取れないファイル（バイナリなど）
+  - その他の例外：予期しないエラー
+- 実行環境やデバッグに役立つコンテキスト情報（ファイルパスやパラメータ）がログに含まれます
 - ユーザーに意味のあるエラーメッセージが提供されます
 
 ## 3. モジュール詳細
@@ -106,6 +112,62 @@ def read_file(request: FileReadRequest) -> str:
 2. ディレクトリの存在確認・作成
 3. ファイル操作（読み取り/書き込み）の実行
 4. 結果の返却
+
+### 3.3 サーバーモジュール (server.py)
+
+Model Context Protocol (MCP) サーバーインターフェースを提供します。以下のツールがサーバーに登録されています：
+
+#### 3.3.1 サーバー設定
+
+```python
+# Create an MCP server
+mcp = FastMCP("minerva", __version__)
+
+# Register tools
+mcp.add_tool(read_note)
+mcp.add_tool(search_notes)
+mcp.add_tool(create_note)
+mcp.add_tool(edit_note)
+mcp.add_tool(get_note_delete_confirmation)
+mcp.add_tool(perform_note_delete)
+```
+
+#### 3.3.2 提供されるAPI
+
+- `read_note`: ノートの読み取り
+- `create_note`: 新規ノートの作成
+- `edit_note`: 既存ノートの編集
+- `search_notes`: ノートの検索
+- `get_note_delete_confirmation`: ノート削除の確認 (1段階目)
+- `perform_note_delete`: ノート削除の実行 (2段階目)
+
+セキュリティ上の配慮として、ノート削除機能は2段階のプロセスに分割されており、ユーザーは最初に削除対象のファイルを確認した後、明示的に削除を実行する必要があります。これにより、誤った削除操作のリスクを低減しています。
+
+### 3.4 メタデータ処理の改善
+
+#### 3.4.1 日付型処理の一貫性
+
+frontmatterのメタデータ内の日付型は、一貫して処理されるように改善されました：
+
+```python
+def _read_existing_frontmatter(file_path: Path) -> dict | None:
+    # ...existing code...
+    if content.startswith("---\n"):  # If frontmatter exists
+        post = frontmatter.loads(content)
+        metadata = dict(post.metadata)
+        # 日付型の値が文字列として一貫して処理されるようにする
+        for key, value in metadata.items():
+            if isinstance(value, datetime):
+                metadata[key] = value.isoformat()
+        return metadata
+    # ...existing code...
+```
+
+この改善により、以下のメリットが得られます：
+
+1. メタデータの一貫性: すべての日付値がISO形式の文字列として扱われます
+2. シリアライズの簡素化: JSONなどへの変換時に日付型の特別な処理が不要になります
+3. 比較操作の信頼性向上: 日付型と文字列型の混在による比較問題を回避できます
 
 ## 4. ファイル検索実装
 
