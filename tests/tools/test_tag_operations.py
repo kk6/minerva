@@ -4,7 +4,6 @@ import frontmatter
 from pathlib import Path
 from unittest import mock
 
-# Import functions and models from minerva.tools
 from minerva.tools import (
     add_tag,
     AddTagRequest,
@@ -19,13 +18,11 @@ from minerva.tools import (
     rename_tag,
     RenameTagRequest,
     _normalize_tag,
-    _validate_tag,  # For direct testing if needed, or for reference
+    _validate_tag,
 )
-from minerva.config import (
-    DEFAULT_NOTE_DIR,
-)  # For creating notes in default dir within mock_vault
+from minerva.config import DEFAULT_NOTE_DIR
 
-# --- Test Data ---
+# Test Data
 NOTE1_CONTENT = """---
 author: Test Author
 created: 2023-01-01T12:00:00
@@ -121,27 +118,9 @@ def mock_vault_path(tmp_path_factory):
 
 @pytest.fixture
 def get_tags_request_factory(mock_vault_path: Path):
-    """
-    Factory fixture for creating GetTagsRequest objects.
-
-    Args:
-        mock_vault_path: The pytest fixture for the mock vault path
-
-    Returns:
-        A factory function that creates GetTagsRequest objects
-    """
+    """GetTagsRequest オブジェクトを作成するファクトリフィクスチャ"""
 
     def _make_request(filename: str, subdir: str = ""):
-        """
-        Create a GetTagsRequest object for a specified file
-
-        Args:
-            filename: The name of the file (with extension)
-            subdir: Optional subdirectory within DEFAULT_NOTE_DIR
-
-        Returns:
-            GetTagsRequest: Properly configured request object
-        """
         path = mock_vault_path / DEFAULT_NOTE_DIR
         if subdir:
             path = path / subdir
@@ -153,28 +132,9 @@ def get_tags_request_factory(mock_vault_path: Path):
 
 @pytest.fixture
 def add_tag_request_factory(mock_vault_path: Path):
-    """
-    Factory fixture for creating AddTagRequest objects.
-
-    Args:
-        mock_vault_path: The pytest fixture for the mock vault path
-
-    Returns:
-        A factory function that creates AddTagRequest objects
-    """
+    """AddTagRequest オブジェクトを作成するファクトリフィクスチャ"""
 
     def _make_request(filename: str, tag: str, subdir: str = ""):
-        """
-        Create an AddTagRequest object for a specified file and tag
-
-        Args:
-            filename: The name of the file (with extension)
-            tag: The tag to add
-            subdir: Optional subdirectory within DEFAULT_NOTE_DIR
-
-        Returns:
-            AddTagRequest: Properly configured request object
-        """
         path = mock_vault_path / DEFAULT_NOTE_DIR
         if subdir:
             path = path / subdir
@@ -186,28 +146,9 @@ def add_tag_request_factory(mock_vault_path: Path):
 
 @pytest.fixture
 def remove_tag_request_factory(mock_vault_path: Path):
-    """
-    Factory fixture for creating RemoveTagRequest objects.
-
-    Args:
-        mock_vault_path: The pytest fixture for the mock vault path
-
-    Returns:
-        A factory function that creates RemoveTagRequest objects
-    """
+    """RemoveTagRequest オブジェクトを作成するファクトリフィクスチャ"""
 
     def _make_request(filename: str, tag: str, subdir: str = ""):
-        """
-        Create a RemoveTagRequest object for a specified file and tag
-
-        Args:
-            filename: The name of the file (with extension)
-            tag: The tag to remove
-            subdir: Optional subdirectory within DEFAULT_NOTE_DIR
-
-        Returns:
-            RemoveTagRequest: Properly configured request object
-        """
         path = mock_vault_path / DEFAULT_NOTE_DIR
         if subdir:
             path = path / subdir
