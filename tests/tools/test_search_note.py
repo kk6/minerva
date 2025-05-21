@@ -66,6 +66,104 @@ class TestSearchNotes:
                 case_sensitive=search_note_request.case_sensitive,
             )
 
+    def test_search_notes_permission_error(
+        self, mock_search_setup, search_note_request
+    ):
+        """Test Permission Error handling in search_notes.
+
+        Expects:
+            - When a PermissionError occurs, it is properly propagated
+            - The error is logged appropriately
+        """
+        mock_search = mock_search_setup["mock_search"]
+        mock_search.side_effect = PermissionError("Permission denied")
+
+        with pytest.raises(PermissionError, match="Permission denied"):
+            tools.search_notes(
+                query=search_note_request.query,
+                case_sensitive=search_note_request.case_sensitive,
+            )
+
+        mock_search.assert_called_once()
+
+    def test_search_notes_io_error(self, mock_search_setup, search_note_request):
+        """Test IO Error handling in search_notes.
+
+        Expects:
+            - When an IOError occurs, it is properly propagated
+            - The error is logged appropriately
+        """
+        mock_search = mock_search_setup["mock_search"]
+        mock_search.side_effect = IOError("IO Error occurred")
+
+        with pytest.raises(IOError, match="IO Error occurred"):
+            tools.search_notes(
+                query=search_note_request.query,
+                case_sensitive=search_note_request.case_sensitive,
+            )
+
+        mock_search.assert_called_once()
+
+    def test_search_notes_os_error(self, mock_search_setup, search_note_request):
+        """Test OS Error handling in search_notes.
+
+        Expects:
+            - When an OSError occurs, it is properly propagated
+            - The error is logged appropriately
+        """
+        mock_search = mock_search_setup["mock_search"]
+        mock_search.side_effect = OSError("OS Error occurred")
+
+        with pytest.raises(OSError, match="OS Error occurred"):
+            tools.search_notes(
+                query=search_note_request.query,
+                case_sensitive=search_note_request.case_sensitive,
+            )
+
+        mock_search.assert_called_once()
+
+    def test_search_notes_value_error(self, mock_search_setup, search_note_request):
+        """Test ValueError handling in search_notes.
+
+        Expects:
+            - When a ValueError occurs, it is properly propagated
+            - The error is logged appropriately
+        """
+        mock_search = mock_search_setup["mock_search"]
+        mock_search.side_effect = ValueError("Invalid search parameters")
+
+        with pytest.raises(ValueError, match="Invalid search parameters"):
+            tools.search_notes(
+                query=search_note_request.query,
+                case_sensitive=search_note_request.case_sensitive,
+            )
+
+        mock_search.assert_called_once()
+
+    def test_search_notes_unexpected_error(
+        self, mock_search_setup, search_note_request
+    ):
+        """Test unexpected error handling in search_notes.
+
+        Expects:
+            - When an unexpected Exception occurs, it is properly wrapped in a RuntimeError
+            - The original error is included in the RuntimeError message
+            - The error is logged appropriately
+        """
+        mock_search = mock_search_setup["mock_search"]
+        mock_search.side_effect = Exception("Unexpected search error")
+
+        with pytest.raises(
+            RuntimeError,
+            match="Unexpected error occurred during search for query 'keyword': Unexpected search error",
+        ):
+            tools.search_notes(
+                query=search_note_request.query,
+                case_sensitive=search_note_request.case_sensitive,
+            )
+
+        mock_search.assert_called_once()
+
     def test_search_notes_raises_exception(
         self, mock_search_setup, search_note_request
     ):

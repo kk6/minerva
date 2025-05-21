@@ -37,6 +37,13 @@ source .venv/bin/activate
 uv pip install -e ".[dev]"
 ```
 
+### 1.4 .envファイルとPYTHONPATHの設定
+
+本プロジェクトでは、`minerva` モジュールを正しくimportできるようにするため、`.env` ファイルに `PYTHONPATH=src` を追加しています。
+これにより、`uv run pytest` などのコマンド実行時に毎回 `PYTHONPATH=src` を指定する必要がありません。
+
+すでに `.env.example` に `PYTHONPATH=src` が記載されているので、`.env` ファイルを作成する際はこの内容をコピーしてください。
+
 ## 2. ブランチ戦略
 
 Minervaプロジェクトでは、以下のブランチ戦略を採用しています：

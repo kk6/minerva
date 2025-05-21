@@ -181,10 +181,20 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
                     logger.warning("Could not read file %s. Skipping.", sanitized_path)
 
     except OSError as e:
-        logger.error("OS error during search for keyword '%s' in directory '%s': %s", config.keyword, config.directory, e)
+        logger.error(
+            "OS error during search for keyword '%s' in directory '%s': %s",
+            config.keyword,
+            config.directory,
+            e,
+        )
         raise
-    except Exception as e: # Keep for truly unexpected
-        logger.error("Unexpected error during search for keyword '%s' in directory '%s': %s", config.keyword, config.directory, e)
+    except Exception as e:  # Keep for truly unexpected
+        logger.error(
+            "Unexpected error during search for keyword '%s' in directory '%s': %s",
+            config.keyword,
+            config.directory,
+            e,
+        )
         raise
 
     return matching_files

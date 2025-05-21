@@ -6,7 +6,7 @@ from minerva import tools
 from minerva.tools import DeleteConfirmationResult
 
 
-class TestDeleteNoteFunctions: # Renamed class
+class TestDeleteNoteFunctions:  # Renamed class
     @pytest.fixture
     def mock_setup(self, tmp_path):
         """Fixture providing common mock setup for delete tests."""
@@ -25,16 +25,23 @@ class TestDeleteNoteFunctions: # Renamed class
     def test_get_confirmation_by_filename(self, mock_setup):
         mock_exists = mock_setup["mock_exists"]
         tmp_path = mock_setup["tmp_path"]
-        mock_delete_file = mock_setup["mock_delete_file"] # Get mock_delete_file to assert it's NOT called
+        mock_delete_file = mock_setup[
+            "mock_delete_file"
+        ]  # Get mock_delete_file to assert it's NOT called
         test_file_path = tmp_path / "delete_test.md"
 
         mock_exists.return_value = True
 
-        result = tools.get_note_delete_confirmation(filename="delete_test", default_path="")
-        
+        result = tools.get_note_delete_confirmation(
+            filename="delete_test", default_path=""
+        )
+
         assert isinstance(result, DeleteConfirmationResult)
         assert result.file_path == str(test_file_path)
-        assert f"File found at {str(test_file_path)}. To delete, call 'perform_note_delete' with the same identification parameters." in result.message
+        assert (
+            f"File found at {str(test_file_path)}. To delete, call 'perform_note_delete' with the same identification parameters."
+            in result.message
+        )
         mock_delete_file.assert_not_called()
 
     def test_perform_delete_by_filename(self, mock_setup):
@@ -67,7 +74,10 @@ class TestDeleteNoteFunctions: # Renamed class
 
         assert isinstance(result, DeleteConfirmationResult)
         assert result.file_path == test_file_path_str
-        assert f"File found at {test_file_path_str}. To delete, call 'perform_note_delete' with the same identification parameters." in result.message
+        assert (
+            f"File found at {test_file_path_str}. To delete, call 'perform_note_delete' with the same identification parameters."
+            in result.message
+        )
         mock_delete_file.assert_not_called()
 
     def test_perform_delete_by_filepath(self, mock_setup):
@@ -95,7 +105,9 @@ class TestDeleteNoteFunctions: # Renamed class
         mock_exists.return_value = False
 
         with pytest.raises(FileNotFoundError):
-            tools.get_note_delete_confirmation(filename="nonexistent_note", default_path="")
+            tools.get_note_delete_confirmation(
+                filename="nonexistent_note", default_path=""
+            )
         mock_delete_file.assert_not_called()
 
     def test_perform_delete_nonexistent_file(self, mock_setup):
@@ -107,7 +119,6 @@ class TestDeleteNoteFunctions: # Renamed class
             tools.perform_note_delete(filename="nonexistent_note", default_path="")
         mock_delete_file.assert_not_called()
 
-
     # Adapted test_delete_note_missing_parameters
     def test_get_confirmation_missing_parameters(self):
         with pytest.raises(
@@ -115,7 +126,7 @@ class TestDeleteNoteFunctions: # Renamed class
             match="Either filename or filepath must be provided",
         ):
             tools.get_note_delete_confirmation()
-            
+
     def test_perform_delete_missing_parameters(self):
         with pytest.raises(
             pydantic.ValidationError,
@@ -133,11 +144,16 @@ class TestDeleteNoteFunctions: # Renamed class
 
         mock_exists.return_value = True
 
-        result = tools.get_note_delete_confirmation(filename="subdir/subdir_note", default_path="")
-        
+        result = tools.get_note_delete_confirmation(
+            filename="subdir/subdir_note", default_path=""
+        )
+
         assert isinstance(result, DeleteConfirmationResult)
         assert result.file_path == str(expected_file_path)
-        assert f"File found at {str(expected_file_path)}. To delete, call 'perform_note_delete' with the same identification parameters." in result.message
+        assert (
+            f"File found at {str(expected_file_path)}. To delete, call 'perform_note_delete' with the same identification parameters."
+            in result.message
+        )
         mock_delete_file.assert_not_called()
 
     def test_perform_delete_with_subdirectory(self, mock_setup):
@@ -150,7 +166,9 @@ class TestDeleteNoteFunctions: # Renamed class
         mock_exists.return_value = True
         mock_delete_file.return_value = expected_file_path
 
-        result = tools.perform_note_delete(filename="subdir/subdir_note", default_path="")
+        result = tools.perform_note_delete(
+            filename="subdir/subdir_note", default_path=""
+        )
 
         assert result == expected_file_path
         mock_delete_file.assert_called_once()
@@ -158,7 +176,71 @@ class TestDeleteNoteFunctions: # Renamed class
         assert called_request.directory == str(expected_dir_path)
         assert called_request.filename == "subdir_note.md"
 
-    # Original test_delete_note_confirmation is removed as its logic is now split.
+    # New test cases for exception handling
+
+    def test_get_confirmation_io_error(self, mock_setup):
+        """Test IO Error handling in get_note_delete_confirmation."""
+        mock_exists = mock_setup["mock_exists"]
+        mock_exists.side_effect = IOError("IO Error occurred")
+
+        with pytest.raises(IOError, match="IO Error occurred"):
+            tools.get_note_delete_confirmation(
+                filename="problematic_file", default_path=""
+            )
+
+    def test_get_confirmation_os_error(self, mock_setup):
+        """Test OS Error handling in get_note_delete_confirmation."""
+        mock_exists = mock_setup["mock_exists"]
+        mock_exists.side_effect = OSError("OS Error occurred")
+
+        with pytest.raises(OSError, match="OS Error occurred"):
+            tools.get_note_delete_confirmation(
+                filename="problematic_file", default_path=""
+            )
+
+    def test_get_confirmation_value_error(self, mock_setup):
+        """Test ValueError handling in get_note_delete_confirmation."""
+        with mock.patch("minerva.tools._build_file_path") as mock_build_path:
+            mock_build_path.side_effect = ValueError("Invalid path")
+
+            with pytest.raises(ValueError, match="Invalid path"):
+                tools.get_note_delete_confirmation(
+                    filename="invalid_path", default_path=""
+                )
+
+    def test_perform_delete_io_error(self, mock_setup):
+        """Test IO Error handling in perform_note_delete."""
+        mock_exists = mock_setup["mock_exists"]
+        mock_delete_file = mock_setup["mock_delete_file"]
+
+        mock_exists.return_value = True
+        mock_delete_file.side_effect = IOError("IO Error during deletion")
+
+        with pytest.raises(IOError, match="IO Error during deletion"):
+            tools.perform_note_delete(filename="problematic_file", default_path="")
+
+    def test_perform_delete_os_error(self, mock_setup):
+        """Test OS Error handling in perform_note_delete."""
+        mock_exists = mock_setup["mock_exists"]
+        mock_delete_file = mock_setup["mock_delete_file"]
+
+        mock_exists.return_value = True
+        mock_delete_file.side_effect = OSError("OS Error during deletion")
+
+        with pytest.raises(OSError, match="OS Error during deletion"):
+            tools.perform_note_delete(filename="problematic_file", default_path="")
+
+    def test_perform_delete_unexpected_error(self, mock_setup):
+        """Test unexpected error handling in perform_note_delete."""
+        mock_exists = mock_setup["mock_exists"]
+        mock_delete_file = mock_setup["mock_delete_file"]
+
+        mock_exists.return_value = True
+        mock_delete_file.side_effect = Exception("Unexpected error during deletion")
+
+        with pytest.raises(Exception, match="Unexpected error during deletion"):
+            tools.perform_note_delete(filename="problematic_file", default_path="")
+
 
 class TestIntegrationDeleteNote:
     """Integration tests that test the actual file operations."""
@@ -181,9 +263,11 @@ class TestIntegrationDeleteNote:
         )
         assert file_path.exists()
 
-        confirmation_result = tools.get_note_delete_confirmation(filename=filename, default_path="")
+        confirmation_result = tools.get_note_delete_confirmation(
+            filename=filename, default_path=""
+        )
         assert confirmation_result.file_path == str(file_path)
-        assert file_path.exists() # File should still exist
+        assert file_path.exists()  # File should still exist
 
         deleted_path = tools.perform_note_delete(filename=filename, default_path="")
         assert deleted_path == file_path
@@ -201,7 +285,9 @@ class TestIntegrationDeleteNote:
         )
         assert file_path.exists()
 
-        confirmation_result = tools.get_note_delete_confirmation(filepath=str(file_path))
+        confirmation_result = tools.get_note_delete_confirmation(
+            filepath=str(file_path)
+        )
         assert confirmation_result.file_path == str(file_path)
         assert file_path.exists()
 
@@ -213,8 +299,10 @@ class TestIntegrationDeleteNote:
         nonexistent_filename = "does_not_exist"
 
         with pytest.raises(FileNotFoundError):
-            tools.get_note_delete_confirmation(filename=nonexistent_filename, default_path="")
-        
+            tools.get_note_delete_confirmation(
+                filename=nonexistent_filename, default_path=""
+            )
+
         with pytest.raises(FileNotFoundError):
             tools.perform_note_delete(filename=nonexistent_filename, default_path="")
 
@@ -231,7 +319,9 @@ class TestIntegrationDeleteNote:
         assert file_path.exists()
 
         # Optional: get confirmation
-        confirmation = tools.get_note_delete_confirmation(filename=filename, default_path="")
+        confirmation = tools.get_note_delete_confirmation(
+            filename=filename, default_path=""
+        )
         assert confirmation.file_path == str(file_path)
         assert file_path.exists()
 
@@ -251,7 +341,9 @@ class TestIntegrationDeleteNote:
         )
         assert file_path.exists()
 
-        confirmation = tools.get_note_delete_confirmation(filename=filename, default_path="")
+        confirmation = tools.get_note_delete_confirmation(
+            filename=filename, default_path=""
+        )
         assert confirmation.file_path == str(file_path)
         assert file_path.exists()
 
@@ -260,8 +352,9 @@ class TestIntegrationDeleteNote:
         assert not file_path.exists()
         assert (vault_path / subdir).exists()
 
-
-    def test_integration_get_confirmation_and_perform_delete(self, setup_vault): # Renamed
+    def test_integration_get_confirmation_and_perform_delete(
+        self, setup_vault
+    ):  # Renamed
         vault_path = setup_vault
         filename = "confirm_test"
         file_path = vault_path / f"{filename}.md"
@@ -274,11 +367,14 @@ class TestIntegrationDeleteNote:
         assert file_path.exists()
 
         result = tools.get_note_delete_confirmation(filename=filename, default_path="")
-        
+
         assert isinstance(result, DeleteConfirmationResult)
         assert result.file_path == str(file_path)
-        assert f"File found at {str(file_path)}. To delete, call 'perform_note_delete' with the same identification parameters." in result.message
-        assert file_path.exists() # File should still exist
+        assert (
+            f"File found at {str(file_path)}. To delete, call 'perform_note_delete' with the same identification parameters."
+            in result.message
+        )
+        assert file_path.exists()  # File should still exist
 
         deleted_path = tools.perform_note_delete(filename=filename, default_path="")
         assert deleted_path == file_path
