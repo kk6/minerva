@@ -138,7 +138,7 @@ class TestCreateNote:
 
     def test_create_note_value_error(self, mock_write_setup):
         """Test handling of ValueError during note creation."""
-        # _build_file_pathやPydanticのvalidation errorをシミュレート
+        # Simulate _build_file_path or Pydantic validation errors
         with mock.patch("minerva.tools._assemble_complete_note") as mock_assemble:
             mock_assemble.side_effect = ValueError("Invalid input")
 

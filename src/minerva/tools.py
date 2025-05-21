@@ -286,7 +286,7 @@ def _read_existing_frontmatter(file_path: Path) -> dict | None:
             if content.startswith("---\n"):  # If frontmatter exists
                 post = frontmatter.loads(content)
                 metadata = dict(post.metadata)
-                # 日付型の値が文字列として一貫して処理されるようにする
+                # Ensure date values are consistently processed as strings
                 for key, value in metadata.items():
                     if isinstance(value, datetime):
                         metadata[key] = value.isoformat()
