@@ -25,7 +25,8 @@ from minerva.tools import (
     search_notes,
     create_note,
     edit_note,
-    delete_note,
+    get_note_delete_confirmation,
+    perform_note_delete,
 )
 
 # Set up logging
@@ -38,4 +39,5 @@ mcp.add_tool(read_note)
 mcp.add_tool(search_notes)
 mcp.add_tool(create_note)
 mcp.add_tool(edit_note)
-mcp.add_tool(delete_note)
+mcp.add_tool(get_note_delete_confirmation)
+mcp.add_tool(perform_note_delete)
