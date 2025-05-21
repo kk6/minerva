@@ -1,3 +1,4 @@
+from typing import Callable
 import pytest
 import frontmatter
 
@@ -117,8 +118,8 @@ def mock_vault_path(tmp_path_factory):
 
 
 @pytest.fixture
-def get_tags_request_factory(mock_vault_path: Path):
-    """GetTagsRequest オブジェクトを作成するファクトリフィクスチャ"""
+def get_tags_request_factory(mock_vault_path: Path) -> Callable[[str, str], GetTagsRequest]:
+    """Factory fixture that creates GetTagsRequest objects"""
 
     def _make_request(filename: str, subdir: str = ""):
         path = mock_vault_path / DEFAULT_NOTE_DIR
@@ -131,10 +132,10 @@ def get_tags_request_factory(mock_vault_path: Path):
 
 
 @pytest.fixture
-def add_tag_request_factory(mock_vault_path: Path):
-    """AddTagRequest オブジェクトを作成するファクトリフィクスチャ"""
+def add_tag_request_factory(mock_vault_path: Path) -> Callable[[str, str, str], AddTagRequest]:
+    """Factory fixture that creates AddTagRequest objects"""
 
-    def _make_request(filename: str, tag: str, subdir: str = ""):
+    def _make_request(filename: str, tag: str, subdir: str = "") -> AddTagRequest:
         path = mock_vault_path / DEFAULT_NOTE_DIR
         if subdir:
             path = path / subdir
@@ -145,10 +146,10 @@ def add_tag_request_factory(mock_vault_path: Path):
 
 
 @pytest.fixture
-def remove_tag_request_factory(mock_vault_path: Path):
-    """RemoveTagRequest オブジェクトを作成するファクトリフィクスチャ"""
+def remove_tag_request_factory(mock_vault_path: Path) -> Callable[[str, str, str], RemoveTagRequest]:
+    """Factory fixture that creates RemoveTagRequest objects"""
 
-    def _make_request(filename: str, tag: str, subdir: str = ""):
+    def _make_request(filename: str, tag: str, subdir: str = "") -> RemoveTagRequest:
         path = mock_vault_path / DEFAULT_NOTE_DIR
         if subdir:
             path = path / subdir
