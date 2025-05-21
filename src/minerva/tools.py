@@ -689,7 +689,8 @@ def get_note_delete_confirmation(
             file_path = Path(request.filepath)
             file_path_for_logging = file_path
         else:
-            assert request.filename is not None  # Ensured by Pydantic model
+            if request.filename is None:
+                raise ValueError("Filename must be provided if filepath is not specified.")
             full_dir_path, base_filename = _build_file_path(
                 request.filename, request.default_path
             )
