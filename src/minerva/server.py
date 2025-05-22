@@ -32,7 +32,7 @@ from minerva.tools import (
     rename_tag,
     get_tags,
     list_all_tags,
-    find_notes_with_tag
+    find_notes_with_tag,
 )
 
 # Set up logging

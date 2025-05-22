@@ -1212,10 +1212,10 @@ class RemoveTagRequest(BaseModel):
 
 
 def remove_tag(
-        tag: str,
-        filename: str | None = None,
-        filepath: str | None = None,
-        default_path: str = DEFAULT_NOTE_DIR,
+    tag: str,
+    filename: str | None = None,
+    filepath: str | None = None,
+    default_path: str = DEFAULT_NOTE_DIR,
 ) -> Path:
     """
     Remove a specified tag from an existing note in the Obsidian vault.
@@ -1401,9 +1401,9 @@ class RenameTagRequest(BaseModel):
 
 
 def rename_tag(
-        old_tag: str,
-        new_tag: str,
-        directory: str | None = None,
+    old_tag: str,
+    new_tag: str,
+    directory: str | None = None,
 ) -> list[Path]:
     """
     Rename a tag in all notes within a specified directory (or the entire vault).
@@ -1859,9 +1859,7 @@ def list_all_tags(directory: str | None) -> list[str]:
             )
             for tag in tags_in_file:
                 normalized_tag = _normalize_tag(tag)
-                if (
-                    normalized_tag
-                ):
+                if normalized_tag:
                     all_tags_set.add(normalized_tag)
                     tags_found_count += 1
 

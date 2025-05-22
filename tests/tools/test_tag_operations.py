@@ -210,7 +210,8 @@ def test_add_tag_to_note_without_tags(mock_vault_path: Path):
     post = read_md_file(modified_path)
     assert "tags" in post.metadata
     # Convert list to list before comparison in case it's not a list type
-    assert list(post.metadata["tags"]) == ["newtag"]
+    tags = post.metadata["tags"]
+    assert isinstance(tags, list) and tags == ["newtag"]
     assert post.metadata.get("created") == original_created
     assert "updated" in post.metadata
     assert post.metadata.get("author") == original_author
@@ -224,7 +225,10 @@ def test_add_tag_to_note_with_existing_tags(mock_vault_path: Path):
     modified_path = add_tag(filepath=str(note_path), tag="TagC")
     post = read_md_file(modified_path)
 
-    assert sorted(post.metadata["tags"]) == sorted(
+    tags = post.metadata["tags"]
+    if not isinstance(tags, list):
+        tags = [tags] if tags is not None else []
+    assert sorted(str(tag) for tag in tags) == sorted(
         ["taga", "tagb", "tagc"]
     )  # add_tag normalizes existing tags on rewrite
     assert post.metadata.get("created") == original_created
@@ -239,7 +243,10 @@ def test_add_tag_already_exists(mock_vault_path: Path):
     post = read_md_file(modified_path)
 
     # _generate_note_metadata normalizes all tags and de-duplicates
-    assert sorted(post.metadata["tags"]) == sorted(["taga", "tagb"])
+    tags = post.metadata["tags"]
+    if not isinstance(tags, list):
+        tags = [tags] if tags is not None else []
+    assert sorted(str(tag) for tag in tags) == sorted(["taga", "tagb"])
     assert (
         "updated" in post.metadata
     )  # File is still re-written and 'updated' timestamp changed
@@ -249,7 +256,10 @@ def test_add_tag_needs_normalization(mock_vault_path: Path):
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"
     modified_path = add_tag(filepath=str(note_path), tag="  Tag D With Spaces  ")
     post = read_md_file(modified_path)
-    assert "tag d with spaces" in post.metadata["tags"]
+    tags = post.metadata["tags"]
+    if not isinstance(tags, list):
+        tags = [tags] if tags is not None else []
+    assert "tag d with spaces" in tags
 
 
 def test_add_tag_invalid_format_value_error(mock_vault_path: Path):
@@ -264,9 +274,7 @@ def test_add_tag_invalid_format_value_error(mock_vault_path: Path):
 
 def test_add_tag_file_not_found_error(mock_vault_path: Path):
     with pytest.raises(FileNotFoundError):
-        add_tag(
-            filepath=str(mock_vault_path / "non_existent.md"), tag="ValidTag"
-        )
+        add_tag(filepath=str(mock_vault_path / "non_existent.md"), tag="ValidTag")
 
 
 def test_add_tag_preserves_unrelated_metadata(mock_vault_path: Path):
@@ -295,7 +303,10 @@ def test_remove_existing_tag(mock_vault_path: Path):
 
     assert "tags" in post.metadata
     # Convert to list before comparison
-    assert list(post.metadata["tags"]) == ["tagb"]  # _generate_note_metadata normalizes
+    tags = post.metadata["tags"]
+    if not isinstance(tags, list):
+        tags = [tags] if tags is not None else []
+    assert tags == ["tagb"]  # _generate_note_metadata normalizes
     assert post.metadata.get("created") == original_created
     assert "updated" in post.metadata
     assert (
@@ -313,13 +324,18 @@ def test_remove_tag_case_insensitive(mock_vault_path: Path):
 def test_remove_non_existent_tag(mock_vault_path: Path):
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"  # Has TagA, tagB
     original_tags = read_md_file(note_path).metadata["tags"]
+    if not isinstance(original_tags, list):
+        original_tags = [original_tags] if original_tags is not None else []
 
     modified_path = remove_tag(filepath=str(note_path), tag="NonExistentTag")
     post = read_md_file(modified_path)
 
     # Tags should be normalized by _generate_note_metadata
-    assert sorted(post.metadata["tags"]) == sorted(
-        [_normalize_tag(t) for t in original_tags]
+    tags = post.metadata["tags"]
+    if not isinstance(tags, list):
+        tags = [tags] if tags is not None else []
+    assert sorted(str(tag) for tag in tags) == sorted(
+        [_normalize_tag(str(t)) for t in original_tags]
     )
     assert "updated" in post.metadata  # File is re-written, so updated changes
 
@@ -366,23 +382,20 @@ def test_remove_tag_from_note_with_no_tags_field(mock_vault_path: Path):
 
 def test_remove_tag_file_not_found(mock_vault_path: Path):
     with pytest.raises(FileNotFoundError):
-        remove_tag(
-            filepath=str(mock_vault_path / "non_existent.md"), tag="AnyTag"
-        )
+        remove_tag(filepath=str(mock_vault_path / "non_existent.md"), tag="AnyTag")
 
 
 def test_remove_tag_needs_normalization_for_match(mock_vault_path: Path):
-    note_path = (
-        mock_vault_path / DEFAULT_NOTE_DIR / "note2.md"
-    )
-    modified_path = remove_tag(
-        filepath=str(note_path), tag="whitespace tag"
-    )
+    note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note2.md"
+    modified_path = remove_tag(filepath=str(note_path), tag="whitespace tag")
     post = read_md_file(modified_path)
 
     # Check that "whitespace tag" (normalized) is removed, others (normalized) remain
     expected_tags = sorted([_normalize_tag("tagB"), _normalize_tag("TagC")])
-    assert sorted(post.metadata["tags"]) == expected_tags
+    tags = post.metadata["tags"]
+    if not isinstance(tags, list):
+        tags = [tags] if tags is not None else []
+    assert sorted(str(tag) for tag in tags) == expected_tags
 
 
 # --- Tests for list_all_tags ---
@@ -393,9 +406,7 @@ def test_list_all_tags_basic_scenario(mock_vault_path: Path):
     # Files used: note1.md (TagA, tagB), note2.md (tagB, TagC, "  Whitespace Tag  ")
     # subdir/note_in_subdir.md (SubTag)
     # root_note.md (RootTag, tagB)
-    all_tags = list_all_tags(
-        directory=str(mock_vault_path)
-    )  # Scan whole mock vault
+    all_tags = list_all_tags(directory=str(mock_vault_path))  # Scan whole mock vault
 
     expected_tags = sorted(
         ["taga", "tagb", "tagc", "whitespace tag", "subtag", "roottag"]
@@ -445,9 +456,7 @@ def test_list_all_tags_on_empty_directory(mock_vault_path: Path):
 
 def test_list_all_tags_non_existent_directory(mock_vault_path: Path):
     with pytest.raises(FileNotFoundError):
-        list_all_tags(
-            directory=str(mock_vault_path / "non_existent_dir")
-        )
+        list_all_tags(directory=str(mock_vault_path / "non_existent_dir"))
 
 
 def test_list_all_tags_handles_malformed_tag_field(mock_vault_path: Path):
@@ -600,7 +609,10 @@ def test_rename_tag_basic(mock_vault_path: Path):
 
     # Check note1.md
     post1 = read_md_file(note1_path)
-    assert sorted(post1.metadata["tags"]) == sorted(["newtagfora", "tagb"])
+    tags = post1.metadata["tags"]
+    if not isinstance(tags, list):
+        tags = [tags] if tags is not None else []
+    assert sorted(str(tag) for tag in tags) == sorted(["newtagfora", "tagb"])
     assert post1.metadata.get("created") == original_note1_created
     assert (
         post1.metadata.get("updated") != original_note1_updated
@@ -608,7 +620,10 @@ def test_rename_tag_basic(mock_vault_path: Path):
 
     # Check note2.md (should be unchanged)
     post2 = read_md_file(note2_path)
-    assert sorted(_normalize_tag(t) for t in post2.metadata["tags"]) == sorted(
+    tags2 = post2.metadata["tags"]
+    if not isinstance(tags2, list):
+        tags2 = [tags2] if tags2 is not None else []
+    assert sorted(_normalize_tag(str(t)) for t in tags2) == sorted(
         ["tagb", "tagc", "whitespace tag"]
     )
 
@@ -622,7 +637,10 @@ def test_rename_tag_case_insensitive_old_tag(mock_vault_path: Path):
 
     assert str(note1_path) in [str(p) for p in modified_files]
     post1 = read_md_file(note1_path)
-    assert "stillnewtaga" in post1.metadata["tags"]
+    tags = post1.metadata["tags"]
+    if not isinstance(tags, list):
+        tags = [tags] if tags is not None else []
+    assert "stillnewtaga" in tags
 
 
 def test_rename_tag_new_tag_casing_preserved_on_write_normalized_on_logic(
@@ -636,7 +654,10 @@ def test_rename_tag_new_tag_casing_preserved_on_write_normalized_on_logic(
         old_tag="TagA", new_tag="BrandNewTagWithCase", directory=str(mock_vault_path)
     )
     post1 = read_md_file(note1_path)
-    assert "brandnewtagwithcase" in post1.metadata["tags"]  # It will be normalized
+    tags = post1.metadata["tags"]
+    if not isinstance(tags, list):
+        tags = [tags] if tags is not None else []
+    assert "brandnewtagwithcase" in tags  # It will be normalized
 
 
 def test_rename_tag_to_existing_tag_merges(mock_vault_path: Path):
@@ -648,7 +669,10 @@ def test_rename_tag_to_existing_tag_merges(mock_vault_path: Path):
     assert str(note1_path) in [str(p) for p in modified_files]
     post1 = read_md_file(note1_path)
     # _generate_note_metadata de-duplicates normalized tags
-    assert sorted(post1.metadata["tags"]) == [
+    tags = post1.metadata["tags"]
+    if not isinstance(tags, list):
+        tags = [tags] if tags is not None else []
+    assert sorted(str(tag) for tag in tags) == [
         "tagb"
     ]  # Only "tagb" should remain (normalized)
 
@@ -727,17 +751,26 @@ def test_rename_tag_across_multiple_files(mock_vault_path: Path):
 
     # Check note1
     post1 = read_md_file(note1_path)
-    assert sorted(post1.metadata["tags"]) == sorted(
+    tags1 = post1.metadata["tags"]
+    if not isinstance(tags1, list):
+        tags1 = [tags1] if tags1 is not None else []
+    assert sorted(str(tag) for tag in tags1) == sorted(
         [_normalize_tag("TagA"), "universaltagb"]
     )
     # Check note2
     post2 = read_md_file(note2_path)
-    assert sorted(post2.metadata["tags"]) == sorted(
+    tags2 = post2.metadata["tags"]
+    if not isinstance(tags2, list):
+        tags2 = [tags2] if tags2 is not None else []
+    assert sorted(str(tag) for tag in tags2) == sorted(
         [_normalize_tag("TagC"), _normalize_tag("Whitespace Tag"), "universaltagb"]
     )
     # Check root_note
     post_root = read_md_file(root_note_path)
-    assert sorted(post_root.metadata["tags"]) == sorted(
+    tags_root = post_root.metadata["tags"]
+    if not isinstance(tags_root, list):
+        tags_root = [tags_root] if tags_root is not None else []
+    assert sorted(str(tag) for tag in tags_root) == sorted(
         [_normalize_tag("RootTag"), "universaltagb"]
     )
 
@@ -767,13 +800,31 @@ def test_rename_tag_scoped_to_directory(mock_vault_path: Path):
 
     # Verify root_note.md is unchanged
     current_root_note_tags = read_md_file(root_note_path).metadata["tags"]
-    assert sorted(current_root_note_tags) == sorted(original_root_note_tags)
+
+    # Ensure both are lists before sorting for comparison
+    def ensure_list(val):
+        if isinstance(val, list):
+            return val
+        elif val is None:
+            return []
+        else:
+            return [val]
+
+    assert sorted(str(t) for t in ensure_list(current_root_note_tags)) == sorted(
+        str(t) for t in ensure_list(original_root_note_tags)
+    )
 
     # Verify a modified note
     post_note1 = read_md_file(note1_path)
-    assert "newtagbinnotesdir" in post_note1.metadata["tags"]
-    assert "taga" in post_note1.metadata["tags"]
-    assert "tagb" not in post_note1.metadata["tags"]
+    tags = post_note1.metadata["tags"]
+    if not isinstance(tags, list):
+        tags = [tags] if tags is not None else []
+    assert "newtagbinnotesdir" in tags
+    tags_list = post_note1.metadata["tags"]
+    if not isinstance(tags_list, list):
+        tags_list = [tags_list] if tags_list is not None else []
+    assert "taga" in tags_list
+    assert "tagb" not in tags_list
 
 
 def test_rename_tag_empty_new_tag_after_normalization_is_invalid(mock_vault_path: Path):
