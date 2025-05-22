@@ -42,12 +42,12 @@ ignore_missing_imports = true
 # call-argエラーを抑制
 disable_error_code = ["call-arg"]
 
+[[tool.mypy.overrides]]
+module = "frontmatter"
+ignore_missing_imports = true
+
 [project.scripts]
 minerva = "minerva.__main__:main"
-
-[[tool.mypy.overrides]]
-module = ["frontmatter"]
-ignore_missing_imports = true
 
 [tool.semantic_release]
 version_variable = ["src/minerva/__version__.py:__version__", "pyproject.toml:version"]
