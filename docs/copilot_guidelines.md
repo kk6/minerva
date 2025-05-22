@@ -140,14 +140,29 @@ VSCodeでGitHub Copilotを効果的に使用するための設定：
    - 次の提案を表示: `Alt+]`
    - 前の提案を表示: `Alt+[`
 
-## 6. 参考リンク
+## 6. 重要な開発フィロソフィー：ドキュメント・ファースト
+
+Minervaプロジェクトでは「ドキュメント・ファースト」アプローチを採用しています。GitHub Copilotを使用する際も、この原則を徹底してください：
+
+1. **コード生成前にドキュメント確認**: 新機能の実装やバグ修正を依頼する前に、関連するドキュメントが最新かどうかを確認してください。
+
+2. **ドキュメント更新の優先**: ドキュメントが古い場合や不足している場合は、コード生成前にドキュメントの更新を依頼してください。
+
+3. **AIアシスタントへの明示的な指示**: AIアシスタントに対して「ドキュメント・ファースト」で進めることを明示的に伝えてください。例：
+   ```
+   以下の機能を実装したいと考えています。ドキュメント・ファーストアプローチで進めるため、まず関連するドキュメントの更新案を作成してください。その後、実装に移ります。
+   ```
+
+詳細は `.github/instructions/patterns/document_first.md` および `.github/instructions/document_first_checklist.md` を参照してください。
+
+## 7. 参考リンク
 
 - [GitHub Copilot公式ドキュメント](https://docs.github.com/en/copilot)
 - [リポジトリカスタム指示の追加](https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot?tool=vscode)
 - [Conventional Commits](https://www.conventionalcommits.org/ja/v1.0.0/)
 - [Minervaプロジェクトのgithub_workflow.md](../github_workflow.md)
 
-## 7. よくある質問
+## 8. よくある質問
 
 ### Q: カスタム指示が反映されていないようです。どうすればいいですか？
 
