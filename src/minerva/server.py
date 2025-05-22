@@ -27,6 +27,12 @@ from minerva.tools import (
     edit_note,
     get_note_delete_confirmation,
     perform_note_delete,
+    add_tag,
+    remove_tag,
+    rename_tag,
+    get_tags,
+    list_all_tags,
+    find_notes_with_tag,
 )
 
 # Set up logging
@@ -41,3 +47,9 @@ mcp.add_tool(create_note)
 mcp.add_tool(edit_note)
 mcp.add_tool(get_note_delete_confirmation)
 mcp.add_tool(perform_note_delete)
+mcp.add_tool(add_tag)
+mcp.add_tool(remove_tag)
+mcp.add_tool(rename_tag)
+mcp.add_tool(get_tags)
+mcp.add_tool(list_all_tags)
+mcp.add_tool(find_notes_with_tag)

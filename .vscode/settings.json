@@ -20,5 +20,6 @@
 		{
 			"text": "ファイルごとの変更内容を簡潔に記述してください"
 		}
-	]
+	],
+	"mypy-type-checker.path": ["./.venv/lib/python3.12/site-packages/"]
 }

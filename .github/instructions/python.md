@@ -1,3 +1,7 @@
+---
+applyTo: '**/*.py'
+---
+
 # Python Coding Standards for Minerva
 
 ## General Guidelines

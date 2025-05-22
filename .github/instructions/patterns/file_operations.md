@@ -1,3 +1,7 @@
+---
+applyTo: 'src/**/*.py'
+---
+
 # File Operation Patterns for Minerva
 
 ## Basic Principles

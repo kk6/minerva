@@ -8,11 +8,11 @@ Minervaプロジェクトでは、開発効率の向上と一貫したコード�
 
 ## 2. カスタム指示の構成
 
-カスタム指示は `.github/copilot/` ディレクトリに配置されており、以下のような構成になっています：
+カスタム指示は `.github/instructions/` ディレクトリに配置されており、以下のような構成になっています：
 
 ```
 .github/
-  copilot/
+  instructions/
     reference.md      # プロジェクト全体のリファレンス情報
     python.md         # Python固有のコーディング規約
     commit.md         # コミットメッセージルール
