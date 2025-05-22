@@ -1,6 +1,22 @@
 # CHANGELOG
 
 
+## v0.2.1 (2025-05-22)
+
+### Bug Fixes
+
+- **docs**: Update directory references in Copilot guidelines
+  ([`11d2722`](https://github.com/kk6/minerva/commit/11d272245705604f5a37cfad74ff99345f874c76))
+
+### Documentation
+
+- Add document-first checklist and language usage rules for consistency
+  ([`a857970`](https://github.com/kk6/minerva/commit/a857970da7e7c02ead42a0878a99e74e4464f419))
+
+- Update README and specifications to include tag management features and usage examples
+  ([`350c7a6`](https://github.com/kk6/minerva/commit/350c7a67b86aa5c840a72d017efc8bf7dfe2ee33))
+
+
 ## v0.2.0 (2025-05-22)
 
 ### Bug Fixes
