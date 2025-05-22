@@ -1446,9 +1446,7 @@ def rename_tag(
             "Rename tag error: Directory '%s' does not exist or is not a directory.",
             effective_directory,
         )
-        # Consider if this should raise FileNotFoundError or similar,
-        # or return empty list if directory is optional and not found.
-        # For now, logging and returning empty as per graceful handling of sub-operations.
+        # Directory must exist for this operation
         raise FileNotFoundError(
             f"Directory '{effective_directory}' not found or is not a directory."
         )
@@ -1542,19 +1540,13 @@ def rename_tag(
                 )
                 updated_content_str = frontmatter.dumps(updated_post_obj)
 
-                # Only write if content actually changed (metadata change counts)
-                # Comparing serialized content is a robust way if _generate_note_metadata is deterministic
-                # or compare the tag lists before/after _generate_note_metadata's processing
-                original_tags_processed_by_gen = _generate_note_metadata(
-                    "", None, False, {}, current_tags_str_list
-                ).metadata.get("tags", [])
-                new_tags_processed_by_gen = updated_post_obj.metadata.get("tags", [])
+                # Only write if tags have actually changed
+                # Direct comparison of normalized tag sets to determine if a change occurred
+                current_normalized_tags = {_normalize_tag(tag) for tag in current_tags_str_list}
+                final_normalized_tags = {_normalize_tag(tag) for tag in final_tags_for_file}
 
-                if (
-                    original_tags_processed_by_gen != new_tags_processed_by_gen
-                    or post.content + "---"
-                    != updated_content_str.split("---", 2)[-1].strip()
-                ):  # basic content check just in case
+                # Check if normalized tag sets differ, which would indicate a real change
+                if current_normalized_tags != final_normalized_tags:
                     file_write_request = FileWriteRequest(
                         directory=str(file_path.parent),
                         filename=file_path.name,
@@ -1823,7 +1815,7 @@ def list_all_tags(directory: str | None) -> list[str]:
     Empty tags (after normalization) are excluded.
 
     Args:
-        request: A `ListAllTagsRequest` object, optionally specifying a directory.
+        directory: Optional path to a directory within the vault. If `None`, the entire vault is scanned.
 
     Returns:
         A sorted list of unique, normalized tag strings.
@@ -1915,8 +1907,9 @@ def find_notes_with_tag(tag: str, directory: str | None) -> list[str]:
     If the target tag normalizes to an empty string, no files will be returned.
 
     Args:
-        request: A `FindNotesWithTagRequest` object containing the tag to search for
-                 and an optional directory to scope the search.
+        tag: The tag to search for. Search is case-insensitive and uses normalized tags.
+        directory: Optional path to a directory within the vault to limit the search scope.
+                   If `None`, the entire vault is scanned.
 
     Returns:
         A list of string paths for each note file containing the specified tag.
