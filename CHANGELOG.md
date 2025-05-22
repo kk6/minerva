@@ -1,6 +1,98 @@
 # CHANGELOG
 
 
+## v0.2.0 (2025-05-22)
+
+### Bug Fixes
+
+- **pyproject**: スクリプトセクションの位置を修正し、mypyのオーバーライド設定を整理
+  ([`4e37d44`](https://github.com/kk6/minerva/commit/4e37d4424e787823470de565444fbb1269d3491b))
+
+- **tools**: タグ操作機能のコード品質改善
+  ([`25664a7`](https://github.com/kk6/minerva/commit/25664a74885816755b9e5deb056fb5464f42b5d9))
+
+1. rename_tag関数の構文エラー修正（if条件文の: が不足） 2. list_all_tags、find_notes_with_tag関数のドキュメント修正 3.
+  rename_tag関数のディレクトリ処理に関するコメント修正
+
+Issue #5
+
+### Chores
+
+- 各種ドキュメントに適用対象を追加
+  ([`0ce069d`](https://github.com/kk6/minerva/commit/0ce069d58297cac87e212bc83c6069ad88e2653e))
+
+### Documentation
+
+- Add CLAUDE.md for project guidelines and commands
+  ([`dbbf98d`](https://github.com/kk6/minerva/commit/dbbf98d9d9af5c72b990da58f5e67c43c8830fd3))
+
+- エラーハンドリングとファイル操作のパターンを更新し、詳細なエラーログ記録を追加
+  ([`480d86a`](https://github.com/kk6/minerva/commit/480d86a500ec98696832f11dae9d6517cc04a6e0))
+
+- カスタム指示のディレクトリ名を修正
+  ([`a877ad4`](https://github.com/kk6/minerva/commit/a877ad4238e1aa3526c2934badddcfde43a924ce))
+
+- ノート削除機能の2段階プロセスを追加し、テストガイドラインを更新
+  ([`010548b`](https://github.com/kk6/minerva/commit/010548b68cac90ec6409a58ad8ebed8f89806636))
+
+### Features
+
+- Implement comprehensive tag management features
+  ([`a70d986`](https://github.com/kk6/minerva/commit/a70d98642d9ac857bf9a7f6c372ff7ed0f534b29))
+
+This commit introduces a suite of features for managing tags in notes within the Minerva system.
+
+Key functionalities added:
+
+1. **Tag Manipulation:** * `add_tag`: Adds a new tag to a specified note. Handles normalization,
+  validation, and prevents duplicates. * `remove_tag`: Removes an existing tag from a specified
+  note. * `rename_tag`: Renames a tag across all notes in a specified directory or the entire vault.
+  Handles case variations and merging if the new tag name already exists.
+
+2. **Tag Querying:** * `get_tags`: Retrieves all tags from a single specified note. *
+  `list_all_tags`: Lists all unique, normalized tags across a specified directory or the entire
+  vault. * `find_notes_with_tag`: Finds all notes that contain a specific tag.
+
+3. **Core Logic Enhancements:** * The `_generate_note_metadata` function in `tools.py` has been
+  updated to process and store tags in the front matter. * Helper functions `_normalize_tag` (for
+  lowercasing and stripping whitespace) and `_validate_tag` (for checking invalid characters) have
+  been added to ensure tag consistency and validity.
+
+4. **Request Models:** * Pydantic request models (`AddTagRequest`, `RemoveTagRequest`, etc.) have
+  been implemented for each new public function, ensuring structured and validated input.
+
+5. **Unit Tests:** * A comprehensive suite of unit tests has been added in
+  `tests/tools/test_tag_operations.py` covering all new tag management functions and their various
+  scenarios, including edge cases and error handling. A `mock_vault` fixture was created for
+  managing test data.
+
+6. **Documentation:** * The `docs/note_operations.md` file has been updated with a new "Tag
+  Management" section detailing the usage of the new features. * Detailed Python docstrings have
+  been added to all new public functions, Pydantic models, and relevant private helper functions in
+  `src/minerva/tools.py`.
+
+These changes address issue #5 (kk6/minerva#5) by providing robust functionality for adding,
+  removing, renaming, and querying tags, thereby enhancing the organizational and search
+  capabilities of the Minerva knowledge base.
+
+- タグの追加・削除・リネーム機能の実装 #5
+  ([`7f2b00b`](https://github.com/kk6/minerva/commit/7f2b00b89981c7fd84663be0b22e5431640978f9))
+
+### Refactoring
+
+- Rename .github/copilot to .github/instructions
+  ([`245a109`](https://github.com/kk6/minerva/commit/245a109006758a1e3fe104d1d4895927661f0ea8))
+
+- **tests**: タグ操作に関するテストでリスト型の確認を追加し、可読性を向上
+  ([`669a663`](https://github.com/kk6/minerva/commit/669a66392e41845214000da9b889dc6fcc002d60))
+
+- **tests**: リクエストファクトリの型ヒントを追加し、可読性を向上
+  ([`d4c5702`](https://github.com/kk6/minerva/commit/d4c57025b8cd8c86b22a7dcaf1d6fa35f6b43196))
+
+- **tools**: 一貫した日付処理のためのコメントを英語に変更
+  ([`3238f30`](https://github.com/kk6/minerva/commit/3238f3062eea094919632c09bbe840ca5d7ca051))
+
+
 ## v0.1.0 (2025-05-20)
 
 ### Bug Fixes
