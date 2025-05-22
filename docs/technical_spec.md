@@ -7,12 +7,20 @@
 Minervaは階層化されたアーキテクチャを採用しています：
 
 1. **ユーザー向けAPI層** (`tools.py`)
-   - `WriteNoteRequest`, `ReadNoteRequest`, `SearchNoteRequest` クラス
-   - `write_note()`, `read_note()`, `search_notes()` 関数
+   - **基本操作**:
+     - `CreateNoteRequest`, `EditNoteRequest`, `ReadNoteRequest`, `SearchNoteRequest` クラス
+     - `create_note()`, `edit_note()`, `read_note()`, `search_notes()` 関数
+     - `get_note_delete_confirmation()`, `perform_note_delete()` 関数（2段階削除プロセス）
+   - **タグ管理**:
+     - `AddTagRequest`, `RemoveTagRequest`, `RenameTagRequest` クラス
+     - `add_tag()`, `remove_tag()`, `rename_tag()`, `get_tags()`, `list_all_tags()`, `find_notes_with_tag()` 関数
+   - **レガシー**:
+     - `WriteNoteRequest` クラス
+     - `write_note()` 関数（後方互換性のため提供）
 
 2. **ファイル操作層** (`file_handler.py`)
-   - `FileWriteRequest`, `FileReadRequest`, `SearchConfig` クラス
-   - `write_file()`, `read_file()`, `search_keyword_in_files()` 関数
+   - `FileWriteRequest`, `FileReadRequest`, `FileDeleteRequest`, `SearchConfig` クラス
+   - `write_file()`, `read_file()`, `delete_file()`, `search_keyword_in_files()` 関数
 
 ## 2. 基本設計原則
 
@@ -46,35 +54,136 @@ Minervaは階層化されたアーキテクチャを採用しています：
 
 ### 3.1 tools.py
 
-#### 3.1.1 WriteNoteRequest
+#### 3.1.1 基本ノート操作
 
-Obsidianノートの作成・更新リクエストを表すモデルクラスです。
+以下のリクエストモデルと対応する関数が実装されています：
+
+- `CreateNoteRequest`: 新規ノート作成リクエスト
+- `EditNoteRequest`: 既存ノート編集リクエスト
+- `ReadNoteRequest`: ノート読取リクエスト
+- `SearchNoteRequest`: ノート検索リクエスト
+- `DeleteConfirmationRequest`: ノート削除確認リクエスト
+- `DeleteNoteRequest`: ノート削除実行リクエスト
+- `WriteNoteRequest`: レガシーノート作成・更新リクエスト（後方互換性用）
+
+#### 3.1.2 タグ管理機能
+
+タグ操作のための以下のリクエストモデルと関数が実装されています：
+
+- `AddTagRequest`: タグ追加リクエスト
+  - `tag`: 追加するタグ文字列
+  - `filename` または `filepath`: 対象ノート
+  - `default_path`: デフォルトディレクトリパス
+  
+- `RemoveTagRequest`: タグ削除リクエスト
+  - `tag`: 削除するタグ文字列
+  - `filename` または `filepath`: 対象ノート
+  - `default_path`: デフォルトディレクトリパス
+
+- `RenameTagRequest`: タグ名変更リクエスト
+  - `old_tag`: 変更元のタグ名
+  - `new_tag`: 変更後のタグ名
+  - `directory`: 対象ディレクトリ（省略時はvault全体）
+  
+- `GetTagsRequest`: タグ取得リクエスト
+  - `filename` または `filepath`: 対象ノート
+  - `default_path`: デフォルトディレクトリパス
+
+- `ListAllTagsRequest`: 全タグリスト取得リクエスト
+  - `directory`: 対象ディレクトリ（省略時はvault全体）
+  
+- `FindNotesWithTagRequest`: タグによるノート検索リクエスト
+  - `tag`: 検索対象のタグ
+  - `directory`: 対象ディレクトリ（省略時はvault全体）
+
+#### 3.1.3 共通ユーティリティ関数
+
+タグ管理のための内部処理関数：
+
+- `_normalize_tag()`: タグの正規化（小文字化、空白削除）
+- `_validate_tag()`: タグの形式検証（禁止文字チェック）
+- `_generate_note_metadata()`: フロントマターの生成と更新
+
+#### 3.1.4 フロントマター処理
+
+ノートのメタデータ管理は、python-frontmatterパッケージを使用して実装されています。すべてのノートには以下の情報が自動的に追加されます：
 
 ```python
-class WriteNoteRequest(BaseModel):
-    text: str
+def _generate_note_metadata(
+    text: str,
+    author: str | None = None,
+    is_new_note: bool = True,
+    existing_frontmatter: dict | None = None,
+    tags: list[str] | None = None,
+) -> frontmatter.Post:
+    """
+    Generate metadata for a new or existing note.
+
+    Args:
+        text: The text content of the note
+        author: Optional author name to include in the metadata
+        is_new_note: Whether this is a new note or updating an existing one
+        existing_frontmatter: Any existing frontmatter to preserve
+        tags: Optional list of tags to include/update in the metadata
+
+    Returns:
+        A frontmatter.Post object with the note content and metadata
+    """
+```
+
+このメタデータには以下の情報が含まれます：
+
+- `created`: ノート作成日時（ISO 8601形式）- 新規作成時のみ追加
+- `updated`: 最終更新日時（ISO 8601形式）- 常に現在時刻に更新
+- `author`: 作成者名（指定された場合）
+- `tags`: タグのリスト（タグ管理機能で追加された場合）
+
+### 3.2 file_handler.py
+
+#### 3.2.1 FileWriteRequest
+
+```python
+class FileWriteRequest(BaseModel):
+    directory: str
     filename: str
-    is_overwrite: bool = False
+    content: str
+    overwrite: bool = False
 ```
 
-**バリデーション**:
-- `filename`フィールドは`.md`拡張子を持たない場合、自動的に追加されます
-
-#### 3.1.2 write_note 関数
+#### 3.2.2 FileReadRequest
 
 ```python
-def write_note(request: WriteNoteRequest) -> Path:
-    """
-    Write a note to a file in the Obsidian vault.
-    """
+class FileReadRequest(BaseModel):
+    directory: str
+    filename: str
 ```
 
-**処理フロー**:
-1. ファイル名の検証
-2. サブディレクトリのパスとベースファイル名の分離
-3. 必要なディレクトリの作成
-4. 下位層の`write_file`関数の呼び出し
-5. ファイルパスの返却
+#### 3.2.3 FileDeleteRequest
+
+```python
+class FileDeleteRequest(BaseModel):
+    directory: str
+    filename: str
+```
+
+#### 3.2.4 SearchConfig
+
+```python
+class SearchConfig(BaseModel):
+    directory: str
+    keyword: str
+    case_sensitive: bool = True
+    file_extensions: list[str] = Field(default_factory=lambda: [".md"])
+```
+
+#### 3.2.5 SearchResult
+
+```python
+class SearchResult(BaseModel):
+    file_path: str
+    line_number: int
+    context: str
+```
 
 ### 3.2 file_handler.py
 

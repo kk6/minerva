@@ -4,7 +4,25 @@
 
 ## 1. 概要
 
-Minervaは、Obsidian vaultに対してノートの作成、編集、読み取り、検索といった基本的な操作を提供します。これらの機能は、Python APIとして提供され、アプリケーションから呼び出すことができます。
+Minervaは、Obsidian vaultに対して以下の機能を提供します：
+
+### 1.1 基本操作機能
+- ノートの作成（create_note）
+- ノートの編集（edit_note）
+- ノートの読取（read_note）
+- ノートの検索（search_notes）
+- ノートの削除（get_note_delete_confirmation, perform_note_delete）
+- 後方互換性機能（write_note）
+
+### 1.2 タグ管理機能
+- タグの追加（add_tag）
+- タグの削除（remove_tag）
+- タグの名前変更（rename_tag）
+- タグの取得（get_tags）
+- 全タグのリスト取得（list_all_tags）
+- タグによるノート検索（find_notes_with_tag）
+
+これらの機能はPython APIとして提供され、アプリケーションから呼び出すことができます。
 
 ## 2. 主要機能
 
