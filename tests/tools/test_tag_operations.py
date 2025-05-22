@@ -1,4 +1,3 @@
-from typing import Callable
 import pytest
 import frontmatter
 
@@ -7,17 +6,11 @@ from unittest import mock
 
 from minerva.tools import (
     add_tag,
-    AddTagRequest,
     remove_tag,
-    RemoveTagRequest,
     get_tags,
-    GetTagsRequest,
     list_all_tags,
-    ListAllTagsRequest,
     find_notes_with_tag,
-    FindNotesWithTagRequest,
     rename_tag,
-    RenameTagRequest,
     _normalize_tag,
     _validate_tag,
 )
@@ -117,48 +110,6 @@ def mock_vault_path(tmp_path_factory):
         yield vault_dir
 
 
-@pytest.fixture
-def get_tags_request_factory(mock_vault_path: Path) -> Callable[[str, str], GetTagsRequest]:
-    """Factory fixture that creates GetTagsRequest objects"""
-
-    def _make_request(filename: str, subdir: str = ""):
-        path = mock_vault_path / DEFAULT_NOTE_DIR
-        if subdir:
-            path = path / subdir
-        note_path = path / filename
-        return GetTagsRequest(filepath=str(note_path))
-
-    return _make_request
-
-
-@pytest.fixture
-def add_tag_request_factory(mock_vault_path: Path) -> Callable[[str, str, str], AddTagRequest]:
-    """Factory fixture that creates AddTagRequest objects"""
-
-    def _make_request(filename: str, tag: str, subdir: str = "") -> AddTagRequest:
-        path = mock_vault_path / DEFAULT_NOTE_DIR
-        if subdir:
-            path = path / subdir
-        note_path = path / filename
-        return AddTagRequest(filepath=str(note_path), tag=tag)
-
-    return _make_request
-
-
-@pytest.fixture
-def remove_tag_request_factory(mock_vault_path: Path) -> Callable[[str, str, str], RemoveTagRequest]:
-    """Factory fixture that creates RemoveTagRequest objects"""
-
-    def _make_request(filename: str, tag: str, subdir: str = "") -> RemoveTagRequest:
-        path = mock_vault_path / DEFAULT_NOTE_DIR
-        if subdir:
-            path = path / subdir
-        note_path = path / filename
-        return RemoveTagRequest(filepath=str(note_path), tag=tag)
-
-    return _make_request
-
-
 # --- Helper Functions for Tests ---
 def read_md_file(file_path: Path) -> frontmatter.Post:
     return frontmatter.load(str(file_path))
@@ -192,68 +143,60 @@ def test_validate_tag():
 
 def test_get_tags_with_tags(mock_vault_path: Path):
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"
-    request = GetTagsRequest(filepath=str(note_path))
-    tags = get_tags(request)
+    tags = get_tags(filepath=str(note_path))
     assert sorted(tags) == sorted(["TagA", "tagB"])  # Case preserved
 
 
 def test_get_tags_no_tags_field(mock_vault_path: Path):
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note_no_tags.md"
-    request = GetTagsRequest(filepath=str(note_path))
-    tags = get_tags(request)
+    tags = get_tags(filepath=str(note_path))
     assert tags == []
 
 
 def test_get_tags_empty_tags_list(mock_vault_path: Path):
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note_empty_tags.md"
-    request = GetTagsRequest(filepath=str(note_path))
-    tags = get_tags(request)
+    tags = get_tags(filepath=str(note_path))
     assert tags == []
 
 
 def test_get_tags_file_not_exist(mock_vault_path: Path):
-    request = GetTagsRequest(
+    tags = get_tags(
         filepath=str(mock_vault_path / DEFAULT_NOTE_DIR / "non_existent_note.md")
     )
-    tags = get_tags(request)
     assert tags == []
 
 
 def test_get_tags_malformed_frontmatter(mock_vault_path: Path):
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note_malformed_frontmatter.md"
-    request = GetTagsRequest(filepath=str(note_path))
-    tags = get_tags(request)
+    tags = get_tags(filepath=str(note_path))
     assert tags == []  # Should be tolerant and return empty
 
 
 def test_get_tags_tags_not_a_list(mock_vault_path: Path):
     # This test uses note_malformed_frontmatter.md where tags: not-a-list
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note_malformed_frontmatter.md"
-    request = GetTagsRequest(filepath=str(note_path))
-    tags = get_tags(request)
+    tags = get_tags(filepath=str(note_path))
     assert tags == []
 
 
-def test_get_tags_by_filename(get_tags_request_factory):
+def test_get_tags_by_filename(mock_vault_path: Path):
     """Test retrieving tags using the filename approach."""
-    # Use the factory to create a properly configured request
-    request = get_tags_request_factory(filename="note1.md")
-    tags = get_tags(request)
+    tags = get_tags(filename="note1.md")
     assert sorted(tags) == sorted(["TagA", "tagB"])
 
 
-def test_get_tags_by_filename_in_subdir(get_tags_request_factory):
+def test_get_tags_by_filename_in_subdir(mock_vault_path: Path):
     """Test retrieving tags from a file in a subdirectory."""
-    # Use the factory to create a properly configured request for a file in a subdirectory
-    request = get_tags_request_factory(filename="note_in_subdir.md", subdir="subdir")
-    tags = get_tags(request)
+    # ファイルのフルパスを渡す方法
+    filepath = str(mock_vault_path / DEFAULT_NOTE_DIR / "subdir" / "note_in_subdir.md")
+    tags = get_tags(filepath=filepath)
     assert tags == ["SubTag"]
 
 
 # --- Tests for add_tag ---
 
 
-def test_add_tag_to_note_without_tags(mock_vault_path: Path, add_tag_request_factory):
+def test_add_tag_to_note_without_tags(mock_vault_path: Path):
     """Test adding a tag to a note that doesn't have any tags."""
     # Use fixture to prepare test
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note_no_tags.md"
@@ -261,9 +204,7 @@ def test_add_tag_to_note_without_tags(mock_vault_path: Path, add_tag_request_fac
     original_created = original_post.metadata.get("created")
     original_author = original_post.metadata.get("author")
 
-    # Use the factory to create the request
-    request = add_tag_request_factory(filename="note_no_tags.md", tag="NewTag")
-    modified_path = add_tag(request)
+    modified_path = add_tag(filename="note_no_tags.md", tag="NewTag")
     assert modified_path == note_path
 
     post = read_md_file(modified_path)
@@ -280,8 +221,7 @@ def test_add_tag_to_note_with_existing_tags(mock_vault_path: Path):
     original_post = read_md_file(note_path)
     original_created = original_post.metadata.get("created")
 
-    request = AddTagRequest(filepath=str(note_path), tag="TagC")
-    modified_path = add_tag(request)
+    modified_path = add_tag(filepath=str(note_path), tag="TagC")
     post = read_md_file(modified_path)
 
     assert sorted(post.metadata["tags"]) == sorted(
@@ -293,10 +233,9 @@ def test_add_tag_to_note_with_existing_tags(mock_vault_path: Path):
 
 def test_add_tag_already_exists(mock_vault_path: Path):
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"  # Has TagA, tagB
-    request = AddTagRequest(
+    modified_path = add_tag(
         filepath=str(note_path), tag="taga"
     )  # Adding "taga" which normalizes to "taga"
-    modified_path = add_tag(request)
     post = read_md_file(modified_path)
 
     # _generate_note_metadata normalizes all tags and de-duplicates
@@ -308,8 +247,7 @@ def test_add_tag_already_exists(mock_vault_path: Path):
 
 def test_add_tag_needs_normalization(mock_vault_path: Path):
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"
-    request = AddTagRequest(filepath=str(note_path), tag="  Tag D With Spaces  ")
-    modified_path = add_tag(request)
+    modified_path = add_tag(filepath=str(note_path), tag="  Tag D With Spaces  ")
     post = read_md_file(modified_path)
     assert "tag d with spaces" in post.metadata["tags"]
 
@@ -317,21 +255,18 @@ def test_add_tag_needs_normalization(mock_vault_path: Path):
 def test_add_tag_invalid_format_value_error(mock_vault_path: Path):
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"
     with pytest.raises(ValueError, match="Invalid tag"):
-        AddTagRequest(filepath=str(note_path), tag="tag,with,comma")
         # The validation for tag format happens in add_tag itself, not Pydantic model for AddTagRequest.
         # So we call add_tag.
         # Correction: _validate_tag is called inside add_tag, which should raise the error.
         # The Pydantic model AddTagRequest doesn't validate the tag content itself.
-        request = AddTagRequest(filepath=str(note_path), tag="tag,with,comma")
-        add_tag(request)
+        add_tag(filepath=str(note_path), tag="tag,with,comma")
 
 
 def test_add_tag_file_not_found_error(mock_vault_path: Path):
     with pytest.raises(FileNotFoundError):
-        request = AddTagRequest(
+        add_tag(
             filepath=str(mock_vault_path / "non_existent.md"), tag="ValidTag"
         )
-        add_tag(request)
 
 
 def test_add_tag_preserves_unrelated_metadata(mock_vault_path: Path):
@@ -340,8 +275,7 @@ def test_add_tag_preserves_unrelated_metadata(mock_vault_path: Path):
     assert "custom_field" in original_post.metadata
     original_custom_field = original_post.metadata["custom_field"]
 
-    request = AddTagRequest(filepath=str(note_path), tag="AnotherNewTag")
-    modified_path = add_tag(request)
+    modified_path = add_tag(filepath=str(note_path), tag="AnotherNewTag")
     post = read_md_file(modified_path)
 
     assert post.metadata.get("custom_field") == original_custom_field
@@ -350,15 +284,13 @@ def test_add_tag_preserves_unrelated_metadata(mock_vault_path: Path):
 # --- Tests for remove_tag ---
 
 
-def test_remove_existing_tag(mock_vault_path: Path, remove_tag_request_factory):
+def test_remove_existing_tag(mock_vault_path: Path):
     """Test removing an existing tag from a note."""
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"  # Has TagA, tagB
     original_post = read_md_file(note_path)
     original_created = original_post.metadata.get("created")
 
-    # Use the factory to create the request
-    request = remove_tag_request_factory(filename="note1.md", tag="TagA")
-    modified_path = remove_tag(request)
+    modified_path = remove_tag(filename="note1.md", tag="TagA")
     post = read_md_file(modified_path)
 
     assert "tags" in post.metadata
@@ -373,8 +305,7 @@ def test_remove_existing_tag(mock_vault_path: Path, remove_tag_request_factory):
 
 def test_remove_tag_case_insensitive(mock_vault_path: Path):
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"  # Has TagA, tagB
-    request = RemoveTagRequest(filepath=str(note_path), tag="tAgA")  # Different case
-    modified_path = remove_tag(request)
+    modified_path = remove_tag(filepath=str(note_path), tag="tAgA")  # Different case
     post = read_md_file(modified_path)
     assert post.metadata["tags"] == ["tagb"]
 
@@ -383,8 +314,7 @@ def test_remove_non_existent_tag(mock_vault_path: Path):
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"  # Has TagA, tagB
     original_tags = read_md_file(note_path).metadata["tags"]
 
-    request = RemoveTagRequest(filepath=str(note_path), tag="NonExistentTag")
-    modified_path = remove_tag(request)
+    modified_path = remove_tag(filepath=str(note_path), tag="NonExistentTag")
     post = read_md_file(modified_path)
 
     # Tags should be normalized by _generate_note_metadata
@@ -406,8 +336,7 @@ Content.
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "single_tag_note.md"
     note_path.write_text(single_tag_note_content)
 
-    request = RemoveTagRequest(filepath=str(note_path), tag="OnlyTag")
-    modified_path = remove_tag(request)
+    modified_path = remove_tag(filepath=str(note_path), tag="OnlyTag")
     post = read_md_file(modified_path)
 
     assert "tags" not in post.metadata  # Tags field should be removed
@@ -418,8 +347,7 @@ def test_remove_tag_from_note_with_empty_tags_list(mock_vault_path: Path):
     note_path = (
         mock_vault_path / DEFAULT_NOTE_DIR / "note_empty_tags.md"
     )  # Has tags: []
-    request = RemoveTagRequest(filepath=str(note_path), tag="AnyTag")
-    modified_path = remove_tag(request)
+    modified_path = remove_tag(filepath=str(note_path), tag="AnyTag")
     post = read_md_file(modified_path)
 
     # _generate_note_metadata removes 'tags' key if list becomes empty
@@ -429,8 +357,7 @@ def test_remove_tag_from_note_with_empty_tags_list(mock_vault_path: Path):
 
 def test_remove_tag_from_note_with_no_tags_field(mock_vault_path: Path):
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note_no_tags.md"
-    request = RemoveTagRequest(filepath=str(note_path), tag="AnyTag")
-    modified_path = remove_tag(request)
+    modified_path = remove_tag(filepath=str(note_path), tag="AnyTag")
     post = read_md_file(modified_path)
 
     assert "tags" not in post.metadata
@@ -439,20 +366,18 @@ def test_remove_tag_from_note_with_no_tags_field(mock_vault_path: Path):
 
 def test_remove_tag_file_not_found(mock_vault_path: Path):
     with pytest.raises(FileNotFoundError):
-        request = RemoveTagRequest(
+        remove_tag(
             filepath=str(mock_vault_path / "non_existent.md"), tag="AnyTag"
         )
-        remove_tag(request)
 
 
 def test_remove_tag_needs_normalization_for_match(mock_vault_path: Path):
     note_path = (
         mock_vault_path / DEFAULT_NOTE_DIR / "note2.md"
-    )  # Has "  Whitespace Tag  "
-    request = RemoveTagRequest(
+    )
+    modified_path = remove_tag(
         filepath=str(note_path), tag="whitespace tag"
-    )  # Normalized form
-    modified_path = remove_tag(request)
+    )
     post = read_md_file(modified_path)
 
     # Check that "whitespace tag" (normalized) is removed, others (normalized) remain
@@ -468,10 +393,9 @@ def test_list_all_tags_basic_scenario(mock_vault_path: Path):
     # Files used: note1.md (TagA, tagB), note2.md (tagB, TagC, "  Whitespace Tag  ")
     # subdir/note_in_subdir.md (SubTag)
     # root_note.md (RootTag, tagB)
-    request = ListAllTagsRequest(
+    all_tags = list_all_tags(
         directory=str(mock_vault_path)
     )  # Scan whole mock vault
-    all_tags = list_all_tags(request)
 
     expected_tags = sorted(
         ["taga", "tagb", "tagc", "whitespace tag", "subtag", "roottag"]
@@ -481,8 +405,7 @@ def test_list_all_tags_basic_scenario(mock_vault_path: Path):
 
 def test_list_all_tags_scoped_to_subdir(mock_vault_path: Path):
     subdir_path = mock_vault_path / DEFAULT_NOTE_DIR / "subdir"
-    request = ListAllTagsRequest(directory=str(subdir_path))
-    all_tags = list_all_tags(request)
+    all_tags = list_all_tags(directory=str(subdir_path))
     assert all_tags == ["subtag"]
 
 
@@ -490,8 +413,7 @@ def test_list_all_tags_scoped_to_default_notes_dir(mock_vault_path: Path):
     # This test ensures that if directory is specified as DEFAULT_NOTE_DIR (within VAULT_PATH),
     # it correctly lists tags from notes_dir but not from vault_dir root.
     notes_dir_path = mock_vault_path / DEFAULT_NOTE_DIR
-    request = ListAllTagsRequest(directory=str(notes_dir_path))
-    all_tags = list_all_tags(request)
+    all_tags = list_all_tags(directory=str(notes_dir_path))
 
     # Expected: taga, tagb (note1), tagb, tagc, whitespace tag (note2), subtag (note_in_subdir)
     # Excluded: roottag (from root_note.md at vault_dir level)
@@ -510,33 +432,29 @@ author: Test
 No tags here."""
     (empty_dir / "no_tags_here.md").write_text(note_without_any_tags_content)
 
-    request = ListAllTagsRequest(directory=str(empty_dir))
-    all_tags = list_all_tags(request)
+    all_tags = list_all_tags(directory=str(empty_dir))
     assert all_tags == []
 
 
 def test_list_all_tags_on_empty_directory(mock_vault_path: Path):
     empty_dir = mock_vault_path / "truly_empty_dir"
     empty_dir.mkdir()
-    request = ListAllTagsRequest(directory=str(empty_dir))
-    all_tags = list_all_tags(request)
+    all_tags = list_all_tags(directory=str(empty_dir))
     assert all_tags == []
 
 
 def test_list_all_tags_non_existent_directory(mock_vault_path: Path):
     with pytest.raises(FileNotFoundError):
-        request = ListAllTagsRequest(
+        list_all_tags(
             directory=str(mock_vault_path / "non_existent_dir")
         )
-        list_all_tags(request)
 
 
 def test_list_all_tags_handles_malformed_tag_field(mock_vault_path: Path):
     # note_malformed_frontmatter.md has 'tags: not-a-list'
     # This test ensures list_all_tags still processes other files.
     # It will use the main mock_vault_path which includes note_malformed_frontmatter.md
-    request = ListAllTagsRequest(directory=str(mock_vault_path))
-    all_tags = list_all_tags(request)
+    all_tags = list_all_tags(directory=str(mock_vault_path))
 
     # Expected tags from other valid files
     expected_tags = sorted(
@@ -556,8 +474,7 @@ Content
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note_with_empty_tag_item.md"
     note_path.write_text(note_with_empty_tag_str)
 
-    request = ListAllTagsRequest(directory=str(mock_vault_path / DEFAULT_NOTE_DIR))
-    all_tags = list_all_tags(request)
+    all_tags = list_all_tags(directory=str(mock_vault_path / DEFAULT_NOTE_DIR))
 
     # "" after normalization is empty, so it should not be in the list.
     # We expect 'actual_tag' and others from notes in DEFAULT_NOTE_DIR
@@ -577,8 +494,7 @@ Content
 
 def test_find_notes_with_tag_multiple_files(mock_vault_path: Path):
     # "tagb" is in note1.md, note2.md, and root_note.md (normalized from TagB)
-    request = FindNotesWithTagRequest(tag="tagb", directory=str(mock_vault_path))
-    found_files = find_notes_with_tag(request)
+    found_files = find_notes_with_tag(tag="tagb", directory=str(mock_vault_path))
 
     expected_paths = sorted(
         [
@@ -592,74 +508,64 @@ def test_find_notes_with_tag_multiple_files(mock_vault_path: Path):
 
 def test_find_notes_with_tag_single_file(mock_vault_path: Path):
     # "taga" is only in note1.md (normalized from TagA)
-    request = FindNotesWithTagRequest(tag="taga", directory=str(mock_vault_path))
-    found_files = find_notes_with_tag(request)
+    found_files = find_notes_with_tag(tag="taga", directory=str(mock_vault_path))
     assert found_files == [str(mock_vault_path / DEFAULT_NOTE_DIR / "note1.md")]
 
 
 def test_find_notes_with_tag_non_existent_tag(mock_vault_path: Path):
-    request = FindNotesWithTagRequest(
+    found_files = find_notes_with_tag(
         tag="NonExistentTag", directory=str(mock_vault_path)
     )
-    found_files = find_notes_with_tag(request)
     assert found_files == []
 
 
 def test_find_notes_with_tag_needs_normalization(mock_vault_path: Path):
     # Searching for "  TagA  " should find note1.md which has "TagA"
-    request = FindNotesWithTagRequest(tag="  TagA  ", directory=str(mock_vault_path))
-    found_files = find_notes_with_tag(request)
+    found_files = find_notes_with_tag(tag="  TagA  ", directory=str(mock_vault_path))
     assert found_files == [str(mock_vault_path / DEFAULT_NOTE_DIR / "note1.md")]
 
     # Searching for "  WhItEsPaCe tAg  " should find note2.md
-    request = FindNotesWithTagRequest(
+    found_files = find_notes_with_tag(
         tag="  WhItEsPaCe tAg  ", directory=str(mock_vault_path)
     )
-    found_files = find_notes_with_tag(request)
     assert found_files == [str(mock_vault_path / DEFAULT_NOTE_DIR / "note2.md")]
 
 
 def test_find_notes_with_tag_non_existent_directory(mock_vault_path: Path):
     with pytest.raises(FileNotFoundError):
-        request = FindNotesWithTagRequest(
+        find_notes_with_tag(
             tag="anytag", directory=str(mock_vault_path / "non_existent_dir")
         )
-        find_notes_with_tag(request)
 
 
 def test_find_notes_with_empty_normalized_tag(mock_vault_path: Path):
-    request = FindNotesWithTagRequest(
+    found_files = find_notes_with_tag(
         tag="   ", directory=str(mock_vault_path)
     )  # Tag normalizes to empty
-    found_files = find_notes_with_tag(request)
     assert found_files == []
 
 
 def test_find_notes_with_tag_scoped_to_subdir(mock_vault_path: Path):
     subdir_path_str = str(mock_vault_path / DEFAULT_NOTE_DIR / "subdir")
     # "SubTag" is in subdir/note_in_subdir.md
-    request = FindNotesWithTagRequest(tag="SubTag", directory=subdir_path_str)
-    found_files = find_notes_with_tag(request)
+    found_files = find_notes_with_tag(tag="SubTag", directory=subdir_path_str)
     assert found_files == [
         str(mock_vault_path / DEFAULT_NOTE_DIR / "subdir" / "note_in_subdir.md")
     ]
 
     # "tagb" is not in any note directly under subdir (it's in parent dirs)
-    request_tagb = FindNotesWithTagRequest(tag="tagb", directory=subdir_path_str)
-    found_files_tagb = find_notes_with_tag(request_tagb)
+    found_files_tagb = find_notes_with_tag(tag="tagb", directory=subdir_path_str)
     assert found_files_tagb == []
 
 
 def test_find_notes_with_tag_scoped_to_default_dir_excludes_root(mock_vault_path: Path):
     default_dir_str = str(mock_vault_path / DEFAULT_NOTE_DIR)
     # "RootTag" is in root_note.md (at VAULT_PATH level), not in DEFAULT_NOTE_DIR
-    request = FindNotesWithTagRequest(tag="RootTag", directory=default_dir_str)
-    found_files = find_notes_with_tag(request)
+    found_files = find_notes_with_tag(tag="RootTag", directory=default_dir_str)
     assert found_files == []
 
     # "tagb" is in note1.md and note2.md within DEFAULT_NOTE_DIR
-    request_tagb = FindNotesWithTagRequest(tag="tagb", directory=default_dir_str)
-    found_files_tagb = find_notes_with_tag(request_tagb)
+    found_files_tagb = find_notes_with_tag(tag="tagb", directory=default_dir_str)
     expected_paths_tagb = sorted(
         [
             str(mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"),
@@ -685,10 +591,9 @@ def test_rename_tag_basic(mock_vault_path: Path):
     )  # Might not exist initially
 
     # Specify the directory for the test to use mock_vault_path
-    request = RenameTagRequest(
+    modified_files = rename_tag(
         old_tag="TagA", new_tag="NewTagForA", directory=str(mock_vault_path)
     )
-    modified_files = rename_tag(request)
 
     assert str(note1_path) in [str(p) for p in modified_files]
     assert len(modified_files) == 1
@@ -711,10 +616,9 @@ def test_rename_tag_basic(mock_vault_path: Path):
 def test_rename_tag_case_insensitive_old_tag(mock_vault_path: Path):
     note1_path = mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"  # Has TagA, tagB
     # Use the mock_vault_path for the test
-    request = RenameTagRequest(
+    modified_files = rename_tag(
         old_tag="taga", new_tag="StillNewTagA", directory=str(mock_vault_path)
     )  # old_tag is lowercase
-    modified_files = rename_tag(request)
 
     assert str(note1_path) in [str(p) for p in modified_files]
     post1 = read_md_file(note1_path)
@@ -728,20 +632,18 @@ def test_rename_tag_new_tag_casing_preserved_on_write_normalized_on_logic(
     # The function _generate_note_metadata normalizes tags before writing.
     # So, the actual stored tag will be lowercase.
     # The test should reflect this behavior of _generate_note_metadata.
-    request = RenameTagRequest(
+    rename_tag(
         old_tag="TagA", new_tag="BrandNewTagWithCase", directory=str(mock_vault_path)
     )
-    rename_tag(request)
     post1 = read_md_file(note1_path)
     assert "brandnewtagwithcase" in post1.metadata["tags"]  # It will be normalized
 
 
 def test_rename_tag_to_existing_tag_merges(mock_vault_path: Path):
     note1_path = mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"  # Has TagA, tagB
-    request = RenameTagRequest(
+    modified_files = rename_tag(
         old_tag="TagA", new_tag="tagB", directory=str(mock_vault_path)
     )  # Rename TagA to tagB
-    modified_files = rename_tag(request)
 
     assert str(note1_path) in [str(p) for p in modified_files]
     post1 = read_md_file(note1_path)
@@ -755,8 +657,7 @@ def test_rename_tag_non_existent_old_tag(mock_vault_path: Path):
     note1_path = mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"
     original_content = note1_path.read_text()
 
-    request = RenameTagRequest(old_tag="NonExistentTag", new_tag="AnyNewTag")
-    modified_files = rename_tag(request)
+    modified_files = rename_tag(old_tag="NonExistentTag", new_tag="AnyNewTag")
 
     assert len(modified_files) == 0
     assert (
@@ -769,8 +670,7 @@ def test_rename_tag_old_and_new_are_same_normalized(mock_vault_path: Path):
     original_post = read_md_file(note1_path)
     original_updated = original_post.metadata.get("updated")
 
-    request = RenameTagRequest(old_tag="TagA", new_tag="taga")  # Normalize to the same
-    modified_files = rename_tag(request)
+    modified_files = rename_tag(old_tag="TagA", new_tag="taga")  # Normalize to the same
     assert len(modified_files) == 0
 
     current_post = read_md_file(note1_path)
@@ -781,19 +681,17 @@ def test_rename_tag_old_and_new_are_same_normalized(mock_vault_path: Path):
 
 def test_rename_tag_invalid_new_tag_format(mock_vault_path: Path):
     with pytest.raises(ValueError, match="Invalid new_tag"):
-        RenameTagRequest(old_tag="TagA", new_tag="new,tag")  # Pydantic model is fine
-        request = RenameTagRequest(old_tag="TagA", new_tag="new,tag")
-        rename_tag(request)  # rename_tag itself validates normalized new_tag
+        rename_tag(old_tag="TagA", new_tag="new,tag")  # Pydantic model is fine
+        rename_tag(old_tag="TagA", new_tag="new,tag")
 
 
 def test_rename_tag_non_existent_directory(mock_vault_path: Path):
     with pytest.raises(FileNotFoundError):
-        request = RenameTagRequest(
+        rename_tag(
             old_tag="TagA",
             new_tag="NewTag",
             directory=str(mock_vault_path / "non_existent_dir"),
         )
-        rename_tag(request)
 
 
 def test_rename_tag_preserves_unrelated_metadata(mock_vault_path: Path):
@@ -803,8 +701,7 @@ def test_rename_tag_preserves_unrelated_metadata(mock_vault_path: Path):
     original_author = original_post.metadata["author"]
     original_created = original_post.metadata["created"]
 
-    request = RenameTagRequest(old_tag="TagA", new_tag="TagADifferent")
-    rename_tag(request)
+    rename_tag(old_tag="TagA", new_tag="TagADifferent")
 
     post = read_md_file(note1_path)
     assert post.metadata["custom_field"] == original_custom_field
@@ -818,10 +715,9 @@ def test_rename_tag_across_multiple_files(mock_vault_path: Path):
     note2_path = mock_vault_path / DEFAULT_NOTE_DIR / "note2.md"
     root_note_path = mock_vault_path / "root_note.md"  # Has RootTag, tagB
 
-    request = RenameTagRequest(
+    modified_files = rename_tag(
         old_tag="tagB", new_tag="UniversalTagB", directory=str(mock_vault_path)
     )
-    modified_files = rename_tag(request)
 
     assert len(modified_files) == 3
     paths_modified = [str(p) for p in modified_files]
@@ -858,10 +754,9 @@ def test_rename_tag_scoped_to_directory(mock_vault_path: Path):
 
     original_root_note_tags = read_md_file(root_note_path).metadata["tags"]
 
-    request = RenameTagRequest(
+    modified_files = rename_tag(
         old_tag="tagB", new_tag="NewTagBInNotesDir", directory=notes_dir_path_str
     )
-    modified_files = rename_tag(request)
 
     paths_modified = [str(p) for p in modified_files]
 
@@ -885,5 +780,4 @@ def test_rename_tag_empty_new_tag_after_normalization_is_invalid(mock_vault_path
     # This relies on _validate_tag disallowing empty normalized tags,
     # which rename_tag calls for the new_tag.
     with pytest.raises(ValueError, match="Invalid new_tag"):
-        request = RenameTagRequest(old_tag="TagA", new_tag="   ")
-        rename_tag(request)
+        rename_tag(old_tag="TagA", new_tag="   ")

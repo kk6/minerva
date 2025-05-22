@@ -998,7 +998,12 @@ class AddTagRequest(BaseModel):
         return self
 
 
-def add_tag(request: AddTagRequest) -> Path:
+def add_tag(
+    tag: str,
+    filename: str | None = None,
+    filepath: str | None = None,
+    default_path: str = DEFAULT_NOTE_DIR,
+) -> Path:
     """
     Add a specified tag to an existing note in the Obsidian vault.
 
@@ -1007,8 +1012,11 @@ def add_tag(request: AddTagRequest) -> Path:
     The note's 'updated' timestamp and potentially its 'tags' list in the frontmatter are modified.
 
     Args:
-        request: An `AddTagRequest` object specifying the tag to add and the target note
-                 (via `filename` and optional `default_path`, or `filepath`).
+        tag (str): The tag to add to the note.
+        filename (str, optional): The name of the file to modify. If it doesn't have a .md extension, it will be added.
+        filepath (str, optional): The full path of the file to modify. If provided, `filename` is ignored.
+        default_path (str): The default directory path (relative to vault root) to search for the note
+                            if `filename` is used and does not specify a subdirectory.
 
     Returns:
         The `Path` object of the modified note file.
@@ -1018,6 +1026,12 @@ def add_tag(request: AddTagRequest) -> Path:
         FileNotFoundError: If the specified note file does not exist.
         IOError, OSError: For underlying file system errors during read or write operations.
     """
+    request = AddTagRequest(
+        tag=tag,
+        filename=filename,
+        filepath=filepath,
+        default_path=default_path,
+    )
     file_path_for_logging: str | Path = "unknown_file"
     try:
         # 1. Determine the target file path
@@ -1197,7 +1211,12 @@ class RemoveTagRequest(BaseModel):
         return self
 
 
-def remove_tag(request: RemoveTagRequest) -> Path:
+def remove_tag(
+        tag: str,
+        filename: str | None = None,
+        filepath: str | None = None,
+        default_path: str = DEFAULT_NOTE_DIR,
+) -> Path:
     """
     Remove a specified tag from an existing note in the Obsidian vault.
 
@@ -1208,7 +1227,11 @@ def remove_tag(request: RemoveTagRequest) -> Path:
     If the last tag is removed, the 'tags' key is removed from the frontmatter.
 
     Args:
-        request: A `RemoveTagRequest` object specifying the tag to remove and the target note.
+        tag (str): The tag to remove from the note.
+        filename (str, optional): The name of the file to modify. If it doesn't have a .md extension, it will be added.
+        filepath (str, optional): The full path of the file to modify. If provided, `filename` is ignored.
+        default_path (str): The default directory path (relative to vault root) to search for the note
+                            if `filename` is used and does not specify a subdirectory.
 
     Returns:
         The `Path` object of the modified note file.
@@ -1217,6 +1240,12 @@ def remove_tag(request: RemoveTagRequest) -> Path:
         FileNotFoundError: If the specified note file does not exist.
         IOError, OSError: For underlying file system errors.
     """
+    request = RemoveTagRequest(
+        tag=tag,
+        filename=filename,
+        filepath=filepath,
+        default_path=default_path,
+    )
     file_path_for_logging: str | Path = "unknown_file"
     try:
         # 1. Determine the target file path
@@ -1371,7 +1400,11 @@ class RenameTagRequest(BaseModel):
     )
 
 
-def rename_tag(request: RenameTagRequest) -> list[Path]:
+def rename_tag(
+        old_tag: str,
+        new_tag: str,
+        directory: str | None = None,
+) -> list[Path]:
     """
     Rename a tag in all notes within a specified directory (or the entire vault).
 
@@ -1382,8 +1415,10 @@ def rename_tag(request: RenameTagRequest) -> list[Path]:
     'updated' timestamp changed and be included in the returned list.
 
     Args:
-        request: A `RenameTagRequest` object containing the old tag, new tag,
-                 and an optional directory to scope the operation.
+        old_tag (str): The current tag string to be replaced. Case-insensitive matching.
+        new_tag (str): The new tag string to replace the old tag.
+        directory (str | None): Optional path to a directory within the vault to limit the scope of renaming.
+                                If `None`, the entire vault is scanned.
 
     Returns:
         A list of `Path` objects for each note file that was modified.
@@ -1393,6 +1428,11 @@ def rename_tag(request: RenameTagRequest) -> list[Path]:
         FileNotFoundError: If the specified `directory` (if provided) does not exist.
         IOError, OSError: For underlying file system errors during directory traversal or file operations.
     """
+    request = RenameTagRequest(
+        old_tag=old_tag,
+        new_tag=new_tag,
+        directory=directory,
+    )
     effective_directory_str = (
         request.directory if request.directory else str(VAULT_PATH)
     )
@@ -1607,7 +1647,11 @@ class GetTagsRequest(BaseModel):
         return self
 
 
-def get_tags(request: GetTagsRequest) -> list[str]:
+def get_tags(
+    filename: str | None = None,
+    filepath: str | None = None,
+    default_path: str = DEFAULT_NOTE_DIR,
+) -> list[str]:
     """
     Retrieve the list of tags from a specific note's frontmatter.
 
@@ -1617,7 +1661,11 @@ def get_tags(request: GetTagsRequest) -> list[str]:
     stored in the note.
 
     Args:
-        request: A `GetTagsRequest` object specifying the target note.
+        filename (str, optional): The name of the note file (e.g., "my_note.md" or "subdir/my_note").
+                                  Used if `filepath` is not provided. `.md` extension is optional.
+        filepath (str, optional): The full, absolute path to the note file. If provided, `filename` is ignored.
+        default_path (str): The default directory path (relative to vault root) to search for the note
+                            if `filename` is used and does not specify a subdirectory.
 
     Returns:
         A list of tag strings. Returns an empty list in case of errors or no tags.
@@ -1626,6 +1674,11 @@ def get_tags(request: GetTagsRequest) -> list[str]:
         ValueError: If Pydantic model validation fails (e.g. neither filename nor filepath provided).
                     Does not typically raise exceptions for file access or parsing issues.
     """
+    request = GetTagsRequest(
+        filename=filename,
+        filepath=filepath,
+        default_path=default_path,
+    )
     file_path_for_logging: str | Path = "unknown_file (pre-resolution)"
     try:
         # 1. Path Resolution
@@ -1761,7 +1814,7 @@ class ListAllTagsRequest(BaseModel):
     )
 
 
-def list_all_tags(request: ListAllTagsRequest) -> list[str]:
+def list_all_tags(directory: str | None) -> list[str]:
     """
     List all unique, normalized tags from all Markdown files within a specified directory (or entire vault).
 
@@ -1779,6 +1832,7 @@ def list_all_tags(request: ListAllTagsRequest) -> list[str]:
         FileNotFoundError: If the specified `directory` (if provided) does not exist or is not a directory.
         IOError, OSError: For underlying file system errors during directory traversal.
     """
+    request = ListAllTagsRequest(directory=directory)
     effective_directory_str = (
         request.directory if request.directory else str(VAULT_PATH)
     )
@@ -1800,22 +1854,16 @@ def list_all_tags(request: ListAllTagsRequest) -> list[str]:
     try:
         for file_path in effective_directory_path.rglob("*.md"):
             files_processed_count += 1
-            # Create GetTagsRequest for each file
-            # No need for default_path here as we're providing a full filepath
-            get_tags_request = GetTagsRequest(
+            tags_in_file = get_tags(
                 filename=None, filepath=str(file_path), default_path=DEFAULT_NOTE_DIR
             )
-
-            # get_tags is fault-tolerant for individual file issues
-            tags_in_file = get_tags(get_tags_request)
-
             for tag in tags_in_file:
                 normalized_tag = _normalize_tag(tag)
                 if (
                     normalized_tag
-                ):  # Ensure empty tags after normalization are not added
+                ):
                     all_tags_set.add(normalized_tag)
-                    tags_found_count += 1  # Counts each instance, not unique
+                    tags_found_count += 1
 
     except (IOError, OSError) as e:
         logger.error(
@@ -1823,8 +1871,6 @@ def list_all_tags(request: ListAllTagsRequest) -> list[str]:
             effective_directory_path,
             e,
         )
-        # Depending on desired behavior, could re-raise or return partial results.
-        # For now, re-raising as this indicates a more fundamental issue than single file errors.
         raise
 
     sorted_tags_list = sorted(list(all_tags_set))
@@ -1862,7 +1908,7 @@ class FindNotesWithTagRequest(BaseModel):
     )
 
 
-def find_notes_with_tag(request: FindNotesWithTagRequest) -> list[str]:
+def find_notes_with_tag(tag: str, directory: str | None) -> list[str]:
     """
     Find all notes (returned as a list of file paths) that contain a specific tag.
 
@@ -1881,6 +1927,7 @@ def find_notes_with_tag(request: FindNotesWithTagRequest) -> list[str]:
         FileNotFoundError: If the specified `directory` (if provided) does not exist or is not a directory.
         IOError, OSError: For underlying file system errors during directory traversal.
     """
+    request = FindNotesWithTagRequest(tag=tag, directory=directory)
     effective_directory_str = (
         request.directory if request.directory else str(VAULT_PATH)
     )
@@ -1911,12 +1958,9 @@ def find_notes_with_tag(request: FindNotesWithTagRequest) -> list[str]:
     try:
         for file_path in effective_directory_path.rglob("*.md"):
             files_processed_count += 1
-            get_tags_request = GetTagsRequest(
+            tags_in_file = get_tags(
                 filename=None, filepath=str(file_path), default_path=DEFAULT_NOTE_DIR
             )
-
-            # get_tags is fault-tolerant
-            tags_in_file = get_tags(get_tags_request)
 
             normalized_tags_in_file = [_normalize_tag(t) for t in tags_in_file]
 
