@@ -1,6 +1,24 @@
 # CHANGELOG
 
 
+## v0.3.0 (2025-05-23)
+
+### Documentation
+
+- Update README to reflect new features and enhancements in note management
+  ([`e02a2eb`](https://github.com/kk6/minerva/commit/e02a2eb8cdd0ae9c078426cb83615d255647c741))
+
+### Features
+
+- Add AI generation information section to issue templates and guidelines
+  ([`691d556`](https://github.com/kk6/minerva/commit/691d5561b0c7be765edbd2fe754667c6c5233b0a))
+
+- Updated bug_report.md, documentation.md, enhancement.md, and feature_request.md to include a new
+  section for AI-generated information. - Created ai_guidelines.md to outline guidelines for AI
+  assistants when creating issues. - Enhanced reference.md with AI assistant guidelines for issue
+  creation.
+
+
 ## v0.2.1 (2025-05-22)
 
 ### Bug Fixes
