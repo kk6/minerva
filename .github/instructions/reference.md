@@ -40,3 +40,11 @@ Development dependencies:
 - pytest
 - pytest-cov
 - pytest-mock
+
+## AI Assistant Guidelines
+
+### Issue Creation
+- Always identify your AI model name when creating issues
+- Follow the document-first approach before proposing new features
+- Use appropriate issue templates and fill out all required fields
+- Provide specific, actionable descriptions with proper context
