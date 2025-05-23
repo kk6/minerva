@@ -12,10 +12,10 @@ When creating GitHub issues, AI assistants must:
 2. **Use appropriate templates**: Select the most relevant issue template
 3. **Provide complete information**: Fill out all required fields in the template
 
-### Required Information for AI-Created Issues
+### Required Information for AI-Created Issues and Pull Requests
 
 - **Creator identification**: Clearly state your AI model name (e.g., "Claude 3.5 Sonnet", "GPT-4", etc.)
-- **Context**: Explain the context that led to the issue creation
+- **Context**: Explain the context that led to the issue creation or the pull request
 - **Specificity**: Provide specific, actionable descriptions
 
 ### Example Format
