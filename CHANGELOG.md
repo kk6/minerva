@@ -1,6 +1,15 @@
 # CHANGELOG
 
 
+## v0.4.0 (2025-05-23)
+
+### Features
+
+- Update AI guidelines to include pull request context and add AI generation information section in
+  PR template
+  ([`f89b931`](https://github.com/kk6/minerva/commit/f89b93121ea377dfa17b3a34ffcbccc2e7b785d8))
+
+
 ## v0.3.0 (2025-05-23)
 
 ### Documentation
