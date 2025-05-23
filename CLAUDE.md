@@ -19,3 +19,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Type hints required throughout the codebase
 - Exception handling should be specific and well-documented
 - Use pydantic for data validation and model definition
+
+## Development Workflow
+- Always check `.github/instructions/` for custom instructions at the beginning of coding
+- After consulting custom instructions, refer to documentation in `docs/` directory and README.md
+- Follow a document-first approach: create documentation as part of implementation planning and ask for user review
+- Begin coding only after documentation review is complete
+- Update documentation during implementation if discrepancies or improvements are identified
+- Before creating a pull request, verify that documentation accurately reflects the implementation
