@@ -22,7 +22,7 @@ dev = [
 
 [tool.mypy]
 python_version = "3.12"
-# 型チェックポリシーの設定
+# type checking policy
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
@@ -33,13 +33,12 @@ warn_unused_ignores = true
 warn_return_any = true
 warn_unreachable = true
 
-# テストファイルのGetTagsRequestなどのエラーを抑制
+# Suppress errors such as GetTagsRequest in test files
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 ignore_missing_imports = true
-# call-argエラーを抑制
 disable_error_code = ["call-arg"]
 
 [[tool.mypy.overrides]]
