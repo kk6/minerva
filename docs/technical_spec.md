@@ -365,17 +365,17 @@ jobs:
   lint:
     name: コード品質チェック
     steps:
-      - actions/checkout@v4
-      - astral-sh/setup-uv@v3
-      - ruff check --select ALL --ignore E501,D100,D101,D102,D103,D104,D105
-      - ruff format --check
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: ruff check --select ALL --ignore E501,D100,D101,D102,D103,D104,D105
+      - run: ruff format --check
 
   type-check:
     name: 型チェック
     steps:
-      - actions/checkout@v4
-      - astral-sh/setup-uv@v3
-      - uv run mypy src/minerva
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv run mypy src/minerva
 
   test:
     name: テスト実行
@@ -383,10 +383,12 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13"]
     steps:
-      - actions/checkout@v4
-      - astral-sh/setup-uv@v3 (python-version: ${{ matrix.python-version }})
-      - uv run pytest --cov=minerva --cov-report=xml --cov-report=html
-      - codecov/codecov-action@v4 (if: matrix.python-version == '3.12')
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv run pytest --cov=minerva --cov-report=xml --cov-report=html
+      - uses: codecov/codecov-action@v4 (if: matrix.python-version == '3.12')
 ```
 
 #### 7.1.2 プルリクエスト専用ワークフロー (`.github/workflows/pr-checks.yml`)
