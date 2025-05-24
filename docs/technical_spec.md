@@ -343,3 +343,132 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
 - **非同期API**: ファイル操作の非同期実装
 - **キャッシング**: 頻繁にアクセスされるファイルのキャッシング
 - **インデックス作成**: 高速検索のためのインデックス機能
+
+## 7. CI/CD技術仕様
+
+### 7.1 GitHub Actions ワークフロー構成
+
+#### 7.1.1 メインCIワークフロー (`.github/workflows/ci.yml`)
+
+**トリガー条件**:
+- プルリクエスト（`pull_request` イベント）
+- main ブランチへの push
+
+**実行環境**:
+- `ubuntu-latest`
+- Python マトリックス: `["3.12", "3.13"]`
+
+**ジョブ構成**:
+
+```yaml
+jobs:
+  lint:
+    name: コード品質チェック
+    steps:
+      - actions/checkout@v4
+      - astral-sh/setup-uv@v3
+      - ruff check --select ALL --ignore E501,D100,D101,D102,D103,D104,D105
+      - ruff format --check
+
+  type-check:
+    name: 型チェック
+    steps:
+      - actions/checkout@v4
+      - astral-sh/setup-uv@v3
+      - uv run mypy src/minerva
+
+  test:
+    name: テスト実行
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - actions/checkout@v4
+      - astral-sh/setup-uv@v3 (python-version: ${{ matrix.python-version }})
+      - uv run pytest --cov=minerva --cov-report=xml --cov-report=html
+      - codecov/codecov-action@v4 (if: matrix.python-version == '3.12')
+```
+
+#### 7.1.2 プルリクエスト専用ワークフロー (`.github/workflows/pr-checks.yml`)
+
+**トリガー条件**:
+- プルリクエスト（`pull_request` イベント）
+
+**実行内容**:
+- コミットメッセージ形式チェック（Conventional Commits準拠）
+- ドキュメント更新確認
+- 軽量なクイックチェック
+
+#### 7.1.3 リリースワークフローとの統合
+
+**既存の `.github/workflows/release.yml` との関係**:
+- CI成功後にのみリリースが実行される
+- `needs: [lint, type-check, test]` 依存関係を設定
+- semantic-release による自動バージョニング
+
+### 7.2 使用するGitHub Actions
+
+#### 7.2.1 標準アクション
+
+- `actions/checkout@v4`: リポジトリのチェックアウト
+- `actions/upload-artifact@v4`: アーティファクトのアップロード（HTMLカバレッジレポート等）
+
+#### 7.2.2 Python/uv関連
+
+- `astral-sh/setup-uv@v3`: uv環境のセットアップ
+  - Python バージョン指定機能
+  - 依存関係キャッシュ機能
+
+#### 7.2.3 コードカバレッジ
+
+- `codecov/codecov-action@v4`: Codecovへのカバレッジレポートアップロード
+  - トークン設定: `CODECOV_TOKEN` (Secrets)
+  - XML形式レポートの自動アップロード
+
+### 7.3 環境変数とSecrets
+
+#### 7.3.1 必要なSecrets
+
+- `CODECOV_TOKEN`: Codecov統合用トークン
+- `GITHUB_TOKEN`: 自動生成されるトークン（リリース用）
+
+#### 7.3.2 環境変数
+
+- `PYTHONPATH=src`: テスト実行時のパス設定
+- uvの設定はプロジェクト内の `pyproject.toml` を参照
+
+### 7.4 品質ゲート
+
+#### 7.4.1 必須チェック項目
+
+- **Ruff リンティング**: `ruff check` でのコード品質確認
+- **フォーマットチェック**: `ruff format --check` での形式確認
+- **型チェック**: `mypy` による静的型チェック
+- **テスト実行**: 全テストの成功
+- **カバレッジ**: 最低カバレッジの維持（現在89%）
+
+#### 7.4.2 パフォーマンス要件
+
+- **実行時間**: 5分以内での完了を目標
+- **並列実行**: 可能な限りジョブを並列実行
+- **キャッシュ活用**: uvのキャッシュ機能を活用した依存関係高速化
+
+### 7.5 段階的実装計画
+
+#### 7.5.1 Phase 1: 基本ワークフロー
+
+1. メインCIワークフロー（`.github/workflows/ci.yml`）の実装
+2. コード品質チェック（Ruff、MyPy）
+3. 基本テスト実行とカバレッジ測定
+
+#### 7.5.2 Phase 2: マトリックス対応と最適化
+
+1. Python マトリックステスト（3.12、3.13）
+2. Codecov統合
+3. パフォーマンス最適化
+
+#### 7.5.3 Phase 3: 高度な機能
+
+1. プルリクエスト専用チェック
+2. セキュリティチェック（依存関係の脆弱性スキャン）
+3. 既存リリースワークフローとの完全統合
