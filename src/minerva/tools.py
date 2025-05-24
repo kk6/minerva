@@ -1,10 +1,10 @@
 import functools
 import logging
 import os
-import re  # Added for tag validation
+import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, ParamSpec, TypeVar, cast
+from typing import Callable, ParamSpec, TypeVar
 
 import frontmatter
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -27,10 +27,13 @@ from minerva.config import VAULT_PATH, DEFAULT_NOTE_AUTHOR, DEFAULT_NOTE_DIR
 logger = logging.getLogger(__name__)
 
 # Type variables for decorator
-P = ParamSpec('P')
-R = TypeVar('R')
+P = ParamSpec("P")
+R = TypeVar("R")
 
-def handle_file_operations(operation_name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+
+def handle_file_operations(
+    operation_name: str,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator for unified error handling in file operations.
 
@@ -243,16 +246,13 @@ def _generate_note_metadata(
         This function only handles the metadata portion of a note.
         It does not perform any file path resolution or file I/O operations.
     """
-    # Get current time in ISO format
     now = datetime.now().isoformat()
 
     # Check and load frontmatter
     has_frontmatter = text.startswith("---\n")
     if has_frontmatter:
-        # Load existing frontmatter
         post = frontmatter.loads(text)
     else:
-        # Create new frontmatter object
         post = frontmatter.Post(text)
 
     # Copy existing frontmatter if available
@@ -280,7 +280,7 @@ def _generate_note_metadata(
         post.metadata["updated"] = now
 
     # Handle tags
-    if tags is not None:  # tags were explicitly provided
+    if tags is not None:
         processed_tags = []
         if isinstance(tags, list):
             seen_tags = set()
@@ -303,7 +303,6 @@ def _generate_note_metadata(
             "tags" in post.metadata
         ):  # Explicitly provided empty list of tags means clear existing tags
             del post.metadata["tags"]
-    # If tags argument is None, existing tags in post.metadata (if any) are preserved.
 
     return post
 
@@ -376,7 +375,7 @@ def _build_file_path(
 
     # Create final directory path
     full_dir_path = VAULT_PATH
-    if str(subdirs) != ".":  # If subdirectory is specified
+    if str(subdirs) != ".":
         full_dir_path = full_dir_path / subdirs
     elif isinstance(default_path, str) and default_path.strip() != "":
         full_dir_path = full_dir_path / default_path
