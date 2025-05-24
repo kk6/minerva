@@ -18,6 +18,7 @@ dev = [
     "pytest-cov>=6.1.1",
     "pytest-mock>=3.14.0",
     "python-semantic-release>=9.21.1",
+    "ruff>=0.8.0",
 ]
 
 [tool.mypy]
@@ -44,6 +45,28 @@ disable_error_code = ["call-arg"]
 [[tool.mypy.overrides]]
 module = "frontmatter"
 ignore_missing_imports = true
+
+[tool.ruff]
+# Same as Black.
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+# Start with basic rules to avoid overwhelming errors
+select = ["E", "W", "F"]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+]
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
 
 [project.scripts]
 minerva = "minerva.__main__:main"

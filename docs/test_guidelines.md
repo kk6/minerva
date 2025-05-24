@@ -195,7 +195,7 @@ def test_server_initialization():
     # ツールが登録されていることを確認
     assert hasattr(mcp, "tools")
     assert len(mcp.tools) > 0
-    
+
     # 必要なツールがすべて登録されていることを確認
     tool_functions = [t.function for t in mcp.tools]
     assert read_note in tool_functions
@@ -217,15 +217,15 @@ def test_read_existing_frontmatter_with_datetime():
     mock_date = datetime(2025, 5, 1, 12, 30, 45)
     post = frontmatter.Post("Test content")
     post.metadata["created"] = mock_date
-    
+
     # 一時ファイルに書き込み
     temp_file = tmp_path / "date_test.md"
     with open(temp_file, "w") as f:
         f.write(frontmatter.dumps(post))
-        
+
     # 関数を実行
     metadata = _read_existing_frontmatter(temp_file)
-    
+
     # datetimeがISO文字列に変換されたことを確認
     assert isinstance(metadata["created"], str)
     assert metadata["created"] == mock_date.isoformat()
@@ -241,7 +241,7 @@ def test_empty_filename_validation():
     # 空のファイル名でリクエストを作成
     with pytest.raises(ValueError, match="Filename cannot be empty"):
         WriteNoteRequest(text="Content", filename="")
-        
+
     # 空のパス部分を持つファイル名でも検証
     with pytest.raises(ValueError, match="Filename cannot be empty"):
         full_dir_path, base_filename = _build_file_path("path/to/")

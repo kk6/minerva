@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
    ```python
    # Correct example
    logger.debug("Found %d matching files for query '%s'", len(results), query)
-   
+
    # Incorrect example - do not use
    logger.debug(f"Found {len(results)} matching files for query '{query}'")
    ```
