@@ -4,6 +4,7 @@ import os
 import re  # Added for tag validation
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Callable, ParamSpec, TypeVar, cast
 
 import frontmatter
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -25,8 +26,11 @@ from minerva.config import VAULT_PATH, DEFAULT_NOTE_AUTHOR, DEFAULT_NOTE_DIR
 # Set up logging
 logger = logging.getLogger(__name__)
 
+# Type variables for decorator
+P = ParamSpec('P')
+R = TypeVar('R')
 
-def handle_file_operations(operation_name: str):
+def handle_file_operations(operation_name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator for unified error handling in file operations.
 
@@ -52,9 +56,9 @@ def handle_file_operations(operation_name: str):
         - The decorator preserves the original function's signature and return value
     """
 
-    def decorator(func):
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             try:
                 return func(*args, **kwargs)
             except PermissionError as e:
