@@ -155,7 +155,7 @@ class TestSearchNotes:
 
         with pytest.raises(
             RuntimeError,
-            match="Unexpected error occurred during search for query 'keyword': Unexpected search error",
+            match="Unexpected error during note search: Unexpected search error",
         ):
             tools.search_notes(
                 query=search_note_request.query,
@@ -170,14 +170,14 @@ class TestSearchNotes:
         """Test searching notes raises an exception.
 
         Expects:
-            - When search_keyword_in_files raises an exception, it's propagated to the caller
+            - When search_keyword_in_files raises an unexpected exception, it's wrapped in RuntimeError
             - The search_keyword_in_files function is still called once
         """
         mock_search = mock_search_setup["mock_search"]
 
         mock_search.side_effect = Exception("Search error")
 
-        with pytest.raises(Exception, match="Search error"):
+        with pytest.raises(RuntimeError, match="Unexpected error during note search"):
             tools.search_notes(
                 query=search_note_request.query,
                 case_sensitive=search_note_request.case_sensitive,

@@ -1,8 +1,10 @@
+import functools
 import logging
 import os
-import re  # Added for tag validation
+import re
 from datetime import datetime
 from pathlib import Path
+from typing import Callable, ParamSpec, TypeVar
 
 import frontmatter
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -23,6 +25,63 @@ from minerva.config import VAULT_PATH, DEFAULT_NOTE_AUTHOR, DEFAULT_NOTE_DIR
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+# Type variables for decorator
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def handle_file_operations(
+    operation_name: str,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """
+    Decorator for unified error handling in file operations.
+
+    This decorator provides consistent error handling and logging for file operations
+    across the application. It handles common exceptions that occur during file I/O
+    operations and provides standardized error logging.
+
+    Args:
+        operation_name: A descriptive name of the operation being performed,
+                       used in error messages and logging.
+
+    Returns:
+        A decorator function that wraps the target function with error handling.
+
+    The decorator handles these exception types:
+    - PermissionError: Access denied to files or directories
+    - IOError/OSError: File system related errors
+    - Exception: Unexpected errors (re-raised as RuntimeError with context)
+
+    Note:
+        - FileExistsError, FileNotFoundError, and ValueError are passed through unchanged
+          as they represent expected business logic conditions that calling code should handle
+        - The decorator preserves the original function's signature and return value
+    """
+
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
+        @functools.wraps(func)
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+            try:
+                return func(*args, **kwargs)
+            except PermissionError as e:
+                logger.error("Permission denied during %s: %s", operation_name, e)
+                raise
+            except (IOError, OSError) as e:
+                logger.error("File system error during %s: %s", operation_name, e)
+                raise
+            except Exception as e:
+                # Let FileExistsError, FileNotFoundError, and ValueError pass through
+                if isinstance(e, (FileExistsError, FileNotFoundError, ValueError)):
+                    raise
+                logger.error("Unexpected error during %s: %s", operation_name, e)
+                raise RuntimeError(
+                    f"Unexpected error during {operation_name}: {e}"
+                ) from e
+
+        return wrapper
+
+    return decorator
 
 
 class WriteNoteRequest(BaseModel):
@@ -187,16 +246,13 @@ def _generate_note_metadata(
         This function only handles the metadata portion of a note.
         It does not perform any file path resolution or file I/O operations.
     """
-    # Get current time in ISO format
     now = datetime.now().isoformat()
 
     # Check and load frontmatter
     has_frontmatter = text.startswith("---\n")
     if has_frontmatter:
-        # Load existing frontmatter
         post = frontmatter.loads(text)
     else:
-        # Create new frontmatter object
         post = frontmatter.Post(text)
 
     # Copy existing frontmatter if available
@@ -224,7 +280,7 @@ def _generate_note_metadata(
         post.metadata["updated"] = now
 
     # Handle tags
-    if tags is not None:  # tags were explicitly provided
+    if tags is not None:
         processed_tags = []
         if isinstance(tags, list):
             seen_tags = set()
@@ -247,7 +303,6 @@ def _generate_note_metadata(
             "tags" in post.metadata
         ):  # Explicitly provided empty list of tags means clear existing tags
             del post.metadata["tags"]
-    # If tags argument is None, existing tags in post.metadata (if any) are preserved.
 
     return post
 
@@ -320,7 +375,7 @@ def _build_file_path(
 
     # Create final directory path
     full_dir_path = VAULT_PATH
-    if str(subdirs) != ".":  # If subdirectory is specified
+    if str(subdirs) != ".":
         full_dir_path = full_dir_path / subdirs
     elif isinstance(default_path, str) and default_path.strip() != "":
         full_dir_path = full_dir_path / default_path
@@ -435,6 +490,7 @@ def _assemble_complete_note(
     return full_dir_path, base_filename, content
 
 
+@handle_file_operations("note creation")
 def create_note(
     text: str,
     filename: str,
@@ -458,59 +514,29 @@ def create_note(
     Raises:
         FileExistsError: If the file already exists.
     """
-    file_path_for_logging = None  # Ensure variable is always defined
-    try:
-        # Prepare note for writing
-        full_dir_path, base_filename, content = _assemble_complete_note(
-            text=text,
-            filename=filename,
-            author=author,
-            default_path=default_path,
-            is_new_note=True,
-        )
-        file_path_for_logging = full_dir_path / base_filename
+    # Prepare note for writing
+    full_dir_path, base_filename, content = _assemble_complete_note(
+        text=text,
+        filename=filename,
+        author=author,
+        default_path=default_path,
+        is_new_note=True,
+    )
 
-        # Create the FileWriteRequest with overwrite=False to ensure we don't overwrite existing files
-        file_write_request = FileWriteRequest(
-            directory=str(full_dir_path),
-            filename=base_filename,
-            content=content,
-            overwrite=False,
-        )
+    # Create the FileWriteRequest with overwrite=False to ensure we don't overwrite existing files
+    file_write_request = FileWriteRequest(
+        directory=str(full_dir_path),
+        filename=base_filename,
+        content=content,
+        overwrite=False,
+    )
 
-        file_path = write_file(file_write_request)
-        logger.info("New note created at %s", file_path)
-        return file_path
-
-    except FileExistsError:
-        logger.error(
-            "Error creating note: File %s already exists.",
-            file_path_for_logging if file_path_for_logging else filename,
-        )
-        raise
-    except (IOError, OSError) as e:
-        logger.error(
-            "Error creating note for %s: File system error: %s",
-            file_path_for_logging if file_path_for_logging else filename,
-            e,
-        )
-        raise
-    except ValueError as e:  # Catches errors from Pydantic, _build_file_path, etc.
-        logger.error(
-            "Error creating note (input filename '%s'): Invalid input or path: %s",
-            filename,
-            e,
-        )
-        raise
-    except Exception as e:
-        logger.error(
-            "Error creating note (input filename '%s'): An unexpected error occurred: %s",
-            filename,
-            e,
-        )
-        raise
+    file_path = write_file(file_write_request)
+    logger.info("New note created at %s", file_path)
+    return file_path
 
 
+@handle_file_operations("note editing")
 def edit_note(
     text: str,
     filename: str,
@@ -534,59 +560,33 @@ def edit_note(
     Raises:
         FileNotFoundError: If the file doesn't exist.
     """
-    file_path_for_logging = None
-    try:
-        # Prepare note for writing
-        full_dir_path, base_filename, content = _assemble_complete_note(
-            text=text,
-            filename=filename,
-            author=author,
-            default_path=default_path,
-            is_new_note=False,
-        )
-        file_path_for_logging = full_dir_path / base_filename
+    # Prepare note for writing
+    full_dir_path, base_filename, content = _assemble_complete_note(
+        text=text,
+        filename=filename,
+        author=author,
+        default_path=default_path,
+        is_new_note=False,
+    )
+    file_path_for_logging = full_dir_path / base_filename
 
-        # Check if the file exists before attempting to edit it
-        if not file_path_for_logging.exists():
-            raise FileNotFoundError(
-                "Cannot edit note. File %s does not exist", file_path_for_logging
-            )
-
-        # Create the FileWriteRequest with overwrite=True since we're editing an existing file
-        file_write_request = FileWriteRequest(
-            directory=str(full_dir_path),
-            filename=base_filename,
-            content=content,
-            overwrite=True,
+    # Check if the file exists before attempting to edit it
+    if not file_path_for_logging.exists():
+        raise FileNotFoundError(
+            f"Cannot edit note. File {file_path_for_logging} does not exist"
         )
 
-        file_path = write_file(file_write_request)
-        logger.info("Note edited at %s", file_path)
-        return file_path
+    # Create the FileWriteRequest with overwrite=True since we're editing an existing file
+    file_write_request = FileWriteRequest(
+        directory=str(full_dir_path),
+        filename=base_filename,
+        content=content,
+        overwrite=True,
+    )
 
-    except FileNotFoundError:
-        # This will catch the FileNotFoundError raised from the explicit check or from write_file if overwrite=True somehow fails on a non-existent file.
-        logger.error("Error editing note: File %s not found.", file_path_for_logging)
-        raise
-    except (IOError, OSError) as e:
-        logger.error(
-            "Error editing note for %s: File system error: %s", file_path_for_logging, e
-        )
-        raise
-    except ValueError as e:
-        logger.error(
-            "Error editing note for %s: Invalid input or path: %s",
-            file_path_for_logging,
-            e,
-        )
-        raise
-    except Exception as e:
-        logger.error(
-            "Error editing note for %s: An unexpected error occurred: %s",
-            file_path_for_logging,
-            e,
-        )
-        raise
+    file_path = write_file(file_write_request)
+    logger.info("Note edited at %s", file_path)
+    return file_path
 
 
 def write_note(
@@ -694,6 +694,7 @@ def write_note(
         raise
 
 
+@handle_file_operations("note reading")
 def read_note(filepath: str) -> str:
     """
     Read a note from a file in the Obsidian vault.
@@ -704,28 +705,16 @@ def read_note(filepath: str) -> str:
         str: The content of the file.
     """
     directory, filename = os.path.split(filepath)
-    try:
-        file_read_request = FileReadRequest(
-            directory=directory,
-            filename=filename,
-        )
-        content = read_file(file_read_request)
-        logger.info("File read from %s", filepath)
-    except FileNotFoundError:
-        logger.error("Error reading file: File %s not found.", filepath)
-        raise
-    except (IOError, OSError) as e:
-        logger.error("Error reading file: File system error for %s: %s", filepath, e)
-        raise
-    except Exception as e:
-        logger.error(
-            "Error reading file %s: An unexpected error occurred: %s", filepath, e
-        )
-        raise
-
+    file_read_request = FileReadRequest(
+        directory=directory,
+        filename=filename,
+    )
+    content = read_file(file_read_request)
+    logger.info("File read from %s", filepath)
     return content
 
 
+@handle_file_operations("note delete confirmation")
 def get_note_delete_confirmation(
     filename: str | None = None,
     filepath: str | None = None,
@@ -749,64 +738,25 @@ def get_note_delete_confirmation(
     request = DeleteNoteRequest(
         filename=filename, filepath=filepath, default_path=default_path
     )
-    file_path_for_logging: Path | None = (
-        None  # Initialize for logging in case _build_file_path fails
-    )
 
-    try:
-        if request.filepath:
-            file_path = Path(request.filepath)
-            file_path_for_logging = file_path
-        else:
-            if request.filename is None:
-                raise ValueError(
-                    "Filename must be provided if filepath is not specified."
-                )
-            full_dir_path, base_filename = _build_file_path(
-                request.filename, request.default_path
-            )
-            file_path = full_dir_path / base_filename
-            file_path_for_logging = file_path
-
-        if not file_path.exists():
-            logger.error("File not found for deletion confirmation: %s", file_path)
-            raise FileNotFoundError(f"File {file_path} does not exist")
-
-        message = f"File found at {file_path}. To delete, call 'perform_note_delete' with the same identification parameters."
-        return DeleteConfirmationResult(file_path=str(file_path), message=message)
-
-    except FileNotFoundError:  # Already logged
-        raise
-    except ValueError as e:
-        log_path_str = (
-            str(file_path_for_logging)
-            if file_path_for_logging
-            else f"filename='{filename}', filepath='{filepath}'"
+    if request.filepath:
+        file_path = Path(request.filepath)
+    else:
+        if request.filename is None:
+            raise ValueError("Filename must be provided if filepath is not specified.")
+        full_dir_path, base_filename = _build_file_path(
+            request.filename, request.default_path
         )
-        logger.error("Invalid input for delete confirmation (%s): %s", log_path_str, e)
-        raise
-    except (IOError, OSError) as e:
-        log_path_str = (
-            str(file_path_for_logging)
-            if file_path_for_logging
-            else f"filename='{filename}', filepath='{filepath}'"
-        )
-        logger.error(
-            "File system error during delete confirmation for %s: %s", log_path_str, e
-        )
-        raise
-    except Exception as e:
-        log_path_str = (
-            str(file_path_for_logging)
-            if file_path_for_logging
-            else f"filename='{filename}', filepath='{filepath}'"
-        )
-        logger.error(
-            "Unexpected error during delete confirmation for %s: %s", log_path_str, e
-        )
-        raise
+        file_path = full_dir_path / base_filename
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {file_path} does not exist")
+
+    message = f"File found at {file_path}. To delete, call 'perform_note_delete' with the same identification parameters."
+    return DeleteConfirmationResult(file_path=str(file_path), message=message)
 
 
+@handle_file_operations("note deletion")
 def perform_note_delete(
     filename: str | None = None,
     filepath: str | None = None,
@@ -831,69 +781,30 @@ def perform_note_delete(
     request = DeleteNoteRequest(
         filename=filename, filepath=filepath, default_path=default_path
     )
-    file_path_for_logging: Path | None = None  # Initialize for logging
 
-    try:
-        if request.filepath:
-            file_path = Path(request.filepath)
-            file_path_for_logging = file_path
-        else:
-            assert request.filename is not None  # Ensured by Pydantic model
-            full_dir_path, base_filename = _build_file_path(
-                request.filename, request.default_path
-            )
-            file_path = full_dir_path / base_filename
-            file_path_for_logging = file_path
+    if request.filepath:
+        file_path = Path(request.filepath)
+    else:
+        assert request.filename is not None  # Ensured by Pydantic model
+        full_dir_path, base_filename = _build_file_path(
+            request.filename, request.default_path
+        )
+        file_path = full_dir_path / base_filename
 
-        if not file_path.exists():
-            logger.error("File not found for deletion: %s", file_path)
-            raise FileNotFoundError(f"File {file_path} does not exist")
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {file_path} does not exist")
 
-        file_delete_request = FileDeleteRequest(
-            directory=str(file_path.parent),
-            filename=file_path.name,
-        )
+    file_delete_request = FileDeleteRequest(
+        directory=str(file_path.parent),
+        filename=file_path.name,
+    )
 
-        deleted_path = delete_file(file_delete_request)
-        logger.info("Note deleted successfully at %s", deleted_path)
-        return deleted_path
-
-    except FileNotFoundError:  # Already logged
-        raise
-    except (IOError, OSError) as e:
-        log_path_str = (
-            str(file_path_for_logging)
-            if file_path_for_logging
-            else f"filename='{filename}', filepath='{filepath}'"
-        )
-        logger.error(
-            "Error performing note deletion for %s: File system error: %s",
-            log_path_str,
-            e,
-        )
-        raise
-    except ValueError as e:
-        log_path_str = (
-            str(file_path_for_logging)
-            if file_path_for_logging
-            else f"filename='{filename}', filepath='{filepath}'"
-        )
-        logger.error(
-            "Invalid input for perform note deletion (%s): %s", log_path_str, e
-        )
-        raise
-    except Exception as e:
-        log_path_str = (
-            str(file_path_for_logging)
-            if file_path_for_logging
-            else f"filename='{filename}', filepath='{filepath}'"
-        )
-        logger.error(
-            "Unexpected error performing note deletion for %s: %s", log_path_str, e
-        )
-        raise
+    deleted_path = delete_file(file_delete_request)
+    logger.info("Note deleted successfully at %s", deleted_path)
+    return deleted_path
 
 
+@handle_file_operations("note search")
 def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     """
     Search for a keyword in all files in the Obsidian vault.
@@ -907,45 +818,14 @@ def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     if not query:
         raise ValueError("Query cannot be empty")
 
-    try:
-        search_config = SearchConfig(
-            directory=str(VAULT_PATH),
-            keyword=query,
-            file_extensions=[".md"],
-            case_sensitive=case_sensitive,
-        )
-        matching_files = search_keyword_in_files(search_config)
-        logger.info("Found %s files matching the query: %s", len(matching_files), query)
-    except PermissionError as e:  # Specific to permissions
-        logger.error(
-            "Permission denied during search for query '%s' in vault %s: %s",
-            query,
-            VAULT_PATH,
-            e,
-        )
-        raise
-    except (IOError, OSError) as e:  # For other FS issues
-        logger.error(
-            "File system error during search for query '%s' in vault %s: %s",
-            query,
-            VAULT_PATH,
-            e,
-        )
-        raise
-    except ValueError as e:  # From SearchConfig validation
-        logger.error("Invalid search parameters for query '%s': %s", query, e)
-        raise
-    except Exception as e:  # Catch-all for truly unexpected issues
-        logger.error(
-            "Unexpected error searching for query '%s' in vault %s: %s",
-            query,
-            VAULT_PATH,
-            e,
-        )
-        raise RuntimeError(
-            f"Unexpected error occurred during search for query '{query}': {e}"
-        ) from e
-
+    search_config = SearchConfig(
+        directory=str(VAULT_PATH),
+        keyword=query,
+        file_extensions=[".md"],
+        case_sensitive=case_sensitive,
+    )
+    matching_files = search_keyword_in_files(search_config)
+    logger.info("Found %s files matching the query: %s", len(matching_files), query)
     return matching_files
 
 
@@ -998,6 +878,7 @@ class AddTagRequest(BaseModel):
         return self
 
 
+@handle_file_operations("tag addition")
 def add_tag(
     tag: str,
     filename: str | None = None,
@@ -1032,131 +913,104 @@ def add_tag(
         filepath=filepath,
         default_path=default_path,
     )
-    file_path_for_logging: str | Path = "unknown_file"
-    try:
-        # 1. Determine the target file path
-        if request.filepath:
-            file_path = Path(request.filepath)
-            # Ensure filename part of filepath also has .md if it's a direct path
-            if not file_path.name.endswith(".md"):
-                # This case should ideally be handled by user providing correct filepath,
-                # but as a safeguard or if filename validator didn't run for filepath:
-                logger.warning(
-                    "Filepath provided without .md extension. Consider adding .md for consistency: %s",
-                    file_path,
-                )
-
-            file_path_for_logging = file_path
-            base_filename = file_path.name
-            full_dir_path = file_path.parent
-        elif (
-            request.filename
-        ):  # filename must be present if filepath is not, due to model validation
-            # request.filename is already validated by Pydantic to have .md
-            full_dir_path, base_filename = _build_file_path(
-                request.filename, request.default_path
-            )
-            file_path = full_dir_path / base_filename
-            file_path_for_logging = file_path
-        else:
-            # This case should be caught by Pydantic's model_validator, but as a safeguard:
-            raise ValueError(
-                "Logic error: Either filename or filepath must be determined by this point."
+    # 1. Determine the target file path
+    if request.filepath:
+        file_path = Path(request.filepath)
+        # Ensure filename part of filepath also has .md if it's a direct path
+        if not file_path.name.endswith(".md"):
+            # This case should ideally be handled by user providing correct filepath,
+            # but as a safeguard or if filename validator didn't run for filepath:
+            logger.warning(
+                "Filepath provided without .md extension. Consider adding .md for consistency: %s",
+                file_path,
             )
 
-        if not file_path.exists():
-            logger.error("Error adding tag: File %s not found.", file_path)
-            raise FileNotFoundError(f"File {file_path} does not exist")
-        file_path_for_logging = file_path  # Update for accurate logging
-
-        # 2. Normalize the input tag
-        normalized_tag = _normalize_tag(request.tag)
-
-        # 3. Validate the normalized tag
-        if not _validate_tag(normalized_tag):
-            logger.error("Error adding tag: Invalid tag '%s'", request.tag)
-            raise ValueError(
-                f"Invalid tag: {request.tag} (normalized: {normalized_tag})"
-            )
-
-        # 4. Read the entire note content
-        # read_note expects a string path
-        note_content_str = read_note(str(file_path))
-
-        # 5. Load the front matter and content
-        post = frontmatter.loads(note_content_str)
-        existing_metadata = dict(
-            post.metadata
-        )  # for _generate_note_metadata and author extraction
-
-        # 6. Get the current list of tags
-        tags_value = existing_metadata.get("tags", [])
-        current_tags = list(tags_value) if isinstance(tags_value, list) else []
-        # Ensure all existing tags are also normalized for comparison, though _generate_note_metadata will re-normalize
-        current_tags_normalized = [_normalize_tag(str(t)) for t in current_tags]
-
-        # 7. If the normalized new tag is not already in the current tags list, append it.
-        if normalized_tag not in current_tags_normalized:
-            # Add the original (but validated and normalized) new tag to the list that will be passed
-            # to _generate_note_metadata. _generate_note_metadata will handle final normalization.
-            current_tags.append(normalized_tag)  # Add the normalized tag
-            tags_to_set = current_tags
-        else:
-            tags_to_set = current_tags  # No change, pass existing tags
-
-        # 8. Call _generate_note_metadata
-        # Preserve original author if available
-        author_value = existing_metadata.get("author")
-        # Ensure author is str or None for type correctness
-        author_str = str(author_value) if author_value is not None else None
-
-        updated_post_obj = _generate_note_metadata(
-            text=post.content,  # Pass only the body content
-            author=author_str,
-            is_new_note=False,  # This is an edit
-            existing_frontmatter=existing_metadata,  # Pass all existing metadata
-            tags=tags_to_set,  # Pass the potentially updated list of tags
+        base_filename = file_path.name
+        full_dir_path = file_path.parent
+    elif (
+        request.filename
+    ):  # filename must be present if filepath is not, due to model validation
+        # request.filename is already validated by Pydantic to have .md
+        full_dir_path, base_filename = _build_file_path(
+            request.filename, request.default_path
+        )
+        file_path = full_dir_path / base_filename
+    else:
+        # This case should be caught by Pydantic's model_validator, but as a safeguard:
+        raise ValueError(
+            "Logic error: Either filename or filepath must be determined by this point."
         )
 
-        # 9. Serialize the updated post object
-        updated_content_str = frontmatter.dumps(updated_post_obj)
+    if not file_path.exists():
+        logger.error("Error adding tag: File %s not found.", file_path)
+        raise FileNotFoundError(f"File {file_path} does not exist")
 
-        # 10. Construct a FileWriteRequest
-        file_write_request = FileWriteRequest(
-            directory=str(full_dir_path),
-            filename=base_filename,
-            content=updated_content_str,
-            overwrite=True,
-        )
+    # 2. Normalize the input tag
+    normalized_tag = _normalize_tag(request.tag)
 
-        # 11. Use file_handler.write_file()
-        written_path = write_file(file_write_request)
+    # 3. Validate the normalized tag
+    if not _validate_tag(normalized_tag):
+        logger.error("Error adding tag: Invalid tag '%s'", request.tag)
+        raise ValueError(f"Invalid tag: {request.tag} (normalized: {normalized_tag})")
 
-        # 12. Log an informational message
-        logger.info(
-            "Successfully added tag '%s' to note %s", normalized_tag, written_path
-        )
+    # 4. Read the entire note content
+    # read_note expects a string path
+    note_content_str = read_note(str(file_path))
 
-        # 13. Return the Path object
-        return written_path
+    # 5. Load the front matter and content
+    post = frontmatter.loads(note_content_str)
+    existing_metadata = dict(
+        post.metadata
+    )  # for _generate_note_metadata and author extraction
 
-    except FileNotFoundError:  # Already logged
-        raise
-    except ValueError as e:  # Already logged or specific (like invalid tag)
-        # Log if not already done by specific checks
-        if "Invalid tag" not in str(e) and "File not found" not in str(e):
-            logger.error(
-                "ValueError during add_tag for %s: %s", file_path_for_logging, e
-            )
-        raise
-    except (IOError, OSError) as e:
-        logger.error(
-            "Error adding tag to %s: File system error: %s", file_path_for_logging, e
-        )
-        raise
-    except Exception as e:
-        logger.error("Unexpected error adding tag to %s: %s", file_path_for_logging, e)
-        raise
+    # 6. Get the current list of tags
+    tags_value = existing_metadata.get("tags", [])
+    current_tags = list(tags_value) if isinstance(tags_value, list) else []
+    # Ensure all existing tags are also normalized for comparison, though _generate_note_metadata will re-normalize
+    current_tags_normalized = [_normalize_tag(str(t)) for t in current_tags]
+
+    # 7. If the normalized new tag is not already in the current tags list, append it.
+    if normalized_tag not in current_tags_normalized:
+        # Add the original (but validated and normalized) new tag to the list that will be passed
+        # to _generate_note_metadata. _generate_note_metadata will handle final normalization.
+        current_tags.append(normalized_tag)  # Add the normalized tag
+        tags_to_set = current_tags
+    else:
+        tags_to_set = current_tags  # No change, pass existing tags
+
+    # 8. Call _generate_note_metadata
+    # Preserve original author if available
+    author_value = existing_metadata.get("author")
+    # Ensure author is str or None for type correctness
+    author_str = str(author_value) if author_value is not None else None
+
+    updated_post_obj = _generate_note_metadata(
+        text=post.content,  # Pass only the body content
+        author=author_str,
+        is_new_note=False,  # This is an edit
+        existing_frontmatter=existing_metadata,  # Pass all existing metadata
+        tags=tags_to_set,  # Pass the potentially updated list of tags
+    )
+
+    # 9. Serialize the updated post object
+    updated_content_str = frontmatter.dumps(updated_post_obj)
+
+    # 10. Construct a FileWriteRequest
+    file_write_request = FileWriteRequest(
+        directory=str(full_dir_path),
+        filename=base_filename,
+        content=updated_content_str,
+        overwrite=True,
+    )
+
+    # 11. Use file_handler.write_file()
+    written_path = write_file(file_write_request)
+
+    # 12. Log an informational message
+    logger.info("Successfully added tag '%s' to note %s", normalized_tag, written_path)
+
+    # 13. Return the Path object
+    return written_path
 
 
 class RemoveTagRequest(BaseModel):
@@ -1211,6 +1065,7 @@ class RemoveTagRequest(BaseModel):
         return self
 
 
+@handle_file_operations("tag removal")
 def remove_tag(
     tag: str,
     filename: str | None = None,
@@ -1246,136 +1101,111 @@ def remove_tag(
         filepath=filepath,
         default_path=default_path,
     )
-    file_path_for_logging: str | Path = "unknown_file"
-    try:
-        # 1. Determine the target file path
-        if request.filepath:
-            file_path = Path(request.filepath)
-            if not file_path.name.endswith(".md"):
-                logger.warning(
-                    "Filepath provided without .md extension for remove_tag. Consider adding .md for consistency: %s",
-                    file_path,
-                )
-            file_path_for_logging = file_path
-            base_filename = file_path.name
-            full_dir_path = file_path.parent
-        elif request.filename:  # Ensured by Pydantic
-            full_dir_path, base_filename = _build_file_path(
-                request.filename, request.default_path
-            )
-            file_path = full_dir_path / base_filename
-            file_path_for_logging = file_path
-        else:
-            raise ValueError(
-                "Logic error: Filename or filepath determination failed despite Pydantic validation."
-            )
-
-        if not file_path.exists():
-            logger.error("Error removing tag: File %s not found.", file_path)
-            raise FileNotFoundError(f"File {file_path} does not exist")
-        file_path_for_logging = file_path
-
-        # 2. Normalize the input tag to be removed
-        tag_to_remove_normalized = _normalize_tag(request.tag)
-
-        # It's not strictly necessary to validate tag_to_remove_normalized with _validate_tag,
-        # as an invalidly formatted tag is unlikely to be present in the metadata if it was added
-        # via controlled functions. If it's empty after normalization, it won't match anything.
-
-        # 3. Read the entire note content
-        note_content_str = read_note(str(file_path))
-
-        # 4. Load the front matter and content
-        post = frontmatter.loads(note_content_str)
-        existing_metadata = dict(post.metadata)
-
-        # 5. Tag Removal
-        tags_value = existing_metadata.get("tags", [])
-        current_tags = list(tags_value) if isinstance(tags_value, list) else []
-        new_tags_list = []
-        tag_was_removed = False
-
-        if not current_tags:
-            logger.info(
-                "No tags found in note %s. Tag '%s' not removed.",
+    # 1. Determine the target file path
+    if request.filepath:
+        file_path = Path(request.filepath)
+        if not file_path.name.endswith(".md"):
+            logger.warning(
+                "Filepath provided without .md extension for remove_tag. Consider adding .md for consistency: %s",
                 file_path,
-                request.tag,
             )
-        else:
-            for existing_tag_obj in current_tags:
-                existing_tag_str = str(existing_tag_obj)  # Ensure it's a string
-                if _normalize_tag(existing_tag_str) == tag_to_remove_normalized:
-                    tag_was_removed = True
-                else:
-                    new_tags_list.append(
-                        existing_tag_str
-                    )  # Keep original form if not removed
-
-        # 6. Call _generate_note_metadata
-        author_value = existing_metadata.get("author")
-        # Ensure author is str or None for type correctness
-        author_str = str(author_value) if author_value is not None else None
-
-        updated_post_obj = _generate_note_metadata(
-            text=post.content,
-            author=author_str,
-            is_new_note=False,
-            existing_frontmatter=existing_metadata,
-            tags=new_tags_list,  # Pass the new list (might be empty or unchanged)
+        base_filename = file_path.name
+        full_dir_path = file_path.parent
+    elif request.filename:  # Ensured by Pydantic
+        full_dir_path, base_filename = _build_file_path(
+            request.filename, request.default_path
+        )
+        file_path = full_dir_path / base_filename
+    else:
+        raise ValueError(
+            "Logic error: Filename or filepath determination failed despite Pydantic validation."
         )
 
-        # 7. Serialize the updated post object
-        updated_content_str = frontmatter.dumps(updated_post_obj)
+    if not file_path.exists():
+        logger.error("Error removing tag: File %s not found.", file_path)
+        raise FileNotFoundError(f"File {file_path} does not exist")
 
-        # 8. Construct a FileWriteRequest
-        file_write_request = FileWriteRequest(
-            directory=str(full_dir_path),
-            filename=base_filename,
-            content=updated_content_str,
-            overwrite=True,
+    # 2. Normalize the input tag to be removed
+    tag_to_remove_normalized = _normalize_tag(request.tag)
+
+    # It's not strictly necessary to validate tag_to_remove_normalized with _validate_tag,
+    # as an invalidly formatted tag is unlikely to be present in the metadata if it was added
+    # via controlled functions. If it's empty after normalization, it won't match anything.
+
+    # 3. Read the entire note content
+    note_content_str = read_note(str(file_path))
+
+    # 4. Load the front matter and content
+    post = frontmatter.loads(note_content_str)
+    existing_metadata = dict(post.metadata)
+
+    # 5. Tag Removal
+    tags_value = existing_metadata.get("tags", [])
+    current_tags = list(tags_value) if isinstance(tags_value, list) else []
+    new_tags_list = []
+    tag_was_removed = False
+
+    if not current_tags:
+        logger.info(
+            "No tags found in note %s. Tag '%s' not removed.",
+            file_path,
+            request.tag,
+        )
+    else:
+        for existing_tag_obj in current_tags:
+            existing_tag_str = str(existing_tag_obj)  # Ensure it's a string
+            if _normalize_tag(existing_tag_str) == tag_to_remove_normalized:
+                tag_was_removed = True
+            else:
+                new_tags_list.append(
+                    existing_tag_str
+                )  # Keep original form if not removed
+
+    # 6. Call _generate_note_metadata
+    author_value = existing_metadata.get("author")
+    # Ensure author is str or None for type correctness
+    author_str = str(author_value) if author_value is not None else None
+
+    updated_post_obj = _generate_note_metadata(
+        text=post.content,
+        author=author_str,
+        is_new_note=False,
+        existing_frontmatter=existing_metadata,
+        tags=new_tags_list,  # Pass the new list (might be empty or unchanged)
+    )
+
+    # 7. Serialize the updated post object
+    updated_content_str = frontmatter.dumps(updated_post_obj)
+
+    # 8. Construct a FileWriteRequest
+    file_write_request = FileWriteRequest(
+        directory=str(full_dir_path),
+        filename=base_filename,
+        content=updated_content_str,
+        overwrite=True,
+    )
+
+    # 9. Use file_handler.write_file()
+    written_path = write_file(file_write_request)
+
+    # 10. Log an informational message
+    if tag_was_removed:
+        logger.info(
+            "Successfully removed tag '%s' from note %s. New tags: %s",
+            request.tag,
+            written_path,
+            new_tags_list,
+        )
+    else:
+        logger.info(
+            "Tag '%s' not found in note %s. Tags remain: %s",
+            request.tag,
+            written_path,
+            current_tags,
         )
 
-        # 9. Use file_handler.write_file()
-        written_path = write_file(file_write_request)
-
-        # 10. Log an informational message
-        if tag_was_removed:
-            logger.info(
-                "Successfully removed tag '%s' from note %s. New tags: %s",
-                request.tag,
-                written_path,
-                new_tags_list,
-            )
-        else:
-            logger.info(
-                "Tag '%s' not found in note %s. Tags remain: %s",
-                request.tag,
-                written_path,
-                current_tags,
-            )
-
-        # 11. Return the Path object
-        return written_path
-
-    except FileNotFoundError:  # Already logged
-        raise
-    except ValueError as e:
-        logger.error(
-            "ValueError during remove_tag for %s: %s", file_path_for_logging, e
-        )
-        raise
-    except (IOError, OSError) as e:
-        logger.error(
-            "Error removing tag from %s: File system error: %s",
-            file_path_for_logging,
-            e,
-        )
-        raise
-    except Exception as e:
-        logger.error(
-            "Unexpected error removing tag from %s: %s", file_path_for_logging, e
-        )
-        raise
+    # 11. Return the Path object
+    return written_path
 
 
 class RenameTagRequest(BaseModel):
@@ -1400,6 +1230,7 @@ class RenameTagRequest(BaseModel):
     )
 
 
+@handle_file_operations("tag renaming")
 def rename_tag(
     old_tag: str,
     new_tag: str,
@@ -1542,8 +1373,12 @@ def rename_tag(
 
                 # Only write if tags have actually changed
                 # Direct comparison of normalized tag sets to determine if a change occurred
-                current_normalized_tags = {_normalize_tag(tag) for tag in current_tags_str_list}
-                final_normalized_tags = {_normalize_tag(tag) for tag in final_tags_for_file}
+                current_normalized_tags = {
+                    _normalize_tag(tag) for tag in current_tags_str_list
+                }
+                final_normalized_tags = {
+                    _normalize_tag(tag) for tag in final_tags_for_file
+                }
 
                 # Check if normalized tag sets differ, which would indicate a real change
                 if current_normalized_tags != final_normalized_tags:
@@ -1639,6 +1474,7 @@ class GetTagsRequest(BaseModel):
         return self
 
 
+@handle_file_operations("tag retrieval")
 def get_tags(
     filename: str | None = None,
     filepath: str | None = None,
@@ -1806,6 +1642,7 @@ class ListAllTagsRequest(BaseModel):
     )
 
 
+@handle_file_operations("tag listing")
 def list_all_tags(directory: str | None) -> list[str]:
     """
     List all unique, normalized tags from all Markdown files within a specified directory (or entire vault).
@@ -1843,25 +1680,16 @@ def list_all_tags(directory: str | None) -> list[str]:
     files_processed_count = 0
     tags_found_count = 0
 
-    try:
-        for file_path in effective_directory_path.rglob("*.md"):
-            files_processed_count += 1
-            tags_in_file = get_tags(
-                filename=None, filepath=str(file_path), default_path=DEFAULT_NOTE_DIR
-            )
-            for tag in tags_in_file:
-                normalized_tag = _normalize_tag(tag)
-                if normalized_tag:
-                    all_tags_set.add(normalized_tag)
-                    tags_found_count += 1
-
-    except (IOError, OSError) as e:
-        logger.error(
-            "List_all_tags: File system error traversing directory %s: %s",
-            effective_directory_path,
-            e,
+    for file_path in effective_directory_path.rglob("*.md"):
+        files_processed_count += 1
+        tags_in_file = get_tags(
+            filename=None, filepath=str(file_path), default_path=DEFAULT_NOTE_DIR
         )
-        raise
+        for tag in tags_in_file:
+            normalized_tag = _normalize_tag(tag)
+            if normalized_tag:
+                all_tags_set.add(normalized_tag)
+                tags_found_count += 1
 
     sorted_tags_list = sorted(list(all_tags_set))
 
@@ -1898,6 +1726,7 @@ class FindNotesWithTagRequest(BaseModel):
     )
 
 
+@handle_file_operations("tag search")
 def find_notes_with_tag(tag: str, directory: str | None) -> list[str]:
     """
     Find all notes (returned as a list of file paths) that contain a specific tag.
@@ -1946,26 +1775,16 @@ def find_notes_with_tag(tag: str, directory: str | None) -> list[str]:
     matching_files_paths: list[str] = []
     files_processed_count = 0
 
-    try:
-        for file_path in effective_directory_path.rglob("*.md"):
-            files_processed_count += 1
-            tags_in_file = get_tags(
-                filename=None, filepath=str(file_path), default_path=DEFAULT_NOTE_DIR
-            )
-
-            normalized_tags_in_file = [_normalize_tag(t) for t in tags_in_file]
-
-            if normalized_target_tag in normalized_tags_in_file:
-                matching_files_paths.append(str(file_path))
-
-    except (IOError, OSError) as e:
-        logger.error(
-            "Find_notes_with_tag: File system error traversing directory %s: %s",
-            effective_directory_path,
-            e,
+    for file_path in effective_directory_path.rglob("*.md"):
+        files_processed_count += 1
+        tags_in_file = get_tags(
+            filename=None, filepath=str(file_path), default_path=DEFAULT_NOTE_DIR
         )
-        # Re-raise as this indicates a fundamental issue.
-        raise
+
+        normalized_tags_in_file = [_normalize_tag(t) for t in tags_in_file]
+
+        if normalized_target_tag in normalized_tags_in_file:
+            matching_files_paths.append(str(file_path))
 
     logger.info(
         "Find_notes_with_tag: Processed %d files in '%s'. Found %d notes with tag '%s'.",
