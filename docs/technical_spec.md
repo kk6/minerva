@@ -74,7 +74,7 @@ Minervaは階層化されたアーキテクチャを採用しています：
   - `tag`: 追加するタグ文字列
   - `filename` または `filepath`: 対象ノート
   - `default_path`: デフォルトディレクトリパス
-  
+
 - `RemoveTagRequest`: タグ削除リクエスト
   - `tag`: 削除するタグ文字列
   - `filename` または `filepath`: 対象ノート
@@ -84,14 +84,14 @@ Minervaは階層化されたアーキテクチャを採用しています：
   - `old_tag`: 変更元のタグ名
   - `new_tag`: 変更後のタグ名
   - `directory`: 対象ディレクトリ（省略時はvault全体）
-  
+
 - `GetTagsRequest`: タグ取得リクエスト
   - `filename` または `filepath`: 対象ノート
   - `default_path`: デフォルトディレクトリパス
 
 - `ListAllTagsRequest`: 全タグリスト取得リクエスト
   - `directory`: 対象ディレクトリ（省略時はvault全体）
-  
+
 - `FindNotesWithTagRequest`: タグによるノート検索リクエスト
   - `tag`: 検索対象のタグ
   - `directory`: 対象ディレクトリ（省略時はvault全体）

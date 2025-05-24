@@ -178,7 +178,7 @@ PRには以下の情報を含めてください：
    ```bash
    # ビルド
    uv pip build
-   
+
    # 公開
    uv pip publish
    ```

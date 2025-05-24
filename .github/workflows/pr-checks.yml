@@ -17,25 +17,22 @@ jobs:
 
       - name: Check commit message format
         run: |
-          # Get all commit messages from the PR
-          git log --format="%s" origin/main..HEAD > commit_messages.txt
-          
-          # Check each commit message against conventional commits format
+          # Get all commit messages in the PR (base..HEAD)
+          BASE_SHA=$(jq -r .pull_request.base.sha < "$GITHUB_EVENT_PATH")
+          git rev-list --format=%s --no-merges $BASE_SHA..HEAD | grep '^s ' | sed 's/^s //' > commit_messages.txt
+
           echo "Checking commit message format..."
-          
+
           while IFS= read -r message; do
             if [[ -z "$message" ]]; then
               continue
             fi
-            
             echo "Checking: $message"
-            
             # Skip merge commits
-            if [[ "$message" =~ ^Merge\ (branch|pull\ request) ]]; then
+            if [[ "$message" =~ ^Merge ]]; then
               echo "  ✓ Skipping merge commit"
               continue
             fi
-            
             # Check conventional commits format: type(scope): description
             if [[ "$message" =~ ^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(\(.+\))?: ]]; then
               echo "  ✓ Commit message format is valid"
@@ -48,7 +45,7 @@ jobs:
               exit 1
             fi
           done < commit_messages.txt
-          
+
           echo "All commit messages follow conventional commits format ✓"
 
   documentation-check:
@@ -99,21 +96,30 @@ jobs:
       - name: Check for common file format issues
         run: |
           echo "Checking for basic file format issues..."
-          
+
           # Check for files with Windows line endings
-          if find . -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" | xargs file | grep -q "CRLF"; then
+          if find . \
+            -type f \( -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" \) \
+            -not -path "*/.git/*" \
+            -not -path "*/__pycache__/*" \
+            -not -path "*/.venv/*" \
+            -not -path "*/venv/*" \
+            -not -path "*/.egg-info/*" \
+            -print0 | xargs -0 file | grep -q "CRLF"; then
             echo "✗ Files with Windows line endings (CRLF) found"
-            find . -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" | xargs file | grep "CRLF" || true
+            find . \
+              -type f \( -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" \) \
+              -not -path "*/.git/*" \
+              -not -path "*/__pycache__/*" \
+              -not -path "*/.venv/*" \
+              -not -path "*/venv/*" \
+              -not -path "*/.egg-info/*" \
+              -print0 | xargs -0 file | grep "CRLF" || true
             echo "Please convert to Unix line endings (LF)"
             exit 1
           fi
-          
-          # Check for trailing whitespace in Python files
-          if find . -name "*.py" -exec grep -l " $" {} \; | head -1; then
-            echo "✗ Python files with trailing whitespace found:"
-            find . -name "*.py" -exec grep -l " $" {} \; || true
-            echo "Please remove trailing whitespace"
-            exit 1
-          fi
-          
+
+          # Check for trailing whitespace
+          python3 scripts/check_trailing_whitespace.py
+
           echo "✓ Basic file format checks passed"
