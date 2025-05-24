@@ -128,6 +128,7 @@ def test_normalize_tag():
 
 # --- Tests for _validate_tag ---
 
+
 def test_validate_tag_with_simple_text():
     # Arrange
     tag = "validtag"
@@ -169,7 +170,9 @@ def test_validate_tag_with_space():
     result = _validate_tag(tag)
 
     # Assert
-    assert result is True, "Spaces are allowed by _validate_tag, normalization handles them for storage"
+    assert result is True, (
+        "Spaces are allowed by _validate_tag, normalization handles them for storage"
+    )
 
 
 def test_validate_tag_with_empty_string():
@@ -262,72 +265,84 @@ def test_get_tags_with_tags(mock_vault_path: Path):
     actual_tags = get_tags(filepath=str(note_path))
 
     # Assert
-    assert sorted(actual_tags) == sorted(expected_tags), "Case should be preserved in tags"
+    assert sorted(actual_tags) == sorted(expected_tags), (
+        "Case should be preserved in tags"
+    )
 
 
 def test_get_tags_no_tags_field(mock_vault_path: Path):
     """Tests that tags can be retrieved from a file (when the tags field doesn't exist)"""
     # Arrange
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note_no_tags.md"
-    expected_tags = []
+    expected_tags: list[str] = []
 
     # Act
     actual_tags = get_tags(filepath=str(note_path))
 
     # Assert
-    assert actual_tags == expected_tags, "Should return empty list when note has no tags field"
+    assert actual_tags == expected_tags, (
+        "Should return empty list when note has no tags field"
+    )
 
 
 def test_get_tags_empty_tags_list(mock_vault_path: Path):
     """Tests that tags can be retrieved from a file (when the tags list is empty)"""
     # Arrange
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note_empty_tags.md"
-    expected_tags = []
+    expected_tags: list[str] = []
 
     # Act
     actual_tags = get_tags(filepath=str(note_path))
 
     # Assert
-    assert actual_tags == expected_tags, "Should return empty list when tags field is empty"
+    assert actual_tags == expected_tags, (
+        "Should return empty list when tags field is empty"
+    )
 
 
 def test_get_tags_file_not_exist(mock_vault_path: Path):
     """Tests that tags cannot be retrieved when the file doesn't exist"""
     # Arrange
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "non_existent_note.md"
-    expected_tags = []
+    expected_tags: list[str] = []
 
     # Act
     actual_tags = get_tags(filepath=str(note_path))
 
     # Assert
-    assert actual_tags == expected_tags, "Should return empty list when file does not exist"
+    assert actual_tags == expected_tags, (
+        "Should return empty list when file does not exist"
+    )
 
 
 def test_get_tags_malformed_frontmatter(mock_vault_path: Path):
     """Tests that tags cannot be retrieved from a file with malformed frontmatter"""
     # Arrange
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note_malformed_frontmatter.md"
-    expected_tags = []
+    expected_tags: list[str] = []
 
     # Act
     actual_tags = get_tags(filepath=str(note_path))
 
     # Assert
-    assert actual_tags == expected_tags, "Should return empty list when frontmatter is malformed"
+    assert actual_tags == expected_tags, (
+        "Should return empty list when frontmatter is malformed"
+    )
 
 
 def test_get_tags_tags_not_a_list(mock_vault_path: Path):
     """Tests that tags cannot be retrieved when the tags field is not a list"""
     # Arrange
     note_path = mock_vault_path / DEFAULT_NOTE_DIR / "note_malformed_frontmatter.md"
-    expected_tags = []
+    expected_tags: list[str] = []
 
     # Act
     actual_tags = get_tags(filepath=str(note_path))
 
     # Assert
-    assert actual_tags == expected_tags, "Should return empty list when tags field is not a list"
+    assert actual_tags == expected_tags, (
+        "Should return empty list when tags field is not a list"
+    )
 
 
 def test_get_tags_by_filename(mock_vault_path: Path):
@@ -340,7 +355,9 @@ def test_get_tags_by_filename(mock_vault_path: Path):
     actual_tags = get_tags(filename=filename)
 
     # Assert
-    assert sorted(actual_tags) == sorted(expected_tags), "Case should be preserved in tags"
+    assert sorted(actual_tags) == sorted(expected_tags), (
+        "Case should be preserved in tags"
+    )
 
 
 def test_get_tags_by_filename_in_subdir(mock_vault_path: Path):
@@ -353,7 +370,9 @@ def test_get_tags_by_filename_in_subdir(mock_vault_path: Path):
     actual_tags = get_tags(filepath=filepath)
 
     # Assert
-    assert actual_tags == expected_tags, "Should correctly get tags from file in subdirectory"
+    assert actual_tags == expected_tags, (
+        "Should correctly get tags from file in subdirectory"
+    )
 
 
 # --- Tests for add_tag ---
@@ -379,7 +398,9 @@ def test_add_tag_to_note_without_tags(mock_vault_path: Path):
     tags = post.metadata["tags"]
     assert isinstance(tags, list), "Tags should be a list"
     assert tags == ["newtag"], "Tag should be added and normalized"
-    assert post.metadata.get("created") == original_created, "Created timestamp should be preserved"
+    assert post.metadata.get("created") == original_created, (
+        "Created timestamp should be preserved"
+    )
     assert "updated" in post.metadata, "Updated timestamp should be added"
     assert post.metadata.get("author") == original_author, "Author should be preserved"
 
@@ -401,10 +422,12 @@ def test_add_tag_to_note_with_existing_tags(mock_vault_path: Path):
     if not isinstance(tags, list):
         tags = [tags] if tags is not None else []
 
-    assert sorted(str(tag) for tag in tags) == sorted(
-        ["taga", "tagb", "tagc"]
-    ), "Tag should be added and all tags normalized"
-    assert post.metadata.get("created") == original_created, "Created timestamp should be preserved"
+    assert sorted(str(tag) for tag in tags) == sorted(["taga", "tagb", "tagc"]), (
+        "Tag should be added and all tags normalized"
+    )
+    assert post.metadata.get("created") == original_created, (
+        "Created timestamp should be preserved"
+    )
     assert "updated" in post.metadata, "Updated timestamp should be added"
 
 
@@ -423,7 +446,9 @@ def test_add_tag_already_exists(mock_vault_path: Path):
     if not isinstance(tags, list):
         tags = [tags] if tags is not None else []
 
-    assert sorted(str(tag) for tag in tags) == sorted(["taga", "tagb"]), "Duplicate tag should not be added"
+    assert sorted(str(tag) for tag in tags) == sorted(["taga", "tagb"]), (
+        "Duplicate tag should not be added"
+    )
     assert "updated" in post.metadata, "Updated timestamp should still be added"
 
 
@@ -442,7 +467,9 @@ def test_add_tag_needs_normalization(mock_vault_path: Path):
     if not isinstance(tags, list):
         tags = [tags] if tags is not None else []
 
-    assert "tag d with spaces" in [str(tag).lower() for tag in tags], "Tag should be normalized and added"
+    assert "tag d with spaces" in [str(tag).lower() for tag in tags], (
+        "Tag should be normalized and added"
+    )
 
 
 def test_add_tag_invalid_format_value_error(mock_vault_path: Path):
@@ -480,7 +507,9 @@ def test_add_tag_preserves_unrelated_metadata(mock_vault_path: Path):
 
     # Assert
     post = read_md_file(modified_path)
-    assert post.metadata.get("custom_field") == original_custom_field, "Unrelated metadata should be preserved"
+    assert post.metadata.get("custom_field") == original_custom_field, (
+        "Unrelated metadata should be preserved"
+    )
 
 
 # --- Tests for remove_tag ---
@@ -504,10 +533,16 @@ def test_remove_existing_tag(mock_vault_path: Path):
     assert "tags" in post.metadata, "Tags field should still exist"
     tags = post.metadata["tags"]
     assert isinstance(tags, list), "Tags should be a list"
-    assert tags == ["tagb"], "Specified tag should be removed and remaining tags normalized"
-    assert post.metadata.get("created") == original_created, "Created timestamp should be preserved"
+    assert tags == ["tagb"], (
+        "Specified tag should be removed and remaining tags normalized"
+    )
+    assert post.metadata.get("created") == original_created, (
+        "Created timestamp should be preserved"
+    )
     assert "updated" in post.metadata, "Updated timestamp should be added"
-    assert post.metadata.get("custom_field") == "preserve_me", "Unrelated metadata should be preserved"
+    assert post.metadata.get("custom_field") == "preserve_me", (
+        "Unrelated metadata should be preserved"
+    )
 
 
 def test_remove_tag_case_insensitive(mock_vault_path: Path):
@@ -523,7 +558,9 @@ def test_remove_tag_case_insensitive(mock_vault_path: Path):
     post = read_md_file(modified_path)
     tags = post.metadata["tags"]
     assert isinstance(tags, list), "Tags should be a list"
-    assert "taga" not in [tag.lower() for tag in tags], "Tag should be removed regardless of case"
+    assert "taga" not in [tag.lower() for tag in tags], (
+        "Tag should be removed regardless of case"
+    )
     assert "tagb" in [tag.lower() for tag in tags], "Other tags should remain"
 
 
@@ -541,7 +578,9 @@ def test_remove_non_existent_tag(mock_vault_path: Path):
     # Assert
     post = read_md_file(modified_path)
     tags = post.metadata["tags"]
-    assert sorted([tag.lower() for tag in tags]) == sorted([tag.lower() for tag in original_tags]), "Tags should remain unchanged"
+    assert sorted([tag.lower() for tag in tags]) == sorted(
+        [tag.lower() for tag in original_tags]
+    ), "Tags should remain unchanged"
     assert "updated" in post.metadata, "File should still be updated with timestamp"
 
 
@@ -567,7 +606,9 @@ Content of temporary note.
     # Assert
     post = read_md_file(modified_path)
     # In the implementation, when the last tag is removed, the tags field itself is removed
-    assert "tags" not in post.metadata, "Tags field should be removed when last tag is deleted"
+    assert "tags" not in post.metadata, (
+        "Tags field should be removed when last tag is deleted"
+    )
     assert "updated" in post.metadata, "Updated timestamp should be added"
 
 
@@ -577,13 +618,17 @@ Content of temporary note.
 def test_list_all_tags_in_vault(mock_vault_path: Path):
     """Tests that all tags in the vault can be listed"""
     # Arrange
-    expected_tags = sorted(["taga", "tagb", "tagc", "whitespace tag", "subtag", "roottag"])
+    expected_tags = sorted(
+        ["taga", "tagb", "tagc", "whitespace tag", "subtag", "roottag"]
+    )
 
     # Act
     actual_tags = list_all_tags(directory=None)
 
     # Assert
-    assert sorted(actual_tags) == expected_tags, "Should list all normalized tags in the vault"
+    assert sorted(actual_tags) == expected_tags, (
+        "Should list all normalized tags in the vault"
+    )
 
 
 def test_list_all_tags_in_directory(mock_vault_path: Path):
@@ -596,7 +641,9 @@ def test_list_all_tags_in_directory(mock_vault_path: Path):
     actual_tags = list_all_tags(directory=directory)
 
     # Assert
-    assert sorted(actual_tags) == expected_tags, "Should list all normalized tags in the specified directory"
+    assert sorted(actual_tags) == expected_tags, (
+        "Should list all normalized tags in the specified directory"
+    )
 
 
 def test_list_all_tags_in_subdirectory(mock_vault_path: Path):
@@ -609,7 +656,9 @@ def test_list_all_tags_in_subdirectory(mock_vault_path: Path):
     actual_tags = list_all_tags(directory=directory)
 
     # Assert
-    assert actual_tags == expected_tags, "Should list all normalized tags in the subdirectory"
+    assert actual_tags == expected_tags, (
+        "Should list all normalized tags in the subdirectory"
+    )
 
 
 def test_list_all_tags_nonexistent_directory(mock_vault_path: Path):
@@ -637,7 +686,9 @@ def test_find_notes_with_tag(mock_vault_path: Path):
     actual_paths = find_notes_with_tag(tag=tag, directory=None)
 
     # Assert
-    assert sorted(actual_paths) == sorted(expected_paths), "Should find all notes with the specified tag"
+    assert sorted(actual_paths) == sorted(expected_paths), (
+        "Should find all notes with the specified tag"
+    )
 
 
 def test_find_notes_with_tag_case_insensitive(mock_vault_path: Path):
@@ -652,7 +703,9 @@ def test_find_notes_with_tag_case_insensitive(mock_vault_path: Path):
     actual_paths = find_notes_with_tag(tag=tag, directory=None)
 
     # Assert
-    assert sorted(actual_paths) == sorted(expected_paths), "Search should be case-insensitive"
+    assert sorted(actual_paths) == sorted(expected_paths), (
+        "Search should be case-insensitive"
+    )
 
 
 def test_find_notes_with_tag_in_directory(mock_vault_path: Path):
@@ -662,14 +715,16 @@ def test_find_notes_with_tag_in_directory(mock_vault_path: Path):
     directory = str(mock_vault_path / DEFAULT_NOTE_DIR)
     expected_paths = [
         str(mock_vault_path / DEFAULT_NOTE_DIR / "note1.md"),
-        str(mock_vault_path / DEFAULT_NOTE_DIR / "note2.md")
+        str(mock_vault_path / DEFAULT_NOTE_DIR / "note2.md"),
     ]
 
     # Act
     actual_paths = find_notes_with_tag(tag=tag, directory=directory)
 
     # Assert
-    assert sorted(actual_paths) == sorted(expected_paths), "Should find notes with the tag in the specified directory"
+    assert sorted(actual_paths) == sorted(expected_paths), (
+        "Should find notes with the tag in the specified directory"
+    )
 
 
 def test_find_notes_with_nonexistent_tag(mock_vault_path: Path):
@@ -699,15 +754,15 @@ def test_find_notes_with_roottag(mock_vault_path: Path):
     """Tests that root_note tags can be found"""
     # Arrange
     tag = "roottag"
-    expected_paths = [
-        str(mock_vault_path / "root_note.md")
-    ]
+    expected_paths = [str(mock_vault_path / "root_note.md")]
 
     # Act
     actual_paths = find_notes_with_tag(tag=tag, directory=None)
 
     # Assert
-    assert sorted(actual_paths) == sorted(expected_paths), "Should find root_note.md with roottag"
+    assert sorted(actual_paths) == sorted(expected_paths), (
+        "Should find root_note.md with roottag"
+    )
 
 
 # --- Tests for rename_tag ---
@@ -726,13 +781,19 @@ def test_rename_tag_across_vault(mock_vault_path: Path):
     modified_paths = rename_tag(old_tag=old_tag, new_tag=new_tag)
 
     # Assert
-    assert sorted(str(p) for p in modified_paths) == sorted(str(p) for p in expected_modified_paths), "Should rename tag in all files"
+    assert sorted(str(p) for p in modified_paths) == sorted(
+        str(p) for p in expected_modified_paths
+    ), "Should rename tag in all files"
 
     # Verify tag was actually renamed in the files
     for path in modified_paths:
         tags = get_tags(filepath=str(path))
-        assert "newtag" in [t.lower() for t in tags], f"File {path} should contain the new tag"
-        assert "taga" not in [t.lower() for t in tags], f"File {path} should not contain the old tag"
+        assert "newtag" in [t.lower() for t in tags], (
+            f"File {path} should contain the new tag"
+        )
+        assert "taga" not in [t.lower() for t in tags], (
+            f"File {path} should not contain the old tag"
+        )
 
 
 def test_rename_tag_in_directory(mock_vault_path: Path):
@@ -743,20 +804,26 @@ def test_rename_tag_in_directory(mock_vault_path: Path):
     directory = str(mock_vault_path / DEFAULT_NOTE_DIR)
     expected_modified_paths = [
         mock_vault_path / DEFAULT_NOTE_DIR / "note1.md",
-        mock_vault_path / DEFAULT_NOTE_DIR / "note2.md"
+        mock_vault_path / DEFAULT_NOTE_DIR / "note2.md",
     ]
 
     # Act
     modified_paths = rename_tag(old_tag=old_tag, new_tag=new_tag, directory=directory)
 
     # Assert
-    assert sorted(str(p) for p in modified_paths) == sorted(str(p) for p in expected_modified_paths), "Should rename tag in the directory"
+    assert sorted(str(p) for p in modified_paths) == sorted(
+        str(p) for p in expected_modified_paths
+    ), "Should rename tag in the directory"
 
     # Verify tag was actually renamed in the files
     for path in modified_paths:
         tags = get_tags(filepath=str(path))
-        assert "updatedb" in [t.lower() for t in tags], f"File {path} should contain the new tag"
-        assert "tagb" not in [t.lower() for t in tags], f"File {path} should not contain the old tag"
+        assert "updatedb" in [t.lower() for t in tags], (
+            f"File {path} should contain the new tag"
+        )
+        assert "tagb" not in [t.lower() for t in tags], (
+            f"File {path} should not contain the old tag"
+        )
 
 
 def test_rename_tag_to_invalid_format(mock_vault_path: Path):
@@ -804,18 +871,22 @@ def test_rename_roottag(mock_vault_path: Path):
     # Arrange
     old_tag = "roottag"
     new_tag = "newroottag"
-    expected_modified_paths = [
-        mock_vault_path / "root_note.md"
-    ]
+    expected_modified_paths = [mock_vault_path / "root_note.md"]
 
     # Act
     modified_paths = rename_tag(old_tag=old_tag, new_tag=new_tag)
 
     # Assert
-    assert sorted(str(p) for p in modified_paths) == sorted(str(p) for p in expected_modified_paths), "Should rename tag in root_note.md"
+    assert sorted(str(p) for p in modified_paths) == sorted(
+        str(p) for p in expected_modified_paths
+    ), "Should rename tag in root_note.md"
 
     # Verify tag was actually renamed in the files
     for path in modified_paths:
         tags = get_tags(filepath=str(path))
-        assert "newroottag" in [t.lower() for t in tags], f"File {path} should contain the new tag"
-        assert "roottag" not in [t.lower() for t in tags], f"File {path} should not contain the old tag"
+        assert "newroottag" in [t.lower() for t in tags], (
+            f"File {path} should contain the new tag"
+        )
+        assert "roottag" not in [t.lower() for t in tags], (
+            f"File {path} should not contain the old tag"
+        )

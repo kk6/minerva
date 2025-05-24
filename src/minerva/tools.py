@@ -29,28 +29,29 @@ logger = logging.getLogger(__name__)
 def handle_file_operations(operation_name: str):
     """
     Decorator for unified error handling in file operations.
-    
+
     This decorator provides consistent error handling and logging for file operations
     across the application. It handles common exceptions that occur during file I/O
     operations and provides standardized error logging.
-    
+
     Args:
         operation_name: A descriptive name of the operation being performed,
                        used in error messages and logging.
-    
+
     Returns:
         A decorator function that wraps the target function with error handling.
-    
+
     The decorator handles these exception types:
     - PermissionError: Access denied to files or directories
     - IOError/OSError: File system related errors
     - Exception: Unexpected errors (re-raised as RuntimeError with context)
-    
+
     Note:
         - FileExistsError, FileNotFoundError, and ValueError are passed through unchanged
           as they represent expected business logic conditions that calling code should handle
         - The decorator preserves the original function's signature and return value
     """
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -67,8 +68,12 @@ def handle_file_operations(operation_name: str):
                 if isinstance(e, (FileExistsError, FileNotFoundError, ValueError)):
                     raise
                 logger.error("Unexpected error during %s: %s", operation_name, e)
-                raise RuntimeError(f"Unexpected error during {operation_name}: {e}") from e
+                raise RuntimeError(
+                    f"Unexpected error during {operation_name}: {e}"
+                ) from e
+
         return wrapper
+
     return decorator
 
 
@@ -735,9 +740,7 @@ def get_note_delete_confirmation(
         file_path = Path(request.filepath)
     else:
         if request.filename is None:
-            raise ValueError(
-                "Filename must be provided if filepath is not specified."
-            )
+            raise ValueError("Filename must be provided if filepath is not specified.")
         full_dir_path, base_filename = _build_file_path(
             request.filename, request.default_path
         )
@@ -907,7 +910,6 @@ def add_tag(
         filepath=filepath,
         default_path=default_path,
     )
-    file_path_for_logging: str | Path = "unknown_file"
     # 1. Determine the target file path
     if request.filepath:
         file_path = Path(request.filepath)
@@ -920,7 +922,6 @@ def add_tag(
                 file_path,
             )
 
-        file_path_for_logging = file_path
         base_filename = file_path.name
         full_dir_path = file_path.parent
     elif (
@@ -931,7 +932,6 @@ def add_tag(
             request.filename, request.default_path
         )
         file_path = full_dir_path / base_filename
-        file_path_for_logging = file_path
     else:
         # This case should be caught by Pydantic's model_validator, but as a safeguard:
         raise ValueError(
@@ -941,7 +941,6 @@ def add_tag(
     if not file_path.exists():
         logger.error("Error adding tag: File %s not found.", file_path)
         raise FileNotFoundError(f"File {file_path} does not exist")
-    file_path_for_logging = file_path  # Update for accurate logging
 
     # 2. Normalize the input tag
     normalized_tag = _normalize_tag(request.tag)
@@ -949,9 +948,7 @@ def add_tag(
     # 3. Validate the normalized tag
     if not _validate_tag(normalized_tag):
         logger.error("Error adding tag: Invalid tag '%s'", request.tag)
-        raise ValueError(
-            f"Invalid tag: {request.tag} (normalized: {normalized_tag})"
-        )
+        raise ValueError(f"Invalid tag: {request.tag} (normalized: {normalized_tag})")
 
     # 4. Read the entire note content
     # read_note expects a string path
@@ -1007,9 +1004,7 @@ def add_tag(
     written_path = write_file(file_write_request)
 
     # 12. Log an informational message
-    logger.info(
-        "Successfully added tag '%s' to note %s", normalized_tag, written_path
-    )
+    logger.info("Successfully added tag '%s' to note %s", normalized_tag, written_path)
 
     # 13. Return the Path object
     return written_path
@@ -1103,7 +1098,6 @@ def remove_tag(
         filepath=filepath,
         default_path=default_path,
     )
-    file_path_for_logging: str | Path = "unknown_file"
     # 1. Determine the target file path
     if request.filepath:
         file_path = Path(request.filepath)
@@ -1112,7 +1106,6 @@ def remove_tag(
                 "Filepath provided without .md extension for remove_tag. Consider adding .md for consistency: %s",
                 file_path,
             )
-        file_path_for_logging = file_path
         base_filename = file_path.name
         full_dir_path = file_path.parent
     elif request.filename:  # Ensured by Pydantic
@@ -1120,7 +1113,6 @@ def remove_tag(
             request.filename, request.default_path
         )
         file_path = full_dir_path / base_filename
-        file_path_for_logging = file_path
     else:
         raise ValueError(
             "Logic error: Filename or filepath determination failed despite Pydantic validation."
@@ -1129,7 +1121,6 @@ def remove_tag(
     if not file_path.exists():
         logger.error("Error removing tag: File %s not found.", file_path)
         raise FileNotFoundError(f"File {file_path} does not exist")
-    file_path_for_logging = file_path
 
     # 2. Normalize the input tag to be removed
     tag_to_remove_normalized = _normalize_tag(request.tag)
@@ -1379,8 +1370,12 @@ def rename_tag(
 
                 # Only write if tags have actually changed
                 # Direct comparison of normalized tag sets to determine if a change occurred
-                current_normalized_tags = {_normalize_tag(tag) for tag in current_tags_str_list}
-                final_normalized_tags = {_normalize_tag(tag) for tag in final_tags_for_file}
+                current_normalized_tags = {
+                    _normalize_tag(tag) for tag in current_tags_str_list
+                }
+                final_normalized_tags = {
+                    _normalize_tag(tag) for tag in final_tags_for_file
+                }
 
                 # Check if normalized tag sets differ, which would indicate a real change
                 if current_normalized_tags != final_normalized_tags:
