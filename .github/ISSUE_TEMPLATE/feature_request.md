@@ -24,6 +24,6 @@ assignees: kk6
 ## AI生成情報
 <!-- AIアシスタントが作成した場合は記入してください -->
 - [ ] この Issue は AI アシスタントによって作成されました
-- AIモデル: <!-- 例: Claude 3.5 Sonnet, GPT-4, Claude 3.5 Haiku など -->
+- AIモデル: <!-- 自身のモデル名を記載。例: Claude Sonnet 4, GPT-4.1 など -->
 - 作成日時: <!-- YYYY-MM-DD HH:MM 形式 -->
 - 生成根拠: <!-- ユーザーの要求やプロンプトの概要 -->
