@@ -154,7 +154,7 @@ class TestCreateNote:
         mock_write_file = mock_write_setup["mock_write_file"]
         mock_write_file.side_effect = Exception("Unexpected error")
 
-        with pytest.raises(Exception, match="Unexpected error"):
+        with pytest.raises(RuntimeError, match="Unexpected error during note creation"):
             tools.create_note(
                 text="This should fail with unexpected error",
                 filename="error_note",

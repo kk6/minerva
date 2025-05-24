@@ -238,7 +238,7 @@ class TestDeleteNoteFunctions:  # Renamed class
         mock_exists.return_value = True
         mock_delete_file.side_effect = Exception("Unexpected error during deletion")
 
-        with pytest.raises(Exception, match="Unexpected error during deletion"):
+        with pytest.raises(RuntimeError, match="Unexpected error during note deletion"):
             tools.perform_note_delete(filename="problematic_file", default_path="")
 
 

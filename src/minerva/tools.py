@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 import re  # Added for tag validation
@@ -23,6 +24,52 @@ from minerva.config import VAULT_PATH, DEFAULT_NOTE_AUTHOR, DEFAULT_NOTE_DIR
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+def handle_file_operations(operation_name: str):
+    """
+    Decorator for unified error handling in file operations.
+    
+    This decorator provides consistent error handling and logging for file operations
+    across the application. It handles common exceptions that occur during file I/O
+    operations and provides standardized error logging.
+    
+    Args:
+        operation_name: A descriptive name of the operation being performed,
+                       used in error messages and logging.
+    
+    Returns:
+        A decorator function that wraps the target function with error handling.
+    
+    The decorator handles these exception types:
+    - PermissionError: Access denied to files or directories
+    - IOError/OSError: File system related errors
+    - Exception: Unexpected errors (re-raised as RuntimeError with context)
+    
+    Note:
+        - FileExistsError, FileNotFoundError, and ValueError are passed through unchanged
+          as they represent expected business logic conditions that calling code should handle
+        - The decorator preserves the original function's signature and return value
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except PermissionError as e:
+                logger.error("Permission denied during %s: %s", operation_name, e)
+                raise
+            except (IOError, OSError) as e:
+                logger.error("File system error during %s: %s", operation_name, e)
+                raise
+            except Exception as e:
+                # Let FileExistsError, FileNotFoundError, and ValueError pass through
+                if isinstance(e, (FileExistsError, FileNotFoundError, ValueError)):
+                    raise
+                logger.error("Unexpected error during %s: %s", operation_name, e)
+                raise RuntimeError(f"Unexpected error during {operation_name}: {e}") from e
+        return wrapper
+    return decorator
 
 
 class WriteNoteRequest(BaseModel):
@@ -435,6 +482,7 @@ def _assemble_complete_note(
     return full_dir_path, base_filename, content
 
 
+@handle_file_operations("note creation")
 def create_note(
     text: str,
     filename: str,
@@ -458,59 +506,29 @@ def create_note(
     Raises:
         FileExistsError: If the file already exists.
     """
-    file_path_for_logging = None  # Ensure variable is always defined
-    try:
-        # Prepare note for writing
-        full_dir_path, base_filename, content = _assemble_complete_note(
-            text=text,
-            filename=filename,
-            author=author,
-            default_path=default_path,
-            is_new_note=True,
-        )
-        file_path_for_logging = full_dir_path / base_filename
+    # Prepare note for writing
+    full_dir_path, base_filename, content = _assemble_complete_note(
+        text=text,
+        filename=filename,
+        author=author,
+        default_path=default_path,
+        is_new_note=True,
+    )
 
-        # Create the FileWriteRequest with overwrite=False to ensure we don't overwrite existing files
-        file_write_request = FileWriteRequest(
-            directory=str(full_dir_path),
-            filename=base_filename,
-            content=content,
-            overwrite=False,
-        )
+    # Create the FileWriteRequest with overwrite=False to ensure we don't overwrite existing files
+    file_write_request = FileWriteRequest(
+        directory=str(full_dir_path),
+        filename=base_filename,
+        content=content,
+        overwrite=False,
+    )
 
-        file_path = write_file(file_write_request)
-        logger.info("New note created at %s", file_path)
-        return file_path
-
-    except FileExistsError:
-        logger.error(
-            "Error creating note: File %s already exists.",
-            file_path_for_logging if file_path_for_logging else filename,
-        )
-        raise
-    except (IOError, OSError) as e:
-        logger.error(
-            "Error creating note for %s: File system error: %s",
-            file_path_for_logging if file_path_for_logging else filename,
-            e,
-        )
-        raise
-    except ValueError as e:  # Catches errors from Pydantic, _build_file_path, etc.
-        logger.error(
-            "Error creating note (input filename '%s'): Invalid input or path: %s",
-            filename,
-            e,
-        )
-        raise
-    except Exception as e:
-        logger.error(
-            "Error creating note (input filename '%s'): An unexpected error occurred: %s",
-            filename,
-            e,
-        )
-        raise
+    file_path = write_file(file_write_request)
+    logger.info("New note created at %s", file_path)
+    return file_path
 
 
+@handle_file_operations("note editing")
 def edit_note(
     text: str,
     filename: str,
@@ -534,59 +552,33 @@ def edit_note(
     Raises:
         FileNotFoundError: If the file doesn't exist.
     """
-    file_path_for_logging = None
-    try:
-        # Prepare note for writing
-        full_dir_path, base_filename, content = _assemble_complete_note(
-            text=text,
-            filename=filename,
-            author=author,
-            default_path=default_path,
-            is_new_note=False,
-        )
-        file_path_for_logging = full_dir_path / base_filename
+    # Prepare note for writing
+    full_dir_path, base_filename, content = _assemble_complete_note(
+        text=text,
+        filename=filename,
+        author=author,
+        default_path=default_path,
+        is_new_note=False,
+    )
+    file_path_for_logging = full_dir_path / base_filename
 
-        # Check if the file exists before attempting to edit it
-        if not file_path_for_logging.exists():
-            raise FileNotFoundError(
-                "Cannot edit note. File %s does not exist", file_path_for_logging
-            )
-
-        # Create the FileWriteRequest with overwrite=True since we're editing an existing file
-        file_write_request = FileWriteRequest(
-            directory=str(full_dir_path),
-            filename=base_filename,
-            content=content,
-            overwrite=True,
+    # Check if the file exists before attempting to edit it
+    if not file_path_for_logging.exists():
+        raise FileNotFoundError(
+            f"Cannot edit note. File {file_path_for_logging} does not exist"
         )
 
-        file_path = write_file(file_write_request)
-        logger.info("Note edited at %s", file_path)
-        return file_path
+    # Create the FileWriteRequest with overwrite=True since we're editing an existing file
+    file_write_request = FileWriteRequest(
+        directory=str(full_dir_path),
+        filename=base_filename,
+        content=content,
+        overwrite=True,
+    )
 
-    except FileNotFoundError:
-        # This will catch the FileNotFoundError raised from the explicit check or from write_file if overwrite=True somehow fails on a non-existent file.
-        logger.error("Error editing note: File %s not found.", file_path_for_logging)
-        raise
-    except (IOError, OSError) as e:
-        logger.error(
-            "Error editing note for %s: File system error: %s", file_path_for_logging, e
-        )
-        raise
-    except ValueError as e:
-        logger.error(
-            "Error editing note for %s: Invalid input or path: %s",
-            file_path_for_logging,
-            e,
-        )
-        raise
-    except Exception as e:
-        logger.error(
-            "Error editing note for %s: An unexpected error occurred: %s",
-            file_path_for_logging,
-            e,
-        )
-        raise
+    file_path = write_file(file_write_request)
+    logger.info("Note edited at %s", file_path)
+    return file_path
 
 
 def write_note(
@@ -694,6 +686,7 @@ def write_note(
         raise
 
 
+@handle_file_operations("note reading")
 def read_note(filepath: str) -> str:
     """
     Read a note from a file in the Obsidian vault.
@@ -704,28 +697,16 @@ def read_note(filepath: str) -> str:
         str: The content of the file.
     """
     directory, filename = os.path.split(filepath)
-    try:
-        file_read_request = FileReadRequest(
-            directory=directory,
-            filename=filename,
-        )
-        content = read_file(file_read_request)
-        logger.info("File read from %s", filepath)
-    except FileNotFoundError:
-        logger.error("Error reading file: File %s not found.", filepath)
-        raise
-    except (IOError, OSError) as e:
-        logger.error("Error reading file: File system error for %s: %s", filepath, e)
-        raise
-    except Exception as e:
-        logger.error(
-            "Error reading file %s: An unexpected error occurred: %s", filepath, e
-        )
-        raise
-
+    file_read_request = FileReadRequest(
+        directory=directory,
+        filename=filename,
+    )
+    content = read_file(file_read_request)
+    logger.info("File read from %s", filepath)
     return content
 
 
+@handle_file_operations("note delete confirmation")
 def get_note_delete_confirmation(
     filename: str | None = None,
     filepath: str | None = None,
@@ -749,64 +730,27 @@ def get_note_delete_confirmation(
     request = DeleteNoteRequest(
         filename=filename, filepath=filepath, default_path=default_path
     )
-    file_path_for_logging: Path | None = (
-        None  # Initialize for logging in case _build_file_path fails
-    )
 
-    try:
-        if request.filepath:
-            file_path = Path(request.filepath)
-            file_path_for_logging = file_path
-        else:
-            if request.filename is None:
-                raise ValueError(
-                    "Filename must be provided if filepath is not specified."
-                )
-            full_dir_path, base_filename = _build_file_path(
-                request.filename, request.default_path
+    if request.filepath:
+        file_path = Path(request.filepath)
+    else:
+        if request.filename is None:
+            raise ValueError(
+                "Filename must be provided if filepath is not specified."
             )
-            file_path = full_dir_path / base_filename
-            file_path_for_logging = file_path
+        full_dir_path, base_filename = _build_file_path(
+            request.filename, request.default_path
+        )
+        file_path = full_dir_path / base_filename
 
-        if not file_path.exists():
-            logger.error("File not found for deletion confirmation: %s", file_path)
-            raise FileNotFoundError(f"File {file_path} does not exist")
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {file_path} does not exist")
 
-        message = f"File found at {file_path}. To delete, call 'perform_note_delete' with the same identification parameters."
-        return DeleteConfirmationResult(file_path=str(file_path), message=message)
-
-    except FileNotFoundError:  # Already logged
-        raise
-    except ValueError as e:
-        log_path_str = (
-            str(file_path_for_logging)
-            if file_path_for_logging
-            else f"filename='{filename}', filepath='{filepath}'"
-        )
-        logger.error("Invalid input for delete confirmation (%s): %s", log_path_str, e)
-        raise
-    except (IOError, OSError) as e:
-        log_path_str = (
-            str(file_path_for_logging)
-            if file_path_for_logging
-            else f"filename='{filename}', filepath='{filepath}'"
-        )
-        logger.error(
-            "File system error during delete confirmation for %s: %s", log_path_str, e
-        )
-        raise
-    except Exception as e:
-        log_path_str = (
-            str(file_path_for_logging)
-            if file_path_for_logging
-            else f"filename='{filename}', filepath='{filepath}'"
-        )
-        logger.error(
-            "Unexpected error during delete confirmation for %s: %s", log_path_str, e
-        )
-        raise
+    message = f"File found at {file_path}. To delete, call 'perform_note_delete' with the same identification parameters."
+    return DeleteConfirmationResult(file_path=str(file_path), message=message)
 
 
+@handle_file_operations("note deletion")
 def perform_note_delete(
     filename: str | None = None,
     filepath: str | None = None,
@@ -831,69 +775,30 @@ def perform_note_delete(
     request = DeleteNoteRequest(
         filename=filename, filepath=filepath, default_path=default_path
     )
-    file_path_for_logging: Path | None = None  # Initialize for logging
 
-    try:
-        if request.filepath:
-            file_path = Path(request.filepath)
-            file_path_for_logging = file_path
-        else:
-            assert request.filename is not None  # Ensured by Pydantic model
-            full_dir_path, base_filename = _build_file_path(
-                request.filename, request.default_path
-            )
-            file_path = full_dir_path / base_filename
-            file_path_for_logging = file_path
+    if request.filepath:
+        file_path = Path(request.filepath)
+    else:
+        assert request.filename is not None  # Ensured by Pydantic model
+        full_dir_path, base_filename = _build_file_path(
+            request.filename, request.default_path
+        )
+        file_path = full_dir_path / base_filename
 
-        if not file_path.exists():
-            logger.error("File not found for deletion: %s", file_path)
-            raise FileNotFoundError(f"File {file_path} does not exist")
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {file_path} does not exist")
 
-        file_delete_request = FileDeleteRequest(
-            directory=str(file_path.parent),
-            filename=file_path.name,
-        )
+    file_delete_request = FileDeleteRequest(
+        directory=str(file_path.parent),
+        filename=file_path.name,
+    )
 
-        deleted_path = delete_file(file_delete_request)
-        logger.info("Note deleted successfully at %s", deleted_path)
-        return deleted_path
-
-    except FileNotFoundError:  # Already logged
-        raise
-    except (IOError, OSError) as e:
-        log_path_str = (
-            str(file_path_for_logging)
-            if file_path_for_logging
-            else f"filename='{filename}', filepath='{filepath}'"
-        )
-        logger.error(
-            "Error performing note deletion for %s: File system error: %s",
-            log_path_str,
-            e,
-        )
-        raise
-    except ValueError as e:
-        log_path_str = (
-            str(file_path_for_logging)
-            if file_path_for_logging
-            else f"filename='{filename}', filepath='{filepath}'"
-        )
-        logger.error(
-            "Invalid input for perform note deletion (%s): %s", log_path_str, e
-        )
-        raise
-    except Exception as e:
-        log_path_str = (
-            str(file_path_for_logging)
-            if file_path_for_logging
-            else f"filename='{filename}', filepath='{filepath}'"
-        )
-        logger.error(
-            "Unexpected error performing note deletion for %s: %s", log_path_str, e
-        )
-        raise
+    deleted_path = delete_file(file_delete_request)
+    logger.info("Note deleted successfully at %s", deleted_path)
+    return deleted_path
 
 
+@handle_file_operations("note search")
 def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     """
     Search for a keyword in all files in the Obsidian vault.
@@ -907,45 +812,14 @@ def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     if not query:
         raise ValueError("Query cannot be empty")
 
-    try:
-        search_config = SearchConfig(
-            directory=str(VAULT_PATH),
-            keyword=query,
-            file_extensions=[".md"],
-            case_sensitive=case_sensitive,
-        )
-        matching_files = search_keyword_in_files(search_config)
-        logger.info("Found %s files matching the query: %s", len(matching_files), query)
-    except PermissionError as e:  # Specific to permissions
-        logger.error(
-            "Permission denied during search for query '%s' in vault %s: %s",
-            query,
-            VAULT_PATH,
-            e,
-        )
-        raise
-    except (IOError, OSError) as e:  # For other FS issues
-        logger.error(
-            "File system error during search for query '%s' in vault %s: %s",
-            query,
-            VAULT_PATH,
-            e,
-        )
-        raise
-    except ValueError as e:  # From SearchConfig validation
-        logger.error("Invalid search parameters for query '%s': %s", query, e)
-        raise
-    except Exception as e:  # Catch-all for truly unexpected issues
-        logger.error(
-            "Unexpected error searching for query '%s' in vault %s: %s",
-            query,
-            VAULT_PATH,
-            e,
-        )
-        raise RuntimeError(
-            f"Unexpected error occurred during search for query '{query}': {e}"
-        ) from e
-
+    search_config = SearchConfig(
+        directory=str(VAULT_PATH),
+        keyword=query,
+        file_extensions=[".md"],
+        case_sensitive=case_sensitive,
+    )
+    matching_files = search_keyword_in_files(search_config)
+    logger.info("Found %s files matching the query: %s", len(matching_files), query)
     return matching_files
 
 

@@ -93,14 +93,14 @@ class TestReadNote:
         """Test reading a note raises an exception.
 
         Expects:
-            - When read_file raises an exception, it's propagated to the caller
+            - When read_file raises an unexpected exception, it's wrapped in RuntimeError
             - The read_file function is still called once
         """
         mock_read_file = mock_read_setup["mock_read_file"]
 
         mock_read_file.side_effect = Exception("File read error")
 
-        with pytest.raises(Exception, match="File read error"):
+        with pytest.raises(RuntimeError, match="Unexpected error during note reading"):
             tools.read_note(read_note_request.filepath)
 
         mock_read_file.assert_called_once()
