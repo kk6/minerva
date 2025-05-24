@@ -88,6 +88,10 @@ jobs:
           uv run pytest --cov=minerva --cov-report=xml --cov-report=html --cov-report=term
         env:
           PYTHONPATH: src
+          OBSIDIAN_VAULT_ROOT: /tmp/obsidian-vault
+          DEFAULT_VAULT: test-vault
+          DEFAULT_NOTE_DIR: test-notes
+          DEFAULT_NOTE_AUTHOR: test-author
 
       - name: Upload coverage reports to Codecov
         if: matrix.python-version == '3.12'
