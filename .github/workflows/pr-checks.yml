@@ -1,0 +1,119 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  commit-format:
+    name: Check Commit Messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit message format
+        run: |
+          # Get all commit messages from the PR
+          git log --format="%s" origin/main..HEAD > commit_messages.txt
+          
+          # Check each commit message against conventional commits format
+          echo "Checking commit message format..."
+          
+          while IFS= read -r message; do
+            if [[ -z "$message" ]]; then
+              continue
+            fi
+            
+            echo "Checking: $message"
+            
+            # Skip merge commits
+            if [[ "$message" =~ ^Merge\ (branch|pull\ request) ]]; then
+              echo "  ✓ Skipping merge commit"
+              continue
+            fi
+            
+            # Check conventional commits format: type(scope): description
+            if [[ "$message" =~ ^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(\(.+\))?: ]]; then
+              echo "  ✓ Commit message format is valid"
+            else
+              echo "  ✗ Commit message does not follow conventional commits format"
+              echo "    Expected: type(scope): description"
+              echo "    Examples: feat(tools): add new search function"
+              echo "             fix(config): resolve path handling bug"
+              echo "             docs: update README installation steps"
+              exit 1
+            fi
+          done < commit_messages.txt
+          
+          echo "All commit messages follow conventional commits format ✓"
+
+  documentation-check:
+    name: Check Documentation Updates
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for code changes
+        id: code-changes
+        run: |
+          # Check if there are changes to source code
+          if git diff --name-only origin/main..HEAD | grep -E '\.(py)$' > /dev/null; then
+            echo "code_changed=true" >> $GITHUB_OUTPUT
+            echo "Source code changes detected"
+          else
+            echo "code_changed=false" >> $GITHUB_OUTPUT
+            echo "No source code changes detected"
+          fi
+
+      - name: Check for documentation updates
+        if: steps.code-changes.outputs.code_changed == 'true'
+        run: |
+          # Check if documentation has been updated when code changes
+          if git diff --name-only origin/main..HEAD | grep -E '\.(md)$|docs/' > /dev/null; then
+            echo "✓ Documentation updates found alongside code changes"
+          else
+            echo "⚠️  Code changes detected but no documentation updates found"
+            echo "Consider updating relevant documentation in docs/ directory:"
+            echo "  - docs/requirements.md (for new features)"
+            echo "  - docs/technical_spec.md (for technical changes)"
+            echo "  - README.md (for user-facing changes)"
+            echo ""
+            echo "This is a recommendation for maintaining good documentation practices."
+          fi
+
+  file-format-check:
+    name: Basic File Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for common file format issues
+        run: |
+          echo "Checking for basic file format issues..."
+          
+          # Check for files with Windows line endings
+          if find . -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" | xargs file | grep -q "CRLF"; then
+            echo "✗ Files with Windows line endings (CRLF) found"
+            find . -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" | xargs file | grep "CRLF" || true
+            echo "Please convert to Unix line endings (LF)"
+            exit 1
+          fi
+          
+          # Check for trailing whitespace in Python files
+          if find . -name "*.py" -exec grep -l " $" {} \; | head -1; then
+            echo "✗ Python files with trailing whitespace found:"
+            find . -name "*.py" -exec grep -l " $" {} \; || true
+            echo "Please remove trailing whitespace"
+            exit 1
+          fi
+          
+          echo "✓ Basic file format checks passed"
