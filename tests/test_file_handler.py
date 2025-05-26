@@ -192,8 +192,9 @@ class TestFileHandler:
                 overwrite=True,
             )
 
-        assert f"Filename contains forbidden characters: {FilenameValidator.FORBIDDEN_CHARS}" in str(
-            excinfo.value
+        assert (
+            f"Filename contains forbidden characters: {FilenameValidator.FORBIDDEN_CHARS}"
+            in str(excinfo.value)
         )
 
     def test_write_file_creates_directory(self, temp_dir):

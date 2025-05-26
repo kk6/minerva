@@ -1,7 +1,6 @@
 import functools
 import logging
 import os
-import re
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, ParamSpec, TypeVar
