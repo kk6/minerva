@@ -6,7 +6,8 @@ from typing import Optional
 
 from pydantic import BaseModel, field_validator, Field
 
-FORBIDDEN_CHARS = '<>:"/\\|?*'
+from minerva.validators import FilenameValidator, PathValidator
+
 ENCODING = "utf-8"
 
 logger = logging.getLogger(__name__)
@@ -25,15 +26,7 @@ class FileOperationRequest(BaseModel):
         """
         Validate the filename.
         """
-        if not v:
-            raise ValueError("Filename cannot be empty")
-        if os.path.isabs(v):
-            raise ValueError("Filename cannot be an absolute path")
-        if any(char in v for char in FORBIDDEN_CHARS):
-            raise ValueError(
-                f"Filename contains forbidden characters: {FORBIDDEN_CHARS}"
-            )
-        return v
+        return FilenameValidator.validate_filename(v)
 
 
 class FileWriteRequest(FileOperationRequest):
@@ -79,10 +72,7 @@ class SearchConfig(BaseModel):
         """
         Validate that the directory exists.
         """
-        path = Path(v)
-        if not path.is_dir():
-            raise ValueError(f"Directory {v} does not exist")
-        return v
+        return PathValidator.validate_directory_exists(v)
 
     @field_validator("file_extensions")
     def format_extensions(cls, v: list[str]) -> list[str]:
@@ -204,12 +194,8 @@ def _get_validated_file_path(directory: str, filename: str) -> Path:
     """
     Validate and return the full file path.
     """
-    dirpath = Path(directory)
-    # Check if the directory is absolute
-    if not dirpath.is_absolute():
-        raise ValueError("Directory must be an absolute path")
-
-    return dirpath / filename
+    PathValidator.validate_directory_path(directory)
+    return Path(directory) / filename
 
 
 def write_file(request: FileWriteRequest) -> Path:

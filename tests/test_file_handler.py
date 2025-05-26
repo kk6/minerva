@@ -10,12 +10,12 @@ from minerva.file_handler import (
     read_file,
     write_file,
     delete_file,
-    FORBIDDEN_CHARS,
     ENCODING,
     SearchConfig,
     is_binary_file,
     search_keyword_in_files,
 )
+from minerva.validators import FilenameValidator
 
 
 @pytest.fixture
@@ -192,8 +192,9 @@ class TestFileHandler:
                 overwrite=True,
             )
 
-        assert f"Filename contains forbidden characters: {FORBIDDEN_CHARS}" in str(
-            excinfo.value
+        assert (
+            f"Filename contains forbidden characters: {FilenameValidator.FORBIDDEN_CHARS}"
+            in str(excinfo.value)
         )
 
     def test_write_file_creates_directory(self, temp_dir):
@@ -341,8 +342,8 @@ class TestFileHandler:
             ("", "Filename cannot be empty"),
             ("/absolute/path/to/file.txt", "Filename cannot be an absolute path"),
             (
-                f"test{FORBIDDEN_CHARS[0]}file.txt",
-                f"Filename contains forbidden characters: {FORBIDDEN_CHARS}",
+                f"test{sorted(FilenameValidator.FORBIDDEN_CHARS)[0]}file.txt",
+                f"Filename contains forbidden characters: {FilenameValidator.FORBIDDEN_CHARS}",
             ),
         ],
     )

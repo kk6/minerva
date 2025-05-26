@@ -1,7 +1,6 @@
 import functools
 import logging
 import os
-import re
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, ParamSpec, TypeVar
@@ -20,6 +19,7 @@ from minerva.file_handler import (
     SearchResult,
     search_keyword_in_files,
 )
+from minerva.validators import FilenameValidator, TagValidator
 
 from minerva.config import VAULT_PATH, DEFAULT_NOTE_AUTHOR, DEFAULT_NOTE_DIR
 
@@ -116,8 +116,7 @@ class WriteNoteRequest(BaseModel):
         """
         Format the filename to ensure it has a .md extension.
         """
-        if not v:
-            raise ValueError("Filename cannot be empty")
+        FilenameValidator.validate_filename_with_subdirs(v)
         if ".md" not in v:
             v = f"{v}.md"
         return v
@@ -180,8 +179,7 @@ class DeleteNoteRequest(BaseModel):
         Format the filename to ensure it has a .md extension if not None.
         """
         if v is not None:
-            if not v:
-                raise ValueError("Filename cannot be empty")
+            FilenameValidator.validate_filename_with_subdirs(v)
             if ".md" not in v:
                 v = f"{v}.md"
         return v
@@ -314,9 +312,6 @@ def _normalize_tag(tag: str) -> str:
     return tag.lower().strip()
 
 
-_FORBIDDEN_TAG_CHARS_PATTERN = re.compile(r"[,<>/?'\"]")
-
-
 def _validate_tag(tag: str) -> bool:
     """
     Checks if a tag contains any forbidden characters or is empty after normalization.
@@ -329,9 +324,7 @@ def _validate_tag(tag: str) -> bool:
     Returns:
         True if the tag is valid, False otherwise.
     """
-    if not tag:  # Empty tags (e.g., after normalization of "   ") are not allowed
-        return False
-    return not bool(_FORBIDDEN_TAG_CHARS_PATTERN.search(tag))
+    return TagValidator.validate_normalized_tag(tag)
 
 
 def _build_file_path(
@@ -862,8 +855,7 @@ class AddTagRequest(BaseModel):
         Format the filename to ensure it has a .md extension if not None.
         """
         if v is not None:
-            if not v:
-                raise ValueError("Filename cannot be empty if provided")
+            FilenameValidator.validate_filename_with_subdirs(v)
             if ".md" not in v:
                 v = f"{v}.md"
         return v
@@ -1049,8 +1041,7 @@ class RemoveTagRequest(BaseModel):
         Format the filename to ensure it has a .md extension if not None.
         """
         if v is not None:
-            if not v:
-                raise ValueError("Filename cannot be empty if provided")
+            FilenameValidator.validate_filename_with_subdirs(v)
             if ".md" not in v:
                 v = f"{v}.md"
         return v
@@ -1458,8 +1449,7 @@ class GetTagsRequest(BaseModel):
         Format the filename to ensure it has a .md extension if not None.
         """
         if v is not None:
-            if not v:
-                raise ValueError("Filename cannot be empty if provided")
+            FilenameValidator.validate_filename_with_subdirs(v)
             if ".md" not in v:
                 v = f"{v}.md"
         return v
