@@ -342,7 +342,7 @@ class TestFileHandler:
             ("", "Filename cannot be empty"),
             ("/absolute/path/to/file.txt", "Filename cannot be an absolute path"),
             (
-                f"test{list(FilenameValidator.FORBIDDEN_CHARS)[0]}file.txt",
+                f"test{sorted(FilenameValidator.FORBIDDEN_CHARS)[0]}file.txt",
                 f"Filename contains forbidden characters: {FilenameValidator.FORBIDDEN_CHARS}",
             ),
         ],

@@ -94,7 +94,7 @@ class TagValidator:
     """
 
     FORBIDDEN_CHARS = set(",<>/?'\"`")
-    _FORBIDDEN_TAG_CHARS_PATTERN = re.compile(r"[,<>/?'\"]")
+    _FORBIDDEN_TAG_CHARS_PATTERN = re.compile(r"[,<>/?'\"`]")
 
     @classmethod
     def validate_tag(cls, tag: str) -> str:
