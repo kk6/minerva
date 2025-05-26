@@ -1,6 +1,180 @@
 # CHANGELOG
 
 
+## v0.4.1 (2025-05-26)
+
+### Bug Fixes
+
+- **validators**: Correct forbidden tag characters pattern in TagValidator
+  ([`4d0f845`](https://github.com/kk6/minerva/commit/4d0f8453f7f5112148cae5c18be34c9358ae6032))
+
+### Build System
+
+- Add Ruff linter and configure code quality tools
+  ([`f8061ef`](https://github.com/kk6/minerva/commit/f8061efdf630981b7ec8b48c7fb802b3629c9c86))
+
+- Add ruff>=0.8.0 to development dependencies - Configure Ruff with basic linting rules (E, W, F)
+  and code formatting settings - Set line length to 88 characters and target Python 3.12 - Enable
+  double quotes, space indentation, and auto line endings - Update uv.lock with new dependency
+  resolution
+
+Part of CI/CD pipeline implementation for automated code quality checks
+
+### Code Style
+
+- Clean up imports and improve formatting in tools.py
+  ([`6306a23`](https://github.com/kk6/minerva/commit/6306a23b3d08b858565f5ddbd9c50f6aa859189a))
+
+- Remove unnecessary whitespace in multiple files
+  ([`0c0b83d`](https://github.com/kk6/minerva/commit/0c0b83d4a7a7b42d479e40d777357786eff4dfc8))
+
+### Continuous Integration
+
+- Add environment variables for test configuration
+  ([`de82844`](https://github.com/kk6/minerva/commit/de82844b66ef73523e394aa6dbb86e20e2feb51c))
+
+- Ci/cdパイプラインの信頼性・品質ゲート強化
+  ([`14091b1`](https://github.com/kk6/minerva/commit/14091b178bf4632b6025e003a4846d02fd921dee))
+
+- trailing whitespace検出をPythonスクリプト化し除外パスも厳密化 - コミットメッセージチェックの信頼性向上 - 必要な環境変数の追加とテスト収集エラー解消 -
+  ワークフローYAMLの堅牢化 - テンプレート・ドキュメントのtrailing whitespace除去 - すべてのCI/PR Checksがパスすることを確認
+
+🤖 Generated with GitHub Copilot
+
+docs: バグ報告テンプレートのtrailing whitespace除去・AI生成情報欄追加
+
+- テンプレートの余分な空白を削除 - AI生成情報欄を追加
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+chore: remove all trailing whitespace in documentation and templates (PR Checks compliance)
+
+ci: robustify trailing whitespace/file format check in PR Checks workflow
+
+ci: use python script for robust trailing whitespace check in PR Checks
+
+ci: fix commit message check to use base..HEAD and skip merge commits robustly
+
+chore: add check_trailing_whitespace.py script for PR Checks workflow
+
+fix(ci): fix YAML steps structure for trailing whitespace check (single run block)
+
+fix: remove trailing whitespace from pull_request_template.md (CI compliance)
+
+- Implement comprehensive CI/CD pipeline with GitHub Actions
+  ([`d7da303`](https://github.com/kk6/minerva/commit/d7da303396ee2414e60299f86f10ba663d626f5d))
+
+Add main CI workflow (.github/workflows/ci.yml): - Parallel jobs for linting, type checking, and
+  testing - Python 3.12/3.13 matrix testing with uv package manager - Ruff linting and format
+  validation - MyPy type checking - pytest with coverage reporting (XML/HTML) - Codecov integration
+  and artifact upload - Concurrency control to cancel redundant runs
+
+Add PR-specific checks (.github/workflows/pr-checks.yml): - Conventional Commits format validation -
+  Documentation update recommendations - Basic file format checks (line endings, trailing
+  whitespace) - Lightweight validation for quick feedback
+
+Features: - 5-minute execution time target - 90% code coverage maintenance - Quality gates
+  preventing broken code merges - Comprehensive error reporting and artifact preservation
+
+Implements Phase 1 of Issue #29 CI/CD requirements
+
+- Integrate release workflow with CI pipeline
+  ([`446aab4`](https://github.com/kk6/minerva/commit/446aab4edfdab2f8a9fb7550f3594391db56a3e6))
+
+- Add CI job dependency to release workflow using workflow reuse - Ensure releases only proceed
+  after successful CI validation - Migrate from actions/setup-python to astral-sh/setup-uv for
+  consistency - Use uv for dependency management in release process - Maintain semantic-release
+  functionality with improved reliability
+
+This ensures code quality validation before any release publication
+
+- Reusable workflow対応とreleaseワークフローの参照修正
+  ([`1147fc7`](https://github.com/kk6/minerva/commit/1147fc74211624a3a352a08d7d82e839f08288ed))
+
+- ci.ymlにworkflow_callトリガーを追加 - release.ymlのCI参照をローカルパスに修正
+
+🤖 Generated with GitHub Copilot
+
+- Update CI workflow to use 'uses' syntax for actions
+  ([`a9f6356`](https://github.com/kk6/minerva/commit/a9f6356711059a62ed209b8b34f3558abe9b350b))
+
+### Documentation
+
+- Add comprehensive CI/CD requirements and technical specifications
+  ([`a752cf6`](https://github.com/kk6/minerva/commit/a752cf61544935564bd8a7760028911f6292b511))
+
+- Add CI/CD requirements to docs/requirements.md including quality checks, test automation, and
+  coverage policies - Add GitHub Actions technical specifications to docs/technical_spec.md with
+  detailed workflow configuration - Expand CI/CD section in docs/development_workflow.md with
+  complete pipeline overview and implementation roadmap - Document Phase 1-3 implementation plan for
+  gradual CI/CD adoption - Include quality gates, performance requirements, and monitoring
+  strategies
+
+Resolves #29 documentation requirements
+
+- Update AI model description examples in issue templates and guidelines
+  ([`7f00850`](https://github.com/kk6/minerva/commit/7f00850f3c872b409fe54a7db435f1a1b7850536))
+
+- Update CLAUDE.md to enhance development workflow guidelines
+  ([`153eed3`](https://github.com/kk6/minerva/commit/153eed38400c55d546039163819497a3a214fdd6))
+
+- Update comments in pyproject.toml for clarity and consistency
+  ([`1498e33`](https://github.com/kk6/minerva/commit/1498e33fef2da2999ba093b9ee2cc9aa992c9847))
+
+### Refactoring
+
+- Enhance type annotations for handle_file_operations decorator
+  ([`d20201d`](https://github.com/kk6/minerva/commit/d20201dfe17e21eda9996a8ac2955f24cba5bf86))
+
+- Extend error handling decorator to 6 additional tag functions
+  ([`cbc7b98`](https://github.com/kk6/minerva/commit/cbc7b98031327158b607adb82634053910bddd53))
+
+Applied @handle_file_operations decorator to: - add_tag (tag addition) - remove_tag (tag removal) -
+  rename_tag (tag renaming) - get_tags (tag retrieval) - list_all_tags (tag listing) -
+  find_notes_with_tag (tag search)
+
+Removed ~126 lines of redundant error handling code while preserving FileNotFoundError and
+  ValueError handling for business logic.
+
+This completes the error handling unification across all file operations in tools.py as suggested by
+  gemini-code-assist.
+
+Co-authored-by: kk6 <kk6@users.noreply.github.com>
+
+- Improve error handling and logging in file operations and tag validation tests
+  ([`6ebca60`](https://github.com/kk6/minerva/commit/6ebca607091a140c7e532b5f73c7100bfca09557))
+
+- Unify error handling with common decorator
+  ([`15d417d`](https://github.com/kk6/minerva/commit/15d417d6e0751155a65dbf26f4387b7620f1d349))
+
+- Add handle_file_operations decorator to standardize error handling - Apply decorator to
+  create_note, edit_note, read_note, search_notes, get_note_delete_confirmation, and
+  perform_note_delete functions - Remove duplicate error handling code (~60 lines reduced) - Unify
+  error logging format across all file operations - Update tests to expect RuntimeError for
+  unexpected exceptions
+
+Fixes #24
+
+Co-authored-by: kk6 <kk6@users.noreply.github.com>
+
+- Unify validation logic into centralized validators module
+  ([`3186880`](https://github.com/kk6/minerva/commit/31868807630d21d5aa84db5754c2096bca13d038))
+
+- Extract filename, tag, and path validation into minerva.validators - Replace duplicated validation
+  logic in tools.py and file_handler.py - Add FilenameValidator with support for subdirectories in
+  filenames - Add TagValidator with unified normalization and validation - Add PathValidator for
+  directory path validation - Maintain backward compatibility for all existing functionality - Add
+  comprehensive test coverage for all validators
+
+Resolves #26
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.4.0 (2025-05-23)
 
 ### Features
