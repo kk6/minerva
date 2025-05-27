@@ -367,15 +367,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - run: ruff check --select ALL --ignore E501,D100,D101,D102,D103,D104,D105
-      - run: ruff format --check
+      - run: uv run ruff check --select ALL --ignore E501,D100,D101,D102,D103,D104,D105
+      - run: uv run ruff format --check
 
   type-check:
     name: 型チェック
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - run: uv run mypy src/minerva
+      - run: uv run mypy src tests
 
   test:
     name: テスト実行

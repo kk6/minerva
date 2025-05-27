@@ -116,13 +116,13 @@ Ruffを使用して、コードの品質と一貫性を確保します。Ruffは
 
 ```bash
 # Ruffでのコード形式チェックと問題の表示
-uv run ruff check minerva tests
+uv run ruff check src tests
 
 # Ruffでのコード自動フォーマット（インポート整理を含む）
-uv run ruff format minerva tests
+uv run ruff format src tests
 
 # 型チェックの実行
-uv run mypy minerva
+uv run mypy src tests
 ```
 
 ## 5. コードレビュープロセス
@@ -272,14 +272,14 @@ GitHub Actionsを使用して以下のパイプラインを構築しています
 - **Ruff による包括的チェック**:
   ```bash
   # すべてのルールを適用（一部除外）
-  ruff check --select ALL --ignore E501,D100,D101,D102,D103,D104,D105
+  uv run ruff check --select ALL --ignore E501,D100,D101,D102,D103,D104,D105
   # フォーマットチェック
-  ruff format --check
+  uv run ruff format --check
   ```
 
 - **MyPy による型チェック**:
   ```bash
-  uv run mypy src/minerva
+  uv run mypy src tests
   ```
 
 #### 8.3.2 テスト自動化
