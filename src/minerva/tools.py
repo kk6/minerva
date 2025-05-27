@@ -870,18 +870,20 @@ class AddTagRequest(BaseModel):
         return self
 
 
-def _resolve_note_file(filename: str | None, filepath: str | None, default_path: str) -> Path:
+def _resolve_note_file(
+    filename: str | None, filepath: str | None, default_path: str
+) -> Path:
     """
     Resolve note file path from filename or filepath.
-    
+
     Args:
         filename: The filename (may include subdirectories)
         filepath: The full file path
         default_path: Default directory if filename used
-        
+
     Returns:
         Path: The resolved file path
-        
+
     Raises:
         ValueError: If neither filename nor filepath provided
     """
@@ -897,19 +899,19 @@ def _resolve_note_file(filename: str | None, filepath: str | None, default_path:
 def _load_note_with_tags(file_path: Path) -> tuple[frontmatter.Post, list[str]]:
     """
     Load note and extract current tags.
-    
+
     Args:
         file_path: Path to the note file
-        
+
     Returns:
         tuple: (frontmatter post object, current tags list)
-        
+
     Raises:
         FileNotFoundError: If file doesn't exist
     """
     if not file_path.exists():
         raise FileNotFoundError(f"File {file_path} does not exist")
-        
+
     content = read_note(str(file_path))
     post = frontmatter.loads(content)
     tags_value = post.metadata.get("tags", [])
@@ -917,21 +919,23 @@ def _load_note_with_tags(file_path: Path) -> tuple[frontmatter.Post, list[str]]:
     return post, tags
 
 
-def _save_note_with_updated_tags(file_path: Path, post: frontmatter.Post, tags: list[str]) -> Path:
+def _save_note_with_updated_tags(
+    file_path: Path, post: frontmatter.Post, tags: list[str]
+) -> Path:
     """
     Save note with updated tags.
-    
+
     Args:
         file_path: Path to save the file
         post: Frontmatter post object
         tags: Updated tags list
-        
+
     Returns:
         Path: The written file path
     """
     author_value = post.metadata.get("author")
     author_str = str(author_value) if author_value is not None else None
-    
+
     updated_post = _generate_note_metadata(
         text=post.content,
         author=author_str,
@@ -939,7 +943,7 @@ def _save_note_with_updated_tags(file_path: Path, post: frontmatter.Post, tags: 
         existing_frontmatter=dict(post.metadata),
         tags=tags,
     )
-    
+
     content = frontmatter.dumps(updated_post)
     file_write_request = FileWriteRequest(
         directory=str(file_path.parent),
@@ -947,7 +951,7 @@ def _save_note_with_updated_tags(file_path: Path, post: frontmatter.Post, tags: 
         content=content,
         overwrite=True,
     )
-    
+
     return write_file(file_write_request)
 
 
@@ -986,28 +990,28 @@ def add_tag(
         filepath=filepath,
         default_path=default_path,
     )
-    
-    # Validate and normalize tag
+
     normalized_tag = _normalize_tag(request.tag)
     if not _validate_tag(normalized_tag):
         raise ValueError(f"Invalid tag: {request.tag}")
-    
-    # Resolve file path
-    file_path = _resolve_note_file(request.filename, request.filepath, request.default_path)
-    
-    # Load note and current tags
+
+    file_path = _resolve_note_file(
+        request.filename, request.filepath, request.default_path
+    )
+
     post, current_tags = _load_note_with_tags(file_path)
     current_normalized = [_normalize_tag(str(t)) for t in current_tags]
-    
-    # Add tag if not already present
+
     if normalized_tag not in current_normalized:
         current_tags.append(normalized_tag)
         written_path = _save_note_with_updated_tags(file_path, post, current_tags)
         logger.info("Added tag '%s' to %s", normalized_tag, written_path.name)
-        return written_path
     else:
+        # Rewrite the file to update the 'updated' field even if the tag already exists
+        written_path = _save_note_with_updated_tags(file_path, post, current_tags)
         logger.info("Tag '%s' already exists in %s", normalized_tag, file_path.name)
-        return file_path
+
+    return written_path
 
 
 class RemoveTagRequest(BaseModel):
@@ -1097,34 +1101,32 @@ def remove_tag(
         filepath=filepath,
         default_path=default_path,
     )
-    
-    # Normalize tag to remove
+
     tag_to_remove = _normalize_tag(request.tag)
-    
-    # Resolve file path
-    file_path = _resolve_note_file(request.filename, request.filepath, request.default_path)
-    
-    # Load note and current tags
+
+    file_path = _resolve_note_file(
+        request.filename, request.filepath, request.default_path
+    )
+
     post, current_tags = _load_note_with_tags(file_path)
-    
+
     # Remove tag if present
     new_tags = []
     tag_was_removed = False
-    
+
     for existing_tag in current_tags:
         if _normalize_tag(str(existing_tag)) == tag_to_remove:
             tag_was_removed = True
         else:
             new_tags.append(str(existing_tag))
-    
-    # Save with updated tags
+
     written_path = _save_note_with_updated_tags(file_path, post, new_tags)
-    
+
     if tag_was_removed:
         logger.info("Removed tag '%s' from %s", request.tag, written_path.name)
     else:
         logger.info("Tag '%s' not found in %s", request.tag, written_path.name)
-    
+
     return written_path
 
 
@@ -1153,25 +1155,25 @@ class RenameTagRequest(BaseModel):
 def _rename_tag_in_file(file_path: Path, old_tag_normalized: str, new_tag: str) -> bool:
     """
     Rename a tag in a single file.
-    
+
     Args:
         file_path: Path to the note file
         old_tag_normalized: Normalized old tag to replace
         new_tag: New tag to add
-        
+
     Returns:
         bool: True if file was modified, False otherwise
     """
     try:
         post, current_tags = _load_note_with_tags(file_path)
-        
+
         if not current_tags:
             return False
-            
+
         new_tags = []
         old_tag_found = False
         new_tag_normalized = _normalize_tag(new_tag)
-        
+
         # Remove old tag and check if new tag already exists
         for tag in current_tags:
             tag_normalized = _normalize_tag(str(tag))
@@ -1179,23 +1181,23 @@ def _rename_tag_in_file(file_path: Path, old_tag_normalized: str, new_tag: str) 
                 old_tag_found = True
             else:
                 new_tags.append(str(tag))
-        
+
         if old_tag_found:
             # Add new tag if not already present
             if new_tag_normalized not in [_normalize_tag(t) for t in new_tags]:
                 new_tags.append(new_tag)
-            
+
             # Check if tags actually changed
             old_normalized = {_normalize_tag(str(t)) for t in current_tags}
             new_normalized = {_normalize_tag(t) for t in new_tags}
-            
+
             if old_normalized != new_normalized:
                 _save_note_with_updated_tags(file_path, post, new_tags)
                 return True
-                
+
     except Exception as e:
         logger.error("Error processing file %s: %s", file_path, e)
-        
+
     return False
 
 
@@ -1233,34 +1235,32 @@ def rename_tag(
         new_tag=new_tag,
         directory=directory,
     )
-    
-    # Validate new tag
+
     normalized_new_tag = _normalize_tag(request.new_tag)
     if not _validate_tag(normalized_new_tag):
         raise ValueError(f"Invalid new_tag: {request.new_tag}")
-    
-    # Normalize old tag
+
     normalized_old_tag = _normalize_tag(request.old_tag)
-    
-    # Skip if tags are the same
+
     if normalized_old_tag == normalized_new_tag:
         logger.info("Old and new tags are the same after normalization")
         return []
-    
-    # Determine directory
+
     effective_directory = Path(request.directory or str(VAULT_PATH))
     if not effective_directory.is_dir():
         raise FileNotFoundError(f"Directory '{effective_directory}' not found")
-    
+
     # Process all markdown files
     modified_files: list[Path] = []
     md_files = list(effective_directory.rglob("*.md"))
-    
+
     for file_path in md_files:
         if _rename_tag_in_file(file_path, normalized_old_tag, request.new_tag):
             modified_files.append(file_path)
-            logger.info("Renamed tag '%s' to '%s' in %s", old_tag, new_tag, file_path.name)
-    
+            logger.info(
+                "Renamed tag '%s' to '%s' in %s", old_tag, new_tag, file_path.name
+            )
+
     logger.info("Renamed tag in %d file(s)", len(modified_files))
     return modified_files
 
@@ -1344,52 +1344,44 @@ def get_tags(
         filepath=filepath,
         default_path=default_path,
     )
+    # Set a placeholder for logging before the actual file path is resolved
     file_path_for_logging: str | Path = "unknown_file (pre-resolution)"
     try:
-        # 1. Path Resolution
+        # Path resolution logic: filepath takes precedence if both filepath and filename are provided
         if request.filepath:
             file_path = Path(request.filepath)
-            # Basic check for .md, similar to other functions, but less critical for read-only
             if not file_path.name.endswith(".md"):
                 logger.debug(
                     "Filepath provided to get_tags without .md extension: %s", file_path
                 )
             file_path_for_logging = file_path
-        elif request.filename:  # Ensured by Pydantic
-            # _build_file_path might raise ValueError for empty filename, caught by general Exception later
-            # or handled by Pydantic validator if filename is None but not empty string.
+        elif request.filename:
             full_dir_path, base_filename = _build_file_path(
                 request.filename, request.default_path
             )
             file_path = full_dir_path / base_filename
             file_path_for_logging = file_path
         else:
-            # This should be caught by Pydantic, but as a safeguard for direct calls or logic errors.
+            # This should be caught by Pydantic validation, but checking as a safeguard
             logger.error(
                 "Get_tags called with neither filename nor filepath (Pydantic validation missed)."
             )
             raise ValueError("Internal error: filename or filepath must be determined.")
 
-        # Check existence before read_note, though read_note also checks.
-        # This allows for a more specific log message if it's just "not found" vs. "read error".
+        # Check file existence. read_note also checks, but checking here first allows
+        # for more precise error identification (non-existent file vs. read error)
         if not file_path.exists():
             logger.warning(
                 "Get_tags: File %s not found. Returning empty list.", file_path
             )
             return []
-        file_path_for_logging = file_path  # Update for more accurate logging path
+        file_path_for_logging = file_path
 
-        # 2. Note Reading
-        note_content_str = read_note(
-            str(file_path)
-        )  # read_note handles its own FileNotFoundError and IOErrors
+        note_content_str = read_note(str(file_path))
 
-        # 3. Frontmatter Parsing
         try:
             post = frontmatter.loads(note_content_str)
-        except (
-            Exception
-        ) as e:  # Catching broad Exception for python-frontmatter parsing issues
+        except Exception as e:
             logger.warning(
                 "Get_tags: Failed to parse frontmatter for file %s: %s. Returning empty list.",
                 file_path,
@@ -1397,7 +1389,7 @@ def get_tags(
             )
             return []
 
-        # 4. Tag Retrieval
+        # Retrieve tag data from frontmatter and handle various error cases
         tags_data = post.metadata.get("tags")
 
         if tags_data is None:
@@ -1415,8 +1407,7 @@ def get_tags(
             )
             return []
 
-        # Ensure all elements are strings, preserving original case
-        # This handles cases where tags might be numbers or other types if manually edited.
+        # Handle non-string tag elements (may occur in manually edited files)
         processed_tags = []
         for tag_item in tags_data:
             if isinstance(tag_item, str):
@@ -1437,25 +1428,27 @@ def get_tags(
         )
         return processed_tags
 
-    except FileNotFoundError:  # This will catch FileNotFoundError from read_note if path.exists() was true but read_note failed
+    # All exception cases return an empty list (fault-tolerant design)
+    except FileNotFoundError:
         logger.warning(
             "Get_tags: File %s not found (error during read_note). Returning empty list.",
             file_path_for_logging,
         )
         return []
-    except (IOError, OSError) as e:  # Catch IO errors from read_note or path operations
+    except (IOError, OSError) as e:
+        # File system related errors
         logger.error(
             "Get_tags: File system error for %s: %s. Returning empty list.",
             file_path_for_logging,
             e,
         )
         return []
-    except (
-        ValueError
-    ) as e:  # Catch Pydantic validation errors if somehow bypassed or other ValueErrors
+    except ValueError as e:
+        # Pydantic validation errors or other value validation errors
         logger.error("Get_tags: Input error: %s. Returning empty list.", e)
         return []
     except Exception as e:
+        # Catch unexpected errors and log detailed information
         logger.error(
             "Get_tags: Unexpected error processing file %s: %s. Returning empty list.",
             file_path_for_logging,
