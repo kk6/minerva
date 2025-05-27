@@ -870,6 +870,87 @@ class AddTagRequest(BaseModel):
         return self
 
 
+def _resolve_note_file(filename: str | None, filepath: str | None, default_path: str) -> Path:
+    """
+    Resolve note file path from filename or filepath.
+    
+    Args:
+        filename: The filename (may include subdirectories)
+        filepath: The full file path
+        default_path: Default directory if filename used
+        
+    Returns:
+        Path: The resolved file path
+        
+    Raises:
+        ValueError: If neither filename nor filepath provided
+    """
+    if filepath:
+        return Path(filepath)
+    elif filename:
+        full_dir_path, base_filename = _build_file_path(filename, default_path)
+        return full_dir_path / base_filename
+    else:
+        raise ValueError("Either filename or filepath must be provided")
+
+
+def _load_note_with_tags(file_path: Path) -> tuple[frontmatter.Post, list[str]]:
+    """
+    Load note and extract current tags.
+    
+    Args:
+        file_path: Path to the note file
+        
+    Returns:
+        tuple: (frontmatter post object, current tags list)
+        
+    Raises:
+        FileNotFoundError: If file doesn't exist
+    """
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {file_path} does not exist")
+        
+    content = read_note(str(file_path))
+    post = frontmatter.loads(content)
+    tags_value = post.metadata.get("tags", [])
+    tags = list(tags_value) if isinstance(tags_value, list) else []
+    return post, tags
+
+
+def _save_note_with_updated_tags(file_path: Path, post: frontmatter.Post, tags: list[str]) -> Path:
+    """
+    Save note with updated tags.
+    
+    Args:
+        file_path: Path to save the file
+        post: Frontmatter post object
+        tags: Updated tags list
+        
+    Returns:
+        Path: The written file path
+    """
+    author_value = post.metadata.get("author")
+    author_str = str(author_value) if author_value is not None else None
+    
+    updated_post = _generate_note_metadata(
+        text=post.content,
+        author=author_str,
+        is_new_note=False,
+        existing_frontmatter=dict(post.metadata),
+        tags=tags,
+    )
+    
+    content = frontmatter.dumps(updated_post)
+    file_write_request = FileWriteRequest(
+        directory=str(file_path.parent),
+        filename=file_path.name,
+        content=content,
+        overwrite=True,
+    )
+    
+    return write_file(file_write_request)
+
+
 @handle_file_operations("tag addition")
 def add_tag(
     tag: str,
@@ -905,104 +986,28 @@ def add_tag(
         filepath=filepath,
         default_path=default_path,
     )
-    # 1. Determine the target file path
-    if request.filepath:
-        file_path = Path(request.filepath)
-        # Ensure filename part of filepath also has .md if it's a direct path
-        if not file_path.name.endswith(".md"):
-            # This case should ideally be handled by user providing correct filepath,
-            # but as a safeguard or if filename validator didn't run for filepath:
-            logger.warning(
-                "Filepath provided without .md extension. Consider adding .md for consistency: %s",
-                file_path,
-            )
-
-        base_filename = file_path.name
-        full_dir_path = file_path.parent
-    elif (
-        request.filename
-    ):  # filename must be present if filepath is not, due to model validation
-        # request.filename is already validated by Pydantic to have .md
-        full_dir_path, base_filename = _build_file_path(
-            request.filename, request.default_path
-        )
-        file_path = full_dir_path / base_filename
-    else:
-        # This case should be caught by Pydantic's model_validator, but as a safeguard:
-        raise ValueError(
-            "Logic error: Either filename or filepath must be determined by this point."
-        )
-
-    if not file_path.exists():
-        logger.error("Error adding tag: File %s not found.", file_path)
-        raise FileNotFoundError(f"File {file_path} does not exist")
-
-    # 2. Normalize the input tag
+    
+    # Validate and normalize tag
     normalized_tag = _normalize_tag(request.tag)
-
-    # 3. Validate the normalized tag
     if not _validate_tag(normalized_tag):
-        logger.error("Error adding tag: Invalid tag '%s'", request.tag)
-        raise ValueError(f"Invalid tag: {request.tag} (normalized: {normalized_tag})")
-
-    # 4. Read the entire note content
-    # read_note expects a string path
-    note_content_str = read_note(str(file_path))
-
-    # 5. Load the front matter and content
-    post = frontmatter.loads(note_content_str)
-    existing_metadata = dict(
-        post.metadata
-    )  # for _generate_note_metadata and author extraction
-
-    # 6. Get the current list of tags
-    tags_value = existing_metadata.get("tags", [])
-    current_tags = list(tags_value) if isinstance(tags_value, list) else []
-    # Ensure all existing tags are also normalized for comparison, though _generate_note_metadata will re-normalize
-    current_tags_normalized = [_normalize_tag(str(t)) for t in current_tags]
-
-    # 7. If the normalized new tag is not already in the current tags list, append it.
-    if normalized_tag not in current_tags_normalized:
-        # Add the original (but validated and normalized) new tag to the list that will be passed
-        # to _generate_note_metadata. _generate_note_metadata will handle final normalization.
-        current_tags.append(normalized_tag)  # Add the normalized tag
-        tags_to_set = current_tags
+        raise ValueError(f"Invalid tag: {request.tag}")
+    
+    # Resolve file path
+    file_path = _resolve_note_file(request.filename, request.filepath, request.default_path)
+    
+    # Load note and current tags
+    post, current_tags = _load_note_with_tags(file_path)
+    current_normalized = [_normalize_tag(str(t)) for t in current_tags]
+    
+    # Add tag if not already present
+    if normalized_tag not in current_normalized:
+        current_tags.append(normalized_tag)
+        written_path = _save_note_with_updated_tags(file_path, post, current_tags)
+        logger.info("Added tag '%s' to %s", normalized_tag, written_path.name)
+        return written_path
     else:
-        tags_to_set = current_tags  # No change, pass existing tags
-
-    # 8. Call _generate_note_metadata
-    # Preserve original author if available
-    author_value = existing_metadata.get("author")
-    # Ensure author is str or None for type correctness
-    author_str = str(author_value) if author_value is not None else None
-
-    updated_post_obj = _generate_note_metadata(
-        text=post.content,  # Pass only the body content
-        author=author_str,
-        is_new_note=False,  # This is an edit
-        existing_frontmatter=existing_metadata,  # Pass all existing metadata
-        tags=tags_to_set,  # Pass the potentially updated list of tags
-    )
-
-    # 9. Serialize the updated post object
-    updated_content_str = frontmatter.dumps(updated_post_obj)
-
-    # 10. Construct a FileWriteRequest
-    file_write_request = FileWriteRequest(
-        directory=str(full_dir_path),
-        filename=base_filename,
-        content=updated_content_str,
-        overwrite=True,
-    )
-
-    # 11. Use file_handler.write_file()
-    written_path = write_file(file_write_request)
-
-    # 12. Log an informational message
-    logger.info("Successfully added tag '%s' to note %s", normalized_tag, written_path)
-
-    # 13. Return the Path object
-    return written_path
+        logger.info("Tag '%s' already exists in %s", normalized_tag, file_path.name)
+        return file_path
 
 
 class RemoveTagRequest(BaseModel):
@@ -1092,110 +1097,34 @@ def remove_tag(
         filepath=filepath,
         default_path=default_path,
     )
-    # 1. Determine the target file path
-    if request.filepath:
-        file_path = Path(request.filepath)
-        if not file_path.name.endswith(".md"):
-            logger.warning(
-                "Filepath provided without .md extension for remove_tag. Consider adding .md for consistency: %s",
-                file_path,
-            )
-        base_filename = file_path.name
-        full_dir_path = file_path.parent
-    elif request.filename:  # Ensured by Pydantic
-        full_dir_path, base_filename = _build_file_path(
-            request.filename, request.default_path
-        )
-        file_path = full_dir_path / base_filename
-    else:
-        raise ValueError(
-            "Logic error: Filename or filepath determination failed despite Pydantic validation."
-        )
-
-    if not file_path.exists():
-        logger.error("Error removing tag: File %s not found.", file_path)
-        raise FileNotFoundError(f"File {file_path} does not exist")
-
-    # 2. Normalize the input tag to be removed
-    tag_to_remove_normalized = _normalize_tag(request.tag)
-
-    # It's not strictly necessary to validate tag_to_remove_normalized with _validate_tag,
-    # as an invalidly formatted tag is unlikely to be present in the metadata if it was added
-    # via controlled functions. If it's empty after normalization, it won't match anything.
-
-    # 3. Read the entire note content
-    note_content_str = read_note(str(file_path))
-
-    # 4. Load the front matter and content
-    post = frontmatter.loads(note_content_str)
-    existing_metadata = dict(post.metadata)
-
-    # 5. Tag Removal
-    tags_value = existing_metadata.get("tags", [])
-    current_tags = list(tags_value) if isinstance(tags_value, list) else []
-    new_tags_list = []
+    
+    # Normalize tag to remove
+    tag_to_remove = _normalize_tag(request.tag)
+    
+    # Resolve file path
+    file_path = _resolve_note_file(request.filename, request.filepath, request.default_path)
+    
+    # Load note and current tags
+    post, current_tags = _load_note_with_tags(file_path)
+    
+    # Remove tag if present
+    new_tags = []
     tag_was_removed = False
-
-    if not current_tags:
-        logger.info(
-            "No tags found in note %s. Tag '%s' not removed.",
-            file_path,
-            request.tag,
-        )
-    else:
-        for existing_tag_obj in current_tags:
-            existing_tag_str = str(existing_tag_obj)  # Ensure it's a string
-            if _normalize_tag(existing_tag_str) == tag_to_remove_normalized:
-                tag_was_removed = True
-            else:
-                new_tags_list.append(
-                    existing_tag_str
-                )  # Keep original form if not removed
-
-    # 6. Call _generate_note_metadata
-    author_value = existing_metadata.get("author")
-    # Ensure author is str or None for type correctness
-    author_str = str(author_value) if author_value is not None else None
-
-    updated_post_obj = _generate_note_metadata(
-        text=post.content,
-        author=author_str,
-        is_new_note=False,
-        existing_frontmatter=existing_metadata,
-        tags=new_tags_list,  # Pass the new list (might be empty or unchanged)
-    )
-
-    # 7. Serialize the updated post object
-    updated_content_str = frontmatter.dumps(updated_post_obj)
-
-    # 8. Construct a FileWriteRequest
-    file_write_request = FileWriteRequest(
-        directory=str(full_dir_path),
-        filename=base_filename,
-        content=updated_content_str,
-        overwrite=True,
-    )
-
-    # 9. Use file_handler.write_file()
-    written_path = write_file(file_write_request)
-
-    # 10. Log an informational message
+    
+    for existing_tag in current_tags:
+        if _normalize_tag(str(existing_tag)) == tag_to_remove:
+            tag_was_removed = True
+        else:
+            new_tags.append(str(existing_tag))
+    
+    # Save with updated tags
+    written_path = _save_note_with_updated_tags(file_path, post, new_tags)
+    
     if tag_was_removed:
-        logger.info(
-            "Successfully removed tag '%s' from note %s. New tags: %s",
-            request.tag,
-            written_path,
-            new_tags_list,
-        )
+        logger.info("Removed tag '%s' from %s", request.tag, written_path.name)
     else:
-        logger.info(
-            "Tag '%s' not found in note %s. Tags remain: %s",
-            request.tag,
-            written_path,
-            current_tags,
-        )
-
-    # 11. Return the Path object
+        logger.info("Tag '%s' not found in %s", request.tag, written_path.name)
+    
     return written_path
 
 
@@ -1219,6 +1148,55 @@ class RenameTagRequest(BaseModel):
         None,
         description="Optional path to a directory within the vault. If None, the entire vault is scanned.",
     )
+
+
+def _rename_tag_in_file(file_path: Path, old_tag_normalized: str, new_tag: str) -> bool:
+    """
+    Rename a tag in a single file.
+    
+    Args:
+        file_path: Path to the note file
+        old_tag_normalized: Normalized old tag to replace
+        new_tag: New tag to add
+        
+    Returns:
+        bool: True if file was modified, False otherwise
+    """
+    try:
+        post, current_tags = _load_note_with_tags(file_path)
+        
+        if not current_tags:
+            return False
+            
+        new_tags = []
+        old_tag_found = False
+        new_tag_normalized = _normalize_tag(new_tag)
+        
+        # Remove old tag and check if new tag already exists
+        for tag in current_tags:
+            tag_normalized = _normalize_tag(str(tag))
+            if tag_normalized == old_tag_normalized:
+                old_tag_found = True
+            else:
+                new_tags.append(str(tag))
+        
+        if old_tag_found:
+            # Add new tag if not already present
+            if new_tag_normalized not in [_normalize_tag(t) for t in new_tags]:
+                new_tags.append(new_tag)
+            
+            # Check if tags actually changed
+            old_normalized = {_normalize_tag(str(t)) for t in current_tags}
+            new_normalized = {_normalize_tag(t) for t in new_tags}
+            
+            if old_normalized != new_normalized:
+                _save_note_with_updated_tags(file_path, post, new_tags)
+                return True
+                
+    except Exception as e:
+        logger.error("Error processing file %s: %s", file_path, e)
+        
+    return False
 
 
 @handle_file_operations("tag renaming")
@@ -1255,167 +1233,36 @@ def rename_tag(
         new_tag=new_tag,
         directory=directory,
     )
-    effective_directory_str = (
-        request.directory if request.directory else str(VAULT_PATH)
-    )
-    effective_directory = Path(effective_directory_str)
-
-    # Log the effective directory for debugging
-    logger.debug("Using directory for rename_tag: %s", effective_directory)
-
-    if not effective_directory.is_dir():
-        logger.error(
-            "Rename tag error: Directory '%s' does not exist or is not a directory.",
-            effective_directory,
-        )
-        # Directory must exist for this operation
-        raise FileNotFoundError(
-            f"Directory '{effective_directory}' not found or is not a directory."
-        )
-
-    normalized_old_tag = _normalize_tag(request.old_tag)
-    # new_tag_original_case = request.new_tag # Keep original for adding
+    
+    # Validate new tag
     normalized_new_tag = _normalize_tag(request.new_tag)
-
     if not _validate_tag(normalized_new_tag):
-        logger.error(
-            "Rename tag error: Invalid new_tag format for '%s'", request.new_tag
-        )
-        raise ValueError(
-            f"Invalid new_tag: {request.new_tag} (normalized: {normalized_new_tag})"
-        )
-
+        raise ValueError(f"Invalid new_tag: {request.new_tag}")
+    
+    # Normalize old tag
+    normalized_old_tag = _normalize_tag(request.old_tag)
+    
+    # Skip if tags are the same
     if normalized_old_tag == normalized_new_tag:
-        logger.info(
-            "Rename tag: Old tag '%s' and new tag '%s' are the same after normalization. No operation needed.",
-            request.old_tag,
-            request.new_tag,
-        )
+        logger.info("Old and new tags are the same after normalization")
         return []
-
-    modified_files_paths: list[Path] = []
-
-    # Log the files found for debugging
+    
+    # Determine directory
+    effective_directory = Path(request.directory or str(VAULT_PATH))
+    if not effective_directory.is_dir():
+        raise FileNotFoundError(f"Directory '{effective_directory}' not found")
+    
+    # Process all markdown files
+    modified_files: list[Path] = []
     md_files = list(effective_directory.rglob("*.md"))
-    logger.debug("Found %d markdown files in %s", len(md_files), effective_directory)
-
+    
     for file_path in md_files:
-        try:
-            note_content_str = read_note(str(file_path))
-            post = frontmatter.loads(note_content_str)
-            existing_metadata = dict(
-                post.metadata
-            )  # Make a copy for modification checks
-
-            current_tags_original = existing_metadata.get("tags")
-            if not isinstance(
-                current_tags_original, list
-            ):  # Handles None or malformed tags
-                if (
-                    current_tags_original is not None
-                ):  # Log if tags field exists but isn't a list
-                    logger.warning(
-                        "Skipping file %s: 'tags' field is not a list.", file_path
-                    )
-                continue  # Skip if no tags list or malformed
-
-            # Ensure all items are strings for normalization
-            current_tags_str_list = [str(t) for t in current_tags_original]
-
-            final_tags_for_file: list[str] = []
-            old_tag_found_in_file = False
-
-            for tag_in_note in current_tags_str_list:
-                if _normalize_tag(tag_in_note) == normalized_old_tag:
-                    old_tag_found_in_file = True
-                    # Don't add old_tag to final_tags_for_file
-                else:
-                    final_tags_for_file.append(tag_in_note)  # Preserve original casing
-
-            if old_tag_found_in_file:
-                # Check if normalized_new_tag is already in the list (excluding old_tag instances)
-                # This ensures we add the new_tag (original case) only if it's not already effectively there.
-                is_new_tag_already_present = False
-                for t in final_tags_for_file:
-                    if _normalize_tag(t) == normalized_new_tag:
-                        is_new_tag_already_present = True
-                        break
-
-                if not is_new_tag_already_present:
-                    final_tags_for_file.append(
-                        request.new_tag
-                    )  # Add with original requested casing
-
-                # Now, final_tags_for_file contains other tags + new_tag (if old was found and new wasn't already there)
-                # _generate_note_metadata will handle normalization and deduplication of this final list.
-
-                author_value = existing_metadata.get("author")
-                # Ensure author is str or None for type correctness
-                author_str = str(author_value) if author_value is not None else None
-
-                updated_post_obj = _generate_note_metadata(
-                    text=post.content,
-                    author=author_str,
-                    is_new_note=False,
-                    existing_frontmatter=existing_metadata,  # Important to pass the original for 'created'
-                    tags=final_tags_for_file,
-                )
-                updated_content_str = frontmatter.dumps(updated_post_obj)
-
-                # Only write if tags have actually changed
-                # Direct comparison of normalized tag sets to determine if a change occurred
-                current_normalized_tags = {
-                    _normalize_tag(tag) for tag in current_tags_str_list
-                }
-                final_normalized_tags = {
-                    _normalize_tag(tag) for tag in final_tags_for_file
-                }
-
-                # Check if normalized tag sets differ, which would indicate a real change
-                if current_normalized_tags != final_normalized_tags:
-                    file_write_request = FileWriteRequest(
-                        directory=str(file_path.parent),
-                        filename=file_path.name,
-                        content=updated_content_str,
-                        overwrite=True,
-                    )
-                    written_path = write_file(file_write_request)
-                    modified_files_paths.append(written_path)
-                    logger.info(
-                        "Renamed tag '%s' to '%s' in note %s. New tags: %s",
-                        request.old_tag,
-                        request.new_tag,
-                        written_path,
-                        updated_post_obj.metadata.get("tags", []),
-                    )
-                else:
-                    logger.info(
-                        "Skipping file %s: old_tag '%s' found, but effective tags list unchanged (e.g. new_tag was already present or old_tag was the only one and new_tag is empty).",
-                        file_path,
-                        request.old_tag,
-                    )
-
-        except FileNotFoundError:
-            logger.warning(
-                "File %s not found during rename_tag operation (possibly deleted mid-operation). Skipping.",
-                file_path,
-            )
-        except Exception as e:
-            logger.error(
-                "Error processing file %s during rename_tag: %s. Skipping this file.",
-                file_path,
-                e,
-                exc_info=True,  # Add stack trace for better debugging
-            )
-            # Continue to the next file
-
-    logger.info(
-        "Finished renaming tag '%s' to '%s'. Modified %d file(s).",
-        request.old_tag,
-        request.new_tag,
-        len(modified_files_paths),
-    )
-    return modified_files_paths
+        if _rename_tag_in_file(file_path, normalized_old_tag, request.new_tag):
+            modified_files.append(file_path)
+            logger.info("Renamed tag '%s' to '%s' in %s", old_tag, new_tag, file_path.name)
+    
+    logger.info("Renamed tag in %d file(s)", len(modified_files))
+    return modified_files
 
 
 class GetTagsRequest(BaseModel):
