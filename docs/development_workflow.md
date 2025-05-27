@@ -116,10 +116,10 @@ Ruffを使用して、コードの品質と一貫性を確保します。Ruffは
 
 ```bash
 # Ruffでのコード形式チェックと問題の表示
-uv run ruff check
+uv run ruff check src tests
 
 # Ruffでのコード自動フォーマット（インポート整理を含む）
-uv run ruff format
+uv run ruff format src tests
 
 # 型チェックの実行
 uv run mypy src tests
