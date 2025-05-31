@@ -15,7 +15,6 @@ Claude Desktopを通じて、以下の操作が可能です：
 - Markdownファイルの読取（read_note）
 - Markdownファイル内のキーワード検索（search_notes）
 - Markdownファイルの削除（2段階プロセス: get_note_delete_confirmation, perform_note_delete）
-- Markdownファイルの作成・更新（write_note）※後方互換性のため提供
 
 ### タグ管理機能
 - タグの追加（add_tag）
@@ -111,15 +110,6 @@ search_notes 関数を使用して「マイクロサービス」というキー�
 #### タグ管理（v0.2.0以降）
 ```
 add_tag 関数を使って「meeting_notes」ファイルに「project」タグを追加してください。
-```
-
-#### 古い形式での使用例（後方互換性用）
-```
-write_note 関数を使用して、先ほど作成したMarkdown文書を書き出します。
-
-minerva(ローカル)からの write_note の結果を表示 >
-
-Markdown文書を「web_development_best_practices.md」というファイル名で書き出しました。ファイルが正常に作成されたことが確認できました。このファイルには、先ほど作成したWebアプリケーション開発のベストプラクティスに関する内容が保存されています。
 ```
 
 ## Claude Desktop のログの確認

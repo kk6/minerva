@@ -45,10 +45,6 @@ Minervaは、Claude Desktop（MCPプラットフォーム）上で動作する�
 - perform_note_delete：確認後に実際の削除を実行
 - 2段階プロセスにより誤削除を防止
 
-#### 2.1.6 旧式のノート作成・更新（write_note）
-- 後方互換性のために提供
-- 新しいコードでは create_note または edit_note の使用を推奨
-
 ### 2.2 タグ管理機能
 
 #### 2.2.1 タグの追加（add_tag）
@@ -118,7 +114,8 @@ Minervaは、Claude Desktop（MCPプラットフォーム）上で動作する�
 Minerva
 ├── MCPサーバー (FastMCP)
 ├── ツール実装 (tools.py)
-│   ├── write_note
+│   ├── create_note
+│   ├── edit_note
 │   ├── read_note
 │   └── search_notes
 ├── ファイル操作モジュール (file_handler.py)
@@ -216,7 +213,7 @@ Minervaプロジェクトでは、以下の2つの異なる環境での依存関
 
 ### 6.1 単体テスト
 
-- 各ツール機能（write_note, read_note, search_notes）の単体テスト
+- 各ツール機能（create_note, edit_note, read_note, search_notes）の単体テスト
 - ファイル操作関連の例外ハンドリングテスト
 - バリデーション機能の確認テスト
 
@@ -319,9 +316,9 @@ Minervaプロジェクトでは、以下の2つの異なる環境での依存関
 
 ```
 # ファイル作成例
-write_note 関数を使用して、先ほど作成したMarkdown文書を書き出します。
+create_note 関数を使用して、先ほど作成したMarkdown文書を書き出します。
 
-minerva(ローカル)からの write_note の結果を表示 >
+minerva(ローカル)からの create_note の結果を表示 >
 
 Markdown文書を「web_development_best_practices.md」というファイル名で書き出しました。
 ```
@@ -333,7 +330,7 @@ Markdown文書を「web_development_best_practices.md」というファイル名
 search_notes関数でキーワード「Python」を含むファイルを検索し、最も関連性の高いファイルをread_note関数で表示する。
 
 # 構造化ドキュメントの作成例
-Claudeとの対話で得た情報をwrite_note関数を使って体系的なドキュメントとして保存し、ナレッジベースを充実させる。
+Claudeとの対話で得た情報をcreate_note関数を使って新しいドキュメントとして保存し、または既存のドキュメントをedit_note関数で更新し、ナレッジベースを充実させる。
 ```
 
 ## 11. 用語集

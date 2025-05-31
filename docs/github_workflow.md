@@ -38,7 +38,8 @@ Issueとプルリクエストを整理するために、以下のラベルを使
 - `obsidian`: Obsidian連携関連のIssue/PR
 - `claude`: Claude連携関連のIssue/PR
 - `markdown`: Markdown処理関連のIssue/PR
-- `write`: write_note機能関連のIssue/PR
+- `create`: create_note機能関連のIssue/PR
+- `edit`: edit_note機能関連のIssue/PR
 - `read`: read_note機能関連のIssue/PR
 - `search`: search_notes機能関連のIssue/PR
 - `config`: 設定関連のIssue/PR
@@ -123,7 +124,7 @@ Issueに基づいて、適切な命名規則に従ったブランチを作成し
 - `feat(obsidian): Add support for note synchronization`
 - `fix(tools): Fix incorrect path handling in search_notes function`
 - `docs: Update installation instructions`
-- `test(file-handler): Add unit tests for write_note function`
+- `test(file-handler): Add unit tests for create_note function`
 - `refactor: Move common functions to utils module`
 
 フッターには関連するIssue番号を記載します：

@@ -12,7 +12,6 @@ Minervaは、Obsidian vaultに対して以下の機能を提供します：
 - ノートの読取（read_note）
 - ノートの検索（search_notes）
 - ノートの削除（get_note_delete_confirmation, perform_note_delete）
-- 後方互換性機能（write_note）
 
 ### 1.2 タグ管理機能
 - タグの追加（add_tag）
@@ -105,74 +104,7 @@ file_path = edit_note(
 print(f"著者情報が更新されたノート: {file_path}")
 ```
 
-### 2.3 ノートの作成・更新 (write_note) [非推奨]
-
-#### 機能概要
-指定されたテキストをObsidian vault内のファイルに書き込みます。ファイルが存在しない場合は新規作成し、存在する場合は上書きオプションに基づいて処理します。コンテンツにはfrontmatter（メタデータ）が自動的に追加されます。
-
-**注意**: この関数は後方互換性のために維持されていますが、新しいコードでは目的に応じて `create_note` または `edit_note` 関数を使用することを推奨します。
-
-#### パラメータ
-- `text`: ファイルに書き込むコンテンツ
-- `filename`: 書き込むファイル名（`.md`拡張子は自動的に追加されます）
-- `is_overwrite`: ファイルが既に存在する場合に上書きするかどうかのフラグ（デフォルト: False）
-- `author`: frontmatterに追加する著者名（デフォルト: None、指定されない場合はシステム設定の著者名が使用されます）
-- `default_path`: サブディレクトリが指定されていない場合に使用するデフォルトディレクトリ（デフォルト: 環境設定のDEFAULT_NOTE_DIR値）
-
-#### 戻り値
-- 書き込まれたファイルのパス（Path型）
-
-#### 例外
-- `ValueError`: ファイル名が空または無効な場合
-- `FileExistsError`: ファイルが既に存在し、`is_overwrite`がFalseの場合
-- `pydantic.ValidationError`: ファイル名に禁止文字（`<>:"/\|?*`）が含まれる場合
-
-#### 特記事項
-- サブディレクトリを含むパスを指定した場合、自動的にディレクトリが作成されます
-- 複数レベルのディレクトリ（例：`level1/level2/note.md`）もサポートされています
-- すべてのノートには自動的にfrontmatterが追加され、少なくとも著者情報が含まれます
-- 入力コンテンツに既にfrontmatterが含まれている場合は、そのメタデータは保持され、著者情報のみが追加または更新されます
-- サブディレクトリが指定されていない場合、`default_path`パラメータで指定されたディレクトリに保存されます
-
-#### 使用例
-```python
-from minerva.tools import write_note
-
-# 基本的な使用例
-file_path = write_note(
-    text="This is a test note",
-    filename="example_note",  # .md拡張子は自動的に追加されます
-    is_overwrite=False
-)
-print(f"ノートが保存されました: {file_path}")
-
-# 著者情報とデフォルトパスを指定する例
-file_path = write_note(
-    text="This is a note with author information",
-    filename="authored_note",
-    is_overwrite=False,
-    author="AI Assistant",
-    default_path="ai_generated"
-)
-print(f"著者情報付きノートが保存されました: {file_path}")
-
-# 既存のfrontmatterを持つコンテンツの例
-frontmatter_content = """---
-title: Existing Title
-tags: [test, frontmatter]
----
-Content with existing frontmatter"""
-
-file_path = write_note(
-    text=frontmatter_content,
-    filename="frontmatter_note",
-    is_overwrite=False,
-    author="AI Assistant"
-)
-print(f"frontmatter付きノートが保存されました: {file_path}")
-```
-
-### 2.4 ノートの削除 (2段階プロセス)
+### 2.3 ノートの削除 (2段階プロセス)
 
 Minervaでは、ノートの削除は誤った削除を防ぐために2段階のプロセスで行われます：
 
@@ -380,7 +312,6 @@ print(f"更新日: {note.metadata['updated']}")  # 新しい更新日が表示�
 
 - `create_note`: ファイルが既に存在する場合に`FileExistsError`が発生します
 - `edit_note`: ファイルが存在しない場合に`FileNotFoundError`が発生します
-- `write_note`: ファイルが存在し、上書きフラグがFalseの場合に`FileExistsError`が発生します
 - 読み取りが要求されたファイルが存在しない場合：`FileNotFoundError`が発生します
 - ファイル名が無効な場合：`ValueError`または`pydantic.ValidationError`が発生します
 
@@ -403,7 +334,6 @@ print(f"更新日: {note.metadata['updated']}")  # 新しい更新日が表示�
 
 - 新しいノートを作成する場合は、`create_note`を使用してください。これにより意図せずに既存のノートを上書きするリスクが低減されます。
 - 既存のノートを編集する場合は、`edit_note`を使用してください。これにより編集対象のノートが存在することが保証されます。
-- 後方互換性のために`write_note`関数も引き続き利用可能ですが、新しいコードでは意図を明確にするために`create_note`または`edit_note`の使用を推奨します。
 
 ## 7. タグ管理機能
 

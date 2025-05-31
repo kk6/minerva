@@ -50,6 +50,7 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 - After consulting custom instructions, refer to documentation in `docs/` directory and README.md
 - Follow a document-first approach: create documentation as part of implementation planning and ask for user review
 - Begin coding only after documentation review is complete
+- **CRITICAL**: Whenever implementation specs change, you MUST update corresponding documentation
 - Update documentation during implementation if discrepancies or improvements are identified
 - Before creating a pull request, verify that documentation accurately reflects the implementation
 - **PR Preparation Checklist**:
@@ -57,7 +58,8 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
   2. Run `python scripts/check_trailing_whitespace.py` to detect and fix trailing whitespace
   3. Run local CI checks: `uv run ruff check` and `uv run ruff format`
   4. Ensure all tests pass with `uv run pytest`
-  5. Update documentation if necessary
+  5. **Verify documentation has been updated to match implementation changes**
+  6. If you modified any function signatures or behavior, ensure it's documented in appropriate .md files
 
 ## Common Pitfalls to Avoid
 - Never use f-strings in logging statements (performance issue when log level is disabled)
