@@ -13,6 +13,9 @@ Remove all trailing spaces from technical_spec.md and frontmatter.md to pass CI 
 
 ### Continuous Integration
 
+- Remove --no-vcs-release option from semantic_release version command
+  ([`548e634`](https://github.com/kk6/minerva/commit/548e634351ad3b687a13b46290776b2adaf136c1))
+
 - Update release workflow to check for version changes and commit updates
   ([`e4c4c9b`](https://github.com/kk6/minerva/commit/e4c4c9bec662260379ed0fd76e8bc2d8f9333e6e))
 
