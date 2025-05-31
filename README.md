@@ -44,6 +44,27 @@ OBSIDIAN_VAULT_ROOT=<Obsidianのvaultルートディレクトリのパス>
 DEFAULT_VAULT=<デフォルトで使用するvault名>
 ```
 
+### pre-commit フックの設定
+
+コードの品質を維持するために、pre-commit フックを設定することをお勧めします。これにより、コミット前に自動的にコードスタイルのチェックや修正が行われます。
+
+```bash
+# pre-commit のインストール（開発依存関係として）
+uv add --dev pre-commit
+
+# pre-commit フックの設定
+pre-commit install
+```
+
+pre-commit は以下のチェックを自動的に実行します：
+- トレイリングスペース（行末の余分なスペース）の削除
+- ファイル末尾の改行の確認
+- 混合行末の修正（CRLF→LF）
+- Ruff によるコードの自動フォーマットとリント
+- カスタムトレイリングスペースチェック
+
+これにより、GitHub Actions の CI チェックで発生する可能性のある問題を事前に修正できます。
+
 ## MCP Inspector を起動する
 
 プロジェクトルートで以下を実行してください。

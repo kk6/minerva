@@ -15,6 +15,8 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 - Type checking: `uv run mypy src tests`
 - Run MCP inspector: `uv run mcp dev src/minerva/server.py:mcp`
 - Install to Claude Desktop: `uv run mcp install src/minerva/server.py:mcp -f .env --with python-frontmatter`
+- Check for trailing whitespace: `python scripts/check_trailing_whitespace.py`
+- Fix trailing whitespace (in-place): `find . -type f \( -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" \) -not -path "*/.git/*" -not -path "*/__pycache__/*" -not -path "*/.venv/*" -not -path "*/venv/*" -not -path "*/.egg-info/*" -exec sed -i 's/[ \t]*$//' {} \;`
 
 ## Architecture Overview
 - **MCP Server**: FastMCP-based server (`server.py`) that provides tool endpoints
@@ -41,6 +43,7 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 - Exception handling should be specific and well-documented
 - Use pydantic for data validation and model definition
 - **CRITICAL**: Do NOT use f-strings in logging! Use % formatting instead
+- **CRITICAL**: Remove all trailing whitespace from files before committing - CI checks will fail otherwise
 
 ## Development Workflow
 - Always check `.github/instructions/` for custom instructions at the beginning of coding
@@ -49,6 +52,12 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 - Begin coding only after documentation review is complete
 - Update documentation during implementation if discrepancies or improvements are identified
 - Before creating a pull request, verify that documentation accurately reflects the implementation
+- **PR Preparation Checklist**:
+  1. Verify all code follows style guidelines
+  2. Run `python scripts/check_trailing_whitespace.py` to detect and fix trailing whitespace
+  3. Run local CI checks: `uv run ruff check` and `uv run ruff format`
+  4. Ensure all tests pass with `uv run pytest`
+  5. Update documentation if necessary
 
 ## Common Pitfalls to Avoid
 - Never use f-strings in logging statements (performance issue when log level is disabled)
@@ -56,6 +65,8 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 - Use two-phase operations for destructive actions (confirmation → execution)
 - Handle binary files appropriately in search operations
 - Preserve existing frontmatter when updating notes
+- Avoid trailing whitespace in all files (Python, Markdown, YAML) as it will fail CI checks
+- Use proper line endings (LF, not CRLF) for all files
 
 ## Testing Strategy
 - Unit tests for individual functions

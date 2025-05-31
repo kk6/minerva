@@ -47,6 +47,22 @@ This document defines the language usage rules for the Minerva project to ensure
 
 - **Comments in PR reviews**: Either Japanese or English depending on the context
 
+### 4. File Format Requirements
+
+- **Trailing whitespace**: No trailing whitespace allowed in any file
+  - Python (.py)
+  - Markdown (.md)
+  - YAML (.yml, .yaml)
+  - All other text files
+
+- **Line endings**: Use Unix line endings (LF) for all files
+  - No Windows line endings (CRLF)
+  - No mixed line endings
+
+- **Ensure files end with a newline**: All text files must end with a single newline character
+
+- **Encoding**: Use UTF-8 encoding for all text files
+
 ## Enforcement
 
 - Code review processes should enforce these language conventions

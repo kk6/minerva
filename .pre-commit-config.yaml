@@ -1,0 +1,39 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        description: Automatically trims trailing whitespace
+        types: [file]
+        exclude: (\.egg-info|\.git|\.mypy_cache|\.venv|venv|__pycache__|htmlcov)
+      - id: end-of-file-fixer
+        name: Fix end of files
+        description: Ensures files end with a single newline
+        types: [file]
+        exclude: (\.egg-info|\.git|\.mypy_cache|\.venv|venv|__pycache__|htmlcov)
+      - id: mixed-line-ending
+        name: Fix mixed line endings
+        description: Replaces mixed line endings with LF
+        args: ['--fix=lf']
+        types: [file]
+        exclude: (\.egg-info|\.git|\.mypy_cache|\.venv|venv|__pycache__|htmlcov)
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.1
+    hooks:
+      - id: ruff
+        name: Run ruff linter
+        args: [--fix]
+      - id: ruff-format
+        name: Run ruff formatter
+
+  - repo: local
+    hooks:
+      - id: check-trailing-whitespace
+        name: Check for trailing whitespace
+        description: Run custom trailing whitespace check
+        entry: python scripts/check_trailing_whitespace.py
+        language: python
+        pass_filenames: false
+        types: [python, markdown, yaml]

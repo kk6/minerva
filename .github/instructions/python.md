@@ -10,6 +10,8 @@ applyTo: '**/*.py'
 - Use 4 spaces for indentation
 - Use CamelCase for class names, snake_case for function and method names
 - Use ALL_CAPS for constants
+- Remove all trailing whitespace from files
+- Use Unix line endings (LF, not CRLF)
 
 ## Logging Guidelines
 - Do NOT use f-strings when logging!
