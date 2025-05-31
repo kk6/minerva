@@ -342,20 +342,20 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
 class FrontmatterManager:
     """
     YAML frontmatter metadata management for Obsidian notes.
-    
+
     This class centralizes all frontmatter-related operations including
     generation, reading, updating, and tag management.
     """
-    
+
     def __init__(self, default_author: str | None = None):
         """
         Initialize with optional default author.
-        
+
         Args:
             default_author: Default author for new notes
         """
         self.default_author = default_author or DEFAULT_NOTE_AUTHOR
-    
+
     def generate_metadata(
         self,
         text: str,
@@ -365,16 +365,16 @@ class FrontmatterManager:
         tags: list[str] | None = None,
     ) -> frontmatter.Post:
         """Generate or update YAML frontmatter metadata for a note."""
-        
+
     def read_existing_metadata(self, file_path: Path) -> dict | None:
         """Read and extract frontmatter metadata from an existing file."""
-        
+
     def update_tags(self, file_path: Path, tags: list[str]) -> None:
         """Update tags in an existing note's frontmatter."""
-        
+
     def add_tag(self, file_path: Path, tag: str) -> None:
         """Add a single tag to an existing note's frontmatter."""
-        
+
     def remove_tag(self, file_path: Path, tag: str) -> None:
         """Remove a single tag from an existing note's frontmatter."""
 ```

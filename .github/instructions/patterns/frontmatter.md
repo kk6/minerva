@@ -59,7 +59,7 @@ def _generate_note_metadata(
 ) -> frontmatter.Post:
     """
     Legacy wrapper for FrontmatterManager.generate_metadata().
-    
+
     DEPRECATED: Use FrontmatterManager directly for new code.
     """
     manager = FrontmatterManager()
@@ -74,7 +74,7 @@ def _generate_note_metadata(
 def _read_existing_frontmatter(file_path: Path) -> dict | None:
     """
     Legacy wrapper for FrontmatterManager.read_existing_metadata().
-    
+
     DEPRECATED: Use FrontmatterManager directly for new code.
     """
     manager = FrontmatterManager()
@@ -89,7 +89,7 @@ Pattern for generating or updating frontmatter for new or existing notes:
 def generate_metadata_example():
     """Example of using FrontmatterManager for metadata generation."""
     manager = FrontmatterManager(default_author="AI Assistant")
-    
+
     # For a new note
     post = manager.generate_metadata(
         text="This is a new note content",
@@ -97,7 +97,7 @@ def generate_metadata_example():
         is_new_note=True,
         tags=["example", "documentation"]
     )
-    
+
     # For updating an existing note
     existing_metadata = manager.read_existing_metadata(file_path)
     post = manager.generate_metadata(
@@ -106,7 +106,7 @@ def generate_metadata_example():
         existing_frontmatter=existing_metadata,
         tags=["updated", "example"]
     )
-    
+
     return post
 ```
 
@@ -118,19 +118,19 @@ Pattern for managing tags in frontmatter:
 def tag_management_example(file_path: Path):
     """Example of tag management using FrontmatterManager."""
     manager = FrontmatterManager()
-    
+
     # Add a single tag
     manager.add_tag(file_path, "new-tag")
-    
+
     # Remove a single tag
     manager.remove_tag(file_path, "old-tag")
-    
+
     # Update all tags (replaces existing tags)
     manager.update_tags(file_path, ["tag1", "tag2", "tag3"])
-    
+
     # Get current tags
     current_tags = manager.get_tags(file_path)
-    
+
     return current_tags
 ```
 
@@ -154,18 +154,18 @@ Pattern for error handling in frontmatter operations:
 def safe_frontmatter_operation(file_path: Path):
     """Example of safe frontmatter operations with error handling."""
     manager = FrontmatterManager()
-    
+
     try:
         # Attempt to read existing metadata
         metadata = manager.read_existing_metadata(file_path)
         if metadata is None:
             logger.warning("File %s does not exist or cannot be read", file_path)
             return None
-            
+
         # Perform operations
         manager.add_tag(file_path, "processed")
         return metadata
-        
+
     except PermissionError as e:
         logger.error("Permission denied accessing file %s: %s", file_path, e)
         raise
