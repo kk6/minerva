@@ -1,17 +1,17 @@
 """Tests for FrontmatterManager class."""
 
 import pytest
-from datetime import datetime
+from unittest import mock
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import frontmatter
 
-from minerva.frontmatter import FrontmatterManager
+from minerva.frontmatter_manager import FrontmatterManager
 from minerva.config import DEFAULT_NOTE_AUTHOR
 
 
-class TestFrontmatterManager:
-    """Test FrontmatterManager class."""
+class TestFrontmatterManagerBasic:
+    """Test basic functionality of FrontmatterManager class."""
 
     def test_initialization_default_author(self):
         """Test FrontmatterManager initialization with default author.
@@ -74,7 +74,7 @@ class TestFrontmatterManager:
             author="Custom Author",
             is_new_note=True,
             existing_frontmatter=None,
-            tags=None
+            tags=None,
         )
 
         # ==================== Assert ====================
@@ -101,7 +101,7 @@ class TestFrontmatterManager:
         text = "This is updated content"
         existing_frontmatter = {
             "created": "2025-01-01T00:00:00",
-            "author": "Original Author"
+            "author": "Original Author",
         }
 
         # ==================== Act ====================
@@ -110,7 +110,7 @@ class TestFrontmatterManager:
             author="Updated Author",
             is_new_note=False,
             existing_frontmatter=existing_frontmatter,
-            tags=None
+            tags=None,
         )
 
         # ==================== Assert ====================
@@ -136,11 +136,7 @@ class TestFrontmatterManager:
         tags = ["Python", "testing", "AI"]
 
         # ==================== Act ====================
-        post = manager.generate_metadata(
-            text=text,
-            is_new_note=True,
-            tags=tags
-        )
+        post = manager.generate_metadata(text=text, is_new_note=True, tags=tags)
 
         # ==================== Assert ====================
         assert "tags" in post.metadata
@@ -160,14 +156,10 @@ class TestFrontmatterManager:
         # ==================== Arrange ====================
         manager = FrontmatterManager()
         text = "Content without tags"
-        tags = []
+        tags: list[str] = []
 
         # ==================== Act ====================
-        post = manager.generate_metadata(
-            text=text,
-            is_new_note=True,
-            tags=tags
-        )
+        post = manager.generate_metadata(text=text, is_new_note=True, tags=tags)
 
         # ==================== Assert ====================
         assert "tags" not in post.metadata
@@ -194,10 +186,10 @@ tags:
   - markdown
 ---
 This is test content"""
-            
+
             with open(temp_file, "w", encoding="utf-8") as f:
                 f.write(content)
-            
+
             manager = FrontmatterManager()
 
             # ==================== Act ====================
@@ -224,10 +216,10 @@ This is test content"""
         with TemporaryDirectory() as temp_dir:
             temp_file = Path(temp_dir) / "test.md"
             content = "This is content without frontmatter"
-            
+
             with open(temp_file, "w", encoding="utf-8") as f:
                 f.write(content)
-            
+
             manager = FrontmatterManager()
 
             # ==================== Act ====================
@@ -277,10 +269,10 @@ tags:
   - old-tag
 ---
 This is test content"""
-            
+
             with open(temp_file, "w", encoding="utf-8") as f:
                 f.write(content)
-            
+
             manager = FrontmatterManager()
             new_tags = ["new-tag", "another-tag"]
 
@@ -290,7 +282,7 @@ This is test content"""
             # ==================== Assert ====================
             with open(temp_file, "r", encoding="utf-8") as f:
                 updated_content = f.read()
-            
+
             post = frontmatter.loads(updated_content)
             assert post.metadata["tags"] == ["new-tag", "another-tag"]
             assert "updated" in post.metadata
@@ -315,10 +307,10 @@ tags:
   - existing-tag
 ---
 This is test content"""
-            
+
             with open(temp_file, "w", encoding="utf-8") as f:
                 f.write(content)
-            
+
             manager = FrontmatterManager()
 
             # ==================== Act ====================
@@ -349,10 +341,10 @@ tags:
   - existing-tag
 ---
 This is test content"""
-            
+
             with open(temp_file, "w", encoding="utf-8") as f:
                 f.write(content)
-            
+
             manager = FrontmatterManager()
 
             # ==================== Act ====================
@@ -384,10 +376,10 @@ tags:
   - tag3
 ---
 This is test content"""
-            
+
             with open(temp_file, "w", encoding="utf-8") as f:
                 f.write(content)
-            
+
             manager = FrontmatterManager()
 
             # ==================== Act ====================
@@ -420,10 +412,10 @@ tags:
   - tag2
 ---
 This is test content"""
-            
+
             with open(temp_file, "w", encoding="utf-8") as f:
                 f.write(content)
-            
+
             manager = FrontmatterManager()
 
             # ==================== Act ====================
@@ -455,10 +447,10 @@ tags:
   - tag2
 ---
 This is test content"""
-            
+
             with open(temp_file, "w", encoding="utf-8") as f:
                 f.write(content)
-            
+
             manager = FrontmatterManager()
 
             # ==================== Act ====================
@@ -485,10 +477,10 @@ This is test content"""
 author: Test Author
 ---
 This is test content"""
-            
+
             with open(temp_file, "w", encoding="utf-8") as f:
                 f.write(content)
-            
+
             manager = FrontmatterManager()
 
             # ==================== Act ====================
@@ -517,3 +509,232 @@ This is test content"""
 
         # ==================== Assert ====================
         assert tags == []
+
+
+class TestFrontmatterManagerEdgeCases:
+    """Test edge cases and error handling in FrontmatterManager."""
+
+    def test_generate_metadata_with_invalid_tags(self):
+        """Test generating metadata with invalid tags."""
+        manager = FrontmatterManager()
+
+        # Test with a mix of valid and invalid tags
+        text = "Test content"
+        tags = ["valid-tag", "invalid,tag", "another-valid"]
+
+        # Mock logger to verify warning
+        with mock.patch("minerva.frontmatter_manager.logger") as mock_logger:
+            post = manager.generate_metadata(text=text, is_new_note=True, tags=tags)
+
+            # Check that invalid tag was logged and dropped
+            mock_logger.warning.assert_called_with(
+                "Invalid tag '%s' dropped: %s", "invalid,tag", mock.ANY
+            )
+
+            # Check that only valid tags were kept
+            assert "tags" in post.metadata
+            assert len(post.metadata["tags"]) == 2
+            assert "valid-tag" in post.metadata["tags"]
+            assert "another-valid" in post.metadata["tags"]
+            assert "invalid,tag" not in post.metadata["tags"]
+
+    def test_generate_metadata_all_invalid_tags(self):
+        """Test generating metadata with all invalid tags."""
+        manager = FrontmatterManager()
+
+        # Test with only invalid tags
+        text = "Test content"
+        tags = ["invalid,tag1", "invalid/tag2"]
+
+        # Mock logger to verify warnings
+        with mock.patch("minerva.frontmatter_manager.logger") as mock_logger:
+            post = manager.generate_metadata(text=text, is_new_note=True, tags=tags)
+
+            # Check that warnings were logged for both tags
+            assert mock_logger.warning.call_count == 2
+
+            # Check that tags field is removed when all tags are invalid
+            assert "tags" not in post.metadata
+
+    def test_read_existing_metadata_unicode_error(self):
+        """Test reading metadata from a file that can't be decoded as text."""
+        manager = FrontmatterManager()
+
+        # Mock file that raises UnicodeDecodeError
+        with mock.patch("builtins.open") as mock_open:
+            mock_open.side_effect = UnicodeDecodeError(
+                "utf-8", b"\x80", 0, 1, "invalid start byte"
+            )
+
+            with mock.patch("pathlib.Path.exists", return_value=True):
+                with mock.patch("minerva.frontmatter_manager.logger") as mock_logger:
+                    result = manager.read_existing_metadata(Path("/fake/path.md"))
+
+                    # Check warning was logged
+                    mock_logger.warning.assert_called_with(
+                        "File %s cannot be decoded as text (possibly binary): %s",
+                        mock.ANY,
+                        mock.ANY,
+                    )
+
+                    # Check None is returned
+                    assert result is None
+
+    def test_read_existing_metadata_io_error(self):
+        """Test reading metadata from a file with IO error."""
+        manager = FrontmatterManager()
+
+        # Mock file that raises IOError
+        with mock.patch("builtins.open") as mock_open:
+            mock_open.side_effect = IOError("Test IO error")
+
+            with mock.patch("pathlib.Path.exists", return_value=True):
+                with mock.patch("minerva.frontmatter_manager.logger") as mock_logger:
+                    result = manager.read_existing_metadata(Path("/fake/path.md"))
+
+                    # Check warning was logged
+                    mock_logger.warning.assert_called_with(
+                        "I/O or OS error reading existing file %s for metadata: %s",
+                        mock.ANY,
+                        mock.ANY,
+                    )
+
+                    # Check None is returned
+                    assert result is None
+
+    def test_read_existing_metadata_generic_exception(self):
+        """Test reading metadata with an unexpected exception."""
+        manager = FrontmatterManager()
+
+        # Mock file that raises a generic exception
+        with mock.patch("builtins.open") as mock_open:
+            mock_open.side_effect = Exception("Unexpected error")
+
+            with mock.patch("pathlib.Path.exists", return_value=True):
+                with mock.patch("minerva.frontmatter_manager.logger") as mock_logger:
+                    result = manager.read_existing_metadata(Path("/fake/path.md"))
+
+                    # Check warning was logged
+                    mock_logger.warning.assert_called_with(
+                        "Unexpected error processing file %s for metadata: %s",
+                        mock.ANY,
+                        mock.ANY,
+                    )
+
+                    # Check None is returned
+                    assert result is None
+
+    def test_update_tags_io_error_on_read(self):
+        """Test update_tags with IO error during file reading."""
+        manager = FrontmatterManager()
+
+        # Mock file that raises IOError on read
+        with mock.patch("builtins.open") as mock_open:
+            mock_open.side_effect = IOError("Test IO error")
+
+            with mock.patch("pathlib.Path.exists", return_value=True):
+                with mock.patch("minerva.frontmatter_manager.logger") as mock_logger:
+                    with pytest.raises(IOError):
+                        manager.update_tags(Path("/fake/path.md"), ["tag1"])
+
+                    # Check error was logged
+                    mock_logger.error.assert_called_with(
+                        "Error reading file %s: %s", mock.ANY, mock.ANY
+                    )
+
+    def test_update_tags_io_error_on_write(self):
+        """Test update_tags with IO error during file writing."""
+        manager = FrontmatterManager()
+
+        # First mock successful read
+        mock_content = "---\ntags: []\n---\nTest content"
+        mock_read = mock.mock_open(read_data=mock_content)
+
+        # Then create a mock that fails on second open (for writing)
+        def open_effect(*args, **kwargs):
+            if "w" in args[1]:  # Writing mode
+                raise IOError("Test IO error on write")
+            return mock_read()
+
+        with mock.patch("builtins.open", side_effect=open_effect):
+            with mock.patch("pathlib.Path.exists", return_value=True):
+                with mock.patch("minerva.frontmatter_manager.logger") as mock_logger:
+                    # Mock read_existing_metadata to return empty dict
+                    with mock.patch.object(
+                        manager, "read_existing_metadata", return_value={}
+                    ):
+                        with pytest.raises(IOError):
+                            manager.update_tags(Path("/fake/path.md"), ["tag1"])
+
+                        # Check error was logged
+                        mock_logger.error.assert_called_with(
+                            "Error writing file %s: %s", mock.ANY, mock.ANY
+                        )
+
+
+class TestFrontmatterManagerSpecialCases:
+    """Test special cases and specific edge conditions in FrontmatterManager."""
+
+    def test_generate_metadata_with_existing_created_date(self):
+        """Test generating metadata with an existing created date."""
+        manager = FrontmatterManager()
+
+        # Prepare test data with an existing created date
+        existing_frontmatter = {
+            "created": "2023-01-01T12:00:00",
+            "author": "Original Author",
+        }
+
+        # Generate metadata with the existing frontmatter, explicitly providing author
+        post = manager.generate_metadata(
+            text="Test content",
+            is_new_note=True,
+            author="Original Author",  # Explicitly set author to match existing
+            existing_frontmatter=existing_frontmatter,
+        )
+
+        # Verify that the original created date is preserved
+        assert post.metadata["created"] == "2023-01-01T12:00:00"
+
+    def test_generate_metadata_with_existing_tags_parameter_none(self):
+        """Test generating metadata with existing tags but parameter is None."""
+        manager = FrontmatterManager()
+
+        # Prepare test data with existing tags
+        existing_frontmatter = {
+            "created": "2023-01-01T12:00:00",
+            "tags": ["existing-tag1", "existing-tag2"],
+        }
+
+        # Generate metadata with existing frontmatter but without specifying tags parameter
+        post = manager.generate_metadata(
+            text="Test content",
+            is_new_note=False,
+            existing_frontmatter=existing_frontmatter,
+            tags=None,  # Explicitly None to preserve existing tags
+        )
+
+        # Verify that existing tags are preserved
+        assert "tags" in post.metadata
+        assert post.metadata["tags"] == ["existing-tag1", "existing-tag2"]
+
+    def test_generate_metadata_with_empty_tags_list(self):
+        """Test generating metadata with empty tags list."""
+        manager = FrontmatterManager()
+
+        # Prepare test data with existing tags
+        existing_frontmatter = {
+            "created": "2023-01-01T12:00:00",
+            "tags": ["existing-tag1", "existing-tag2"],
+        }
+
+        # Generate metadata with empty tags list (should remove tags)
+        post = manager.generate_metadata(
+            text="Test content",
+            is_new_note=False,
+            existing_frontmatter=existing_frontmatter,
+            tags=[],  # Empty list to remove tags
+        )
+
+        # Verify that tags field is removed
+        assert "tags" not in post.metadata

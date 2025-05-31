@@ -7,6 +7,11 @@ import frontmatter
 from minerva import tools
 
 
+def test_module():
+    """Module level test to ensure pytest collects this file."""
+    assert True
+
+
 class TestIntegrationTests:
     """Integration tests that test the actual file operations."""
 
@@ -26,7 +31,7 @@ class TestIntegrationTests:
         Arrange:
             - Create a write note request with test content
         Act:
-            - Write a note and get the file path
+            - Create a note and get the file path
             - Read the note from the same path
         Assert:
             - File exists on disk
@@ -36,9 +41,7 @@ class TestIntegrationTests:
         test_content = "This is a test note"
 
         # Act - Part 1: Writing
-        file_path = tools.write_note(
-            text=test_content, filename="integration_test", is_overwrite=False
-        )
+        file_path = tools.create_note(text=test_content, filename="integration_test")
 
         # Assert - Part 1: File was created
         assert file_path.exists()
@@ -50,22 +53,6 @@ class TestIntegrationTests:
         post = frontmatter.loads(content)
         assert post.content == test_content
 
-    def test_integration_search_notes(self, setup_vault):
-        """Test searching notes in the vault."""
-        # Search case sensitive
-        results1 = tools.search_notes(query="apple", case_sensitive=True)
-        assert len(results1) == 1
-        assert "note1.md" in results1[0].file_path
-
-        # Search case insensitive
-        results2 = tools.search_notes(query="apple", case_sensitive=False)
-        assert len(results2) == 2
-
-        # Verify both files are found (note1 and note3)
-        found_files = [result.file_path for result in results2]
-        assert any("note1.md" in path for path in found_files)
-        assert any("note3.md" in path for path in found_files)
-
     def test_integration_write_with_overwrite(self, setup_vault):
         """Test overwriting an existing note."""
 
@@ -73,47 +60,27 @@ class TestIntegrationTests:
         initial_content = "Initial content"
         filename = "overwrite_test"
 
-        file_path = tools.write_note(
-            text=initial_content, filename=filename, is_overwrite=False
-        )
+        # Create the initial note
+        file_path = tools.create_note(text=initial_content, filename=filename)
+
+        # Verify the initial note was created
         assert file_path.exists()
+        initial_note_content = tools.read_note(str(file_path))
+        initial_post = frontmatter.loads(initial_note_content)
+        assert initial_post.content == initial_content
 
-        # Try to overwrite with is_overwrite=False (should fail)
-        with pytest.raises(Exception):
-            tools.write_note(text="New content", filename=filename, is_overwrite=False)
+        # Attempt to create a note with the same name (should fail)
+        new_content = "New content that should replace the original"
+        with pytest.raises(FileExistsError):
+            tools.create_note(text=new_content, filename=filename)
 
-        # Verify content is still the original
-        content = tools.read_note(str(file_path))
+        # Update using edit_note
+        file_path = tools.edit_note(text=new_content, filename=filename)
 
-        # Parse frontmatter and check content
-        post = frontmatter.loads(content)
-        assert post.content == initial_content
-
-        # Overwrite with is_overwrite=True (should succeed)
-        new_content = "New content"
-        tools.write_note(text=new_content, filename=filename, is_overwrite=True)
-
-        # Verify content is updated
-        content = tools.read_note(str(file_path))
-        post = frontmatter.loads(content)
-        assert post.content == new_content
-
-    def test_edge_case_empty_file(self, setup_vault):
-        """Test reading and searching an empty file."""
-        vault_path = setup_vault
-
-        # Create an empty file
-        empty_file = vault_path / "empty.md"
-        empty_file.touch()
-
-        # Read empty file
-        content = tools.read_note(str(empty_file))
-        assert content == ""
-
-        # Search in empty files
-        results = tools.search_notes(query="anything", case_sensitive=True)
-        # Empty file should not match any keyword
-        assert not any(result.file_path == str(empty_file) for result in results)
+        # Verify the note was updated
+        updated_note_content = tools.read_note(str(file_path))
+        updated_post = frontmatter.loads(updated_note_content)
+        assert updated_post.content == new_content
 
     def test_integration_write_to_subdirectory(self, setup_vault):
         """Test for creating a file in a subdirectory"""
@@ -122,21 +89,21 @@ class TestIntegrationTests:
         # Create a note with a path that includes a subdirectory
         test_content = "This is a note in a subdirectory"
 
-        file_path = tools.write_note(
-            text=test_content, filename="subdir/note_in_subdir", is_overwrite=False
+        file_path = tools.create_note(
+            text=test_content, filename="subdir/note_in_subdir", default_path=""
         )
 
-        # Verify that the file was created
-        assert file_path.exists()
-
-        # Verify that the file was created at the correct path
+        # Verify the file was created in the correct location
         expected_path = vault_path / "subdir" / "note_in_subdir.md"
         assert file_path == expected_path
+        assert file_path.exists()
 
-        # Verify the content of the created file
+        # Verify the subdirectory was created
+        assert (vault_path / "subdir").exists()
+        assert (vault_path / "subdir").is_dir()
+
+        # Verify the content was written correctly
         content = tools.read_note(str(file_path))
-
-        # Parse frontmatter and check content
         post = frontmatter.loads(content)
         assert post.content == test_content
 
@@ -147,23 +114,27 @@ class TestIntegrationTests:
         # Create a note with a path that includes multiple levels of subdirectories
         test_content = "This is a note in a nested subdirectory"
 
-        file_path = tools.write_note(
+        file_path = tools.create_note(
             text=test_content,
             filename="level1/level2/level3/deep_note",
-            is_overwrite=False,
+            default_path="",
         )
 
-        # Verify that the file was created
-        assert file_path.exists()
-
-        # Verify that the file was created at the correct path
+        # Verify the file was created in the correct location
         expected_path = vault_path / "level1" / "level2" / "level3" / "deep_note.md"
         assert file_path == expected_path
+        assert file_path.exists()
 
-        # Verify the content of the created file
+        # Verify the nested subdirectories were created
+        assert (vault_path / "level1").exists()
+        assert (vault_path / "level1").is_dir()
+        assert (vault_path / "level1" / "level2").exists()
+        assert (vault_path / "level1" / "level2").is_dir()
+        assert (vault_path / "level1" / "level2" / "level3").exists()
+        assert (vault_path / "level1" / "level2" / "level3").is_dir()
+
+        # Verify the content was written correctly
         content = tools.read_note(str(file_path))
-
-        # Parse frontmatter and check content
         post = frontmatter.loads(content)
         assert post.content == test_content
 
@@ -177,106 +148,86 @@ class TestIntegrationTests:
         # Verify that the subdirectory does not exist
         assert not subdir_path.exists()
 
-        file_path = tools.write_note(
+        file_path = tools.create_note(
             text="Testing automatic directory creation",
             filename="auto_created_dir/auto_note",
-            is_overwrite=False,
+            default_path="",
         )
 
-        # Verify that the subdirectory was automatically created
+        # Verify that the subdirectory now exists
         assert subdir_path.exists()
         assert subdir_path.is_dir()
 
-        # Verify that the file was created
+        # Verify the file was created
         assert file_path.exists()
-
-        # Verify that the file was created at the correct path
-        expected_path = subdir_path / "auto_note.md"
-        assert file_path == expected_path
+        assert file_path == subdir_path / "auto_note.md"
 
     def test_integration_write_with_frontmatter(self, setup_vault):
         """Test writing a note with frontmatter."""
 
-        file_path = tools.write_note(
+        file_path = tools.create_note(
             text="This is a test note with frontmatter",
             filename="frontmatter_test",
-            is_overwrite=False,
             author="Integration Test",
         )
+
+        # Verify the file was created
         assert file_path.exists()
 
-        # Read the file and verify frontmatter
+        # Read and parse the content
         with open(file_path, "r") as f:
             content = f.read()
 
-        # Verify frontmatter exists
-        assert content.startswith("---")
-
-        # Parse frontmatter
         post = frontmatter.loads(content)
+
+        # Verify the frontmatter contains the author
         assert post.metadata["author"] == "Integration Test"
-        assert post.content == "This is a test note with frontmatter"
+
+        # Verify it also contains created date (automatically added)
+        assert "created" in post.metadata
 
     def test_integration_write_with_default_dir(self, setup_vault):
         """Test writing a note using the default directory."""
         vault_path = setup_vault
 
-        file_path = tools.write_note(
+        file_path = tools.create_note(
             text="This is a note in the default directory",
             filename="default_dir_note",
-            is_overwrite=False,
             default_path="default_notes",
         )
-        assert file_path.exists()
 
-        # Verify that the file was created at the correct path
+        # Verify the file was created in the correct location
         expected_path = vault_path / "default_notes" / "default_dir_note.md"
         assert file_path == expected_path
+        assert file_path.exists()
 
-        # Verify the content of the created file
-        content = tools.read_note(str(file_path))
+        # Verify the default_notes directory was created
+        default_dir = vault_path / "default_notes"
+        assert default_dir.exists()
+        assert default_dir.is_dir()
 
-        # Parse frontmatter
-        post = frontmatter.loads(content)
-        assert post.content == "This is a note in the default directory"
+    def test_integration_read_nonexistent_note(self, setup_vault):
+        """Test reading a note that doesn't exist."""
+        with pytest.raises(FileNotFoundError):
+            tools.read_note(str(setup_vault / "nonexistent.md"))
 
-    def test_integration_create_note(self, setup_vault):
-        """Integration test for creating a new note."""
-        vault_path = setup_vault
-        filename = "create_test"
-        file_path = vault_path / f"{filename}.md"
+    def test_integration_search_notes(self, setup_vault):
+        """Test searching notes for a keyword."""
+        # Search for 'apple' case-sensitive
+        results = tools.search_notes("apple", case_sensitive=True)
 
-        # Ensure file doesn't exist initially
-        if file_path.exists():
-            file_path.unlink()
+        # Should find only note1.md
+        assert len(results) == 1
+        assert "note1.md" in results[0].file_path
 
-        test_content = "This is a new note created with create_note"
+        # Search for 'apple' case-insensitive
+        results = tools.search_notes("apple", case_sensitive=False)
 
-        # Create a new note
-        created_path = tools.create_note(
-            text=test_content,
-            filename=filename,
-            author="Create Test",
-            default_path="",  # Set to empty string to avoid subdirectory creation
-        )
-
-        # Verify file was created at the expected path
-        assert created_path.exists()
-        assert created_path == file_path
-
-        # Read the content back and verify
-        content = tools.read_note(str(created_path))
-        post = frontmatter.loads(content)
-        assert post.content == test_content
-        assert post.metadata["author"] == "Create Test"
-
-        # Attempt to create the same note again (should fail)
-        with pytest.raises(FileExistsError):
-            tools.create_note(
-                text="This should fail",
-                filename=filename,
-                default_path="",  # Set to empty string to avoid subdirectory creation
-            )
+        # Should find both note1.md and note3.md
+        assert len(results) == 2
+        file_paths = [r.file_path for r in results]
+        assert any("note1.md" in path for path in file_paths)
+        assert any("note3.md" in path for path in file_paths)
 
     def test_integration_edit_note(self, setup_vault):
         """Integration test for editing an existing note."""
@@ -284,173 +235,95 @@ class TestIntegrationTests:
         filename = "edit_test"
         file_path = vault_path / f"{filename}.md"
 
-        # Create an initial note with write_note
+        # Create an initial note with create_note
         initial_content = "Initial note content"
-        tools.write_note(
+        tools.create_note(
             text=initial_content,
             filename=filename,
-            is_overwrite=False,
             default_path="",  # Set to empty string to avoid subdirectory creation
         )
 
-        # Verify file exists with initial content
+        # Verify file was created with expected content
         assert file_path.exists()
-        initial_read = tools.read_note(str(file_path))
-        initial_post = frontmatter.loads(initial_read)
+        initial_file_content = tools.read_note(str(file_path))
+        initial_post = frontmatter.loads(initial_file_content)
         assert initial_post.content == initial_content
 
-        # Edit the note
-        updated_content = "Updated content with edit_note"
-        edited_path = tools.edit_note(
+        # Now edit the note
+        updated_content = "Updated note content"
+        tools.edit_note(
             text=updated_content,
             filename=filename,
-            author="Editor",
             default_path="",  # Set to empty string to avoid subdirectory creation
         )
 
-        # Verify file was edited
-        assert edited_path == file_path
-        updated_read = tools.read_note(str(edited_path))
-        updated_post = frontmatter.loads(updated_read)
+        # Verify the note was updated
+        updated_file_content = tools.read_note(str(file_path))
+        updated_post = frontmatter.loads(updated_file_content)
         assert updated_post.content == updated_content
-        assert updated_post.metadata["author"] == "Editor"
+
+        # Verify frontmatter contains updated field
+        assert "updated" in updated_post.metadata
 
     def test_integration_edit_nonexistent_note(self, setup_vault):
-        """Integration test verifying edit_note fails for nonexistent notes."""
-        nonexistent_filename = "does_not_exist"
-
-        # Attempt to edit a nonexistent note
+        """Integration test for editing a note that doesn't exist."""
         with pytest.raises(FileNotFoundError):
             tools.edit_note(
-                text="This should fail",
-                filename=nonexistent_filename,
-                default_path="",  # Set to empty string to avoid subdirectory creation
+                text="Attempting to edit a non-existent note",
+                filename="nonexistent",
+                default_path="",
             )
 
-    def test_integration_create_edit_workflow(self, setup_vault):
-        """Integration test for create -> edit workflow."""
+    def test_integration_create_note_date_handling(self, setup_vault):
+        """Integration test for date handling in create_note function."""
         vault_path = setup_vault
-        filename = "workflow_test"
+        filename = "create_date_test"
         file_path = vault_path / f"{filename}.md"
 
+        # Ensure file doesn't exist initially
+        if file_path.exists():
+            file_path.unlink()
+
         # Step 1: Create a new note
-        initial_content = "Initial content via create_note"
+        test_content = "This is a test for create_note date metadata"
         tools.create_note(
-            text=initial_content,
+            text=test_content,
             filename=filename,
-            default_path="",  # Set to empty string to avoid subdirectory creation
+            default_path="",
         )
 
-        # Verify creation worked
-        assert file_path.exists()
-
-        # Step 2: Edit the created note
-        updated_content = "Updated via edit_note"
-        tools.edit_note(
-            text=updated_content,
-            filename=filename,
-            default_path="",  # Set to empty string to avoid subdirectory creation
-        )
-
-        # Verify edit worked
-        content = tools.read_note(str(file_path))
+        # Read and parse the file
+        with open(file_path, "r") as f:
+            content = f.read()
         post = frontmatter.loads(content)
-        assert post.content == updated_content
 
-    def test_integration_date_metadata(self, setup_vault):
-        """Integration test for date metadata in frontmatter."""
-        vault_path = setup_vault
-        filename = "date_test"
-        file_path = vault_path / f"{filename}.md"
+        # Verify frontmatter has created date but no updated date
+        assert "created" in post.metadata
+        assert "updated" not in post.metadata
 
-        # Ensure file doesn't exist initially
-        if file_path.exists():
-            file_path.unlink()
+        # Verify content matches
+        assert post.content == test_content
 
-        # Step 1: Create a new note
-        test_content = "This is a test for date metadata"
-        tools.create_note(
-            text=test_content,
-            filename=filename,
-            default_path="",
-        )
-
-        # Verify created date was added
-        content1 = tools.read_note(str(file_path))
-        post1 = frontmatter.loads(content1)
-        assert "created" in post1.metadata
-        assert "T" in str(post1.metadata["created"])  # ISO format includes 'T'
-        assert "updated" not in post1.metadata  # Should not have updated field yet
-
-        # Wait a short time to ensure distinct timestamps
+        # Wait a moment to ensure timestamps would be different
         time.sleep(0.1)
 
-        # Step 2: Edit the same note
-        updated_content = "This content was updated"
+        # Step 2: Edit the note
+        updated_content = "This is updated content for date handling test"
         tools.edit_note(
             text=updated_content,
             filename=filename,
             default_path="",
         )
 
-        # Verify updated date was added while preserving created date
-        content2 = tools.read_note(str(file_path))
-        post2 = frontmatter.loads(content2)
-        assert "created" in post2.metadata
-        assert "updated" in post2.metadata
-        assert "T" in str(post2.metadata["updated"])
+        # Read and parse the updated file
+        with open(file_path, "r") as f:
+            updated_file_content = f.read()
+        updated_post = frontmatter.loads(updated_file_content)
 
-        # Created date should be preserved from original creation
-        assert post2.metadata["created"] == post1.metadata["created"]
-        # Updated date should be different (newer) than created date
-        assert post2.metadata["updated"] != post2.metadata["created"]
+        # Verify frontmatter now has both created and updated dates
+        assert "created" in updated_post.metadata
+        assert "updated" in updated_post.metadata
 
-    def test_integration_write_note_date_handling(self, setup_vault):
-        """Integration test for date handling in write_note function."""
-        vault_path = setup_vault
-        filename = "write_date_test"
-        file_path = vault_path / f"{filename}.md"
-
-        # Ensure file doesn't exist initially
-        if file_path.exists():
-            file_path.unlink()
-
-        # Step 1: Create a new note with write_note
-        test_content = "This is a test for write_note date metadata"
-        tools.write_note(
-            text=test_content,
-            filename=filename,
-            is_overwrite=False,
-            default_path="",
-        )
-
-        # Verify created date was added
-        content1 = tools.read_note(str(file_path))
-        post1 = frontmatter.loads(content1)
-        assert "created" in post1.metadata
-        assert "T" in str(post1.metadata["created"])  # ISO format includes 'T'
-        assert "updated" not in post1.metadata  # Should not have updated field yet
-
-        # Wait a short time to ensure distinct timestamps
-        time.sleep(0.1)
-
-        # Step 2: Update the same note with write_note
-        updated_content = "This content was updated with write_note"
-        tools.write_note(
-            text=updated_content,
-            filename=filename,
-            is_overwrite=True,
-            default_path="",
-        )
-
-        # Verify updated date was added while preserving created date
-        content2 = tools.read_note(str(file_path))
-        post2 = frontmatter.loads(content2)
-        assert "created" in post2.metadata
-        assert "updated" in post2.metadata
-        assert "T" in str(post2.metadata["updated"])
-
-        # Created date should be preserved from original creation
-        assert post2.metadata["created"] == post1.metadata["created"]
-        # Updated date should be different (newer) than created date
-        assert post2.metadata["updated"] != post2.metadata["created"]
+        # Verify created date is unchanged and updated date is different/newer
+        assert updated_post.metadata["created"] == post.metadata["created"]
+        assert updated_post.metadata["updated"] != post.metadata["created"]

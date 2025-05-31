@@ -19,7 +19,7 @@ The Minerva project uses the `python-frontmatter` library to process frontmatter
 The `FrontmatterManager` class centralizes all frontmatter-related operations, providing a clean interface for metadata management:
 
 ```python
-from minerva.frontmatter import FrontmatterManager
+from minerva.frontmatter_manager import FrontmatterManager
 
 # Initialize with default author
 manager = FrontmatterManager(default_author="Claude 3.7 Sonnet")

@@ -109,6 +109,43 @@ def is_binary_file(file_path: Path) -> bool:
         return False
 
 
+def _process_file_for_search(
+    file_path: Path, pattern: re.Pattern, config: SearchConfig
+) -> SearchResult | None:
+    """
+    Process a single file for search and return a match if found.
+
+    Args:
+        file_path: Path to the file to search
+        pattern: Compiled regex pattern to search for
+        config: Search configuration
+
+    Returns:
+        SearchResult if a match is found, None otherwise
+    """
+    try:
+        # Open the file and search for the keyword
+        with open(file_path, "r", encoding=ENCODING) as file:
+            for line_num, line in enumerate(file, 1):
+                if config.case_sensitive:
+                    found = config.keyword in line
+                else:
+                    found = pattern.search(line) is not None
+
+                if found:
+                    return SearchResult(
+                        file_path=str(file_path),
+                        line_number=line_num,
+                        context=line.strip(),
+                    )
+    except (UnicodeDecodeError, PermissionError):
+        # Ignore read errors and continue
+        sanitized_path = str(file_path).replace("\n", "_").replace("\r", "_")
+        logger.warning("Could not read file %s. Skipping.", sanitized_path)
+
+    return None
+
+
 def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
     """
     Search for a keyword in files within a directory.
@@ -146,29 +183,9 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
                 if is_binary_file(file_path):
                     continue
 
-                try:
-                    # Open the file and search for the keyword
-                    with open(file_path, "r", encoding=ENCODING) as file:
-                        for line_num, line in enumerate(file, 1):
-                            if config.case_sensitive:
-                                found = config.keyword in line
-                            else:
-                                found = pattern.search(line) is not None
-
-                            if found:
-                                result = SearchResult(
-                                    file_path=str(file_path),
-                                    line_number=line_num,
-                                    context=line.strip(),
-                                )
-                                matching_files.append(result)
-                                break  # Stop after finding first match in this file
-                except (UnicodeDecodeError, PermissionError):
-                    # Ignore read errors and continue
-                    sanitized_path = (
-                        str(file_path).replace("\n", "_").replace("\r", "_")
-                    )
-                    logger.warning("Could not read file %s. Skipping.", sanitized_path)
+                result = _process_file_for_search(file_path, pattern, config)
+                if result:
+                    matching_files.append(result)
 
     except OSError as e:
         logger.error(

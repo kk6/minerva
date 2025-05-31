@@ -1,7 +1,6 @@
 import functools
 import logging
 import os
-from datetime import datetime
 from pathlib import Path
 from typing import Callable, ParamSpec, TypeVar
 
@@ -20,9 +19,9 @@ from minerva.file_handler import (
     search_keyword_in_files,
 )
 from minerva.validators import FilenameValidator, TagValidator
-from minerva.frontmatter import FrontmatterManager
+from minerva.frontmatter_manager import FrontmatterManager
 
-from minerva.config import VAULT_PATH, DEFAULT_NOTE_AUTHOR, DEFAULT_NOTE_DIR
+from minerva.config import VAULT_PATH, DEFAULT_NOTE_DIR
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -83,44 +82,6 @@ def handle_file_operations(
         return wrapper
 
     return decorator
-
-
-class WriteNoteRequest(BaseModel):
-    """
-    Request model for writing a note to a file.
-
-    This model contains the text to write, the filename, and an overwrite flag.
-
-    Attributes:
-        text (str): The content to write to the file.
-        filename (str): The name of the file to write. If it doesn't have a .md extension, it will be added.
-        is_overwrite (bool): Whether to overwrite the file if it exists.
-        author (str): The author name to add to the frontmatter. Default is None.
-        default_dir (str): The default directory to save the file. Default is the value of DEFAULT_NOTE_DIR.
-    """
-
-    text: str = Field(..., description="The content to write to the file.")
-    filename: str = Field(..., description="The name of the file to write.")
-    is_overwrite: bool = Field(
-        False,
-        description="Whether to overwrite the file if it exists.",
-    )
-    author: str | None = Field(
-        None, description="The author name to add to the frontmatter."
-    )
-    default_path: str = Field(
-        DEFAULT_NOTE_DIR, description="The default path to save the file."
-    )
-
-    @field_validator("filename")
-    def format_filename(cls, v: str) -> str:
-        """
-        Format the filename to ensure it has a .md extension.
-        """
-        FilenameValidator.validate_filename_with_subdirs(v)
-        if ".md" not in v:
-            v = f"{v}.md"
-        return v
 
 
 class ReadNoteRequest(BaseModel):
@@ -213,51 +174,6 @@ class SearchNoteRequest(BaseModel):
     )
 
 
-def _generate_note_metadata(
-    text: str,
-    author: str | None = None,
-    is_new_note: bool = True,
-    existing_frontmatter: dict | None = None,
-    tags: list[str] | None = None,
-) -> frontmatter.Post:
-    """
-    Generate or update YAML frontmatter metadata for a note.
-
-    DEPRECATED: This function is a legacy wrapper around FrontmatterManager.
-    For new code, use FrontmatterManager directly for better performance and cleaner interfaces.
-
-    This function processes only the metadata portion of a note (frontmatter),
-    handling both creation of new metadata and updating of existing metadata.
-    It does not perform any file operations or path manipulations.
-
-    Args:
-        text: The text content of the note (with or without existing frontmatter).
-        author: The author name to include in the metadata.
-        is_new_note: Whether this is a new note (True) or an update to an existing note (False).
-        existing_frontmatter: Existing frontmatter data from the file (if any).
-        tags: An optional list of tags. If provided (even as an empty list),
-              it will replace any existing tags after normalization and validation.
-              Invalid tags are logged and dropped. Duplicates are removed.
-              If an empty list is provided, existing tags will be removed.
-              If `None` (default), existing tags are preserved.
-
-    Returns:
-        frontmatter.Post: Post object with properly processed frontmatter.
-
-    Note:
-        This function only handles the metadata portion of a note.
-        It does not perform any file path resolution or file I/O operations.
-    """
-    manager = FrontmatterManager(default_author=author)
-    return manager.generate_metadata(
-        text=text,
-        author=author,
-        is_new_note=is_new_note,
-        existing_frontmatter=existing_frontmatter,
-        tags=tags
-    )
-
-
 def _normalize_tag(tag: str) -> str:
     """
     Converts a tag to its normalized form: lowercase and stripped of leading/trailing whitespace.
@@ -321,37 +237,16 @@ def _build_file_path(
 
     # Create final directory path
     full_dir_path = VAULT_PATH
-    if str(subdirs) != ".":
-        full_dir_path = full_dir_path / subdirs
-    elif isinstance(default_path, str) and default_path.strip() != "":
+
+    # Add default_path first if it's not empty
+    if isinstance(default_path, str) and default_path.strip() != "":
         full_dir_path = full_dir_path / default_path
 
+    # Then add subdirectories if they exist
+    if str(subdirs) != ".":
+        full_dir_path = full_dir_path / subdirs
+
     return full_dir_path, base_filename
-
-
-def _read_existing_frontmatter(file_path: Path) -> dict | None:
-    """
-    Read and extract frontmatter metadata from an existing file.
-
-    DEPRECATED: This function is a legacy wrapper around FrontmatterManager.
-    For new code, use FrontmatterManager directly for better performance and cleaner interfaces.
-
-    This function focuses only on retrieving the YAML frontmatter metadata
-    from an existing file, without modifying the file or its content.
-
-    Args:
-        file_path: Path to the file to read
-
-    Returns:
-        dict | None: Existing frontmatter metadata as a dictionary, or:
-            - Empty dict ({}) if the file exists but has no frontmatter
-            - None if the file doesn't exist or can't be read as text
-
-    Raises:
-        PermissionError: When the file exists but cannot be accessed due to permission issues
-    """
-    manager = FrontmatterManager()
-    return manager.read_existing_metadata(file_path)
 
 
 def _assemble_complete_note(
@@ -505,111 +400,6 @@ def edit_note(
     file_path = write_file(file_write_request)
     logger.info("Note edited at %s", file_path)
     return file_path
-
-
-def write_note(
-    text: str,
-    filename: str,
-    is_overwrite: bool = False,
-    author: str | None = None,
-    default_path: str = DEFAULT_NOTE_DIR,
-) -> Path:
-    """
-    Write a note to a file in the Obsidian vault.
-
-    This function is maintained for backward compatibility.
-    For new code, consider using create_note() or edit_note() for more explicit intent.
-
-    Args:
-        text: The content to write to the file.
-        filename: The name of the file to write. If it doesn't have a .md extension, it will be added.
-        is_overwrite: Whether to overwrite the file if it exists. Default is False.
-        author: The author name to add to the frontmatter. Default is None.
-            If the request is made by an AI assistant, it should include its own model name
-            (e.g., 'Claude 3.7 Sonnet', 'GPT-4', etc.).
-        default_path: The default directory to save the file. Default is the value of DEFAULT_NOTE_DIR.
-
-
-    Returns:
-        Path: The path to the written file.
-
-    Note:
-        When this function is called by an AI assistant, the AI should always pass its own
-        model name in the 'author' parameter to be included in the frontmatter of the created note.
-
-    Deprecated:
-        This function is maintained for backward compatibility.
-        For new code, consider using create_note() or edit_note() for more explicit intent.
-    """
-    request = WriteNoteRequest(
-        text=text,
-        filename=filename,
-        is_overwrite=is_overwrite,
-        author=author,
-        default_path=default_path,
-    )
-
-    file_path = None  # Ensure file_path is always defined for exception handling
-    try:
-        # Determine if this is a new note based on file existence
-        full_dir_path, base_filename = _build_file_path(
-            request.filename, request.default_path
-        )
-        file_path = full_dir_path / base_filename
-        is_new_note = not file_path.exists()
-
-        # Prepare note for writing - reuse the common function
-        full_dir_path, base_filename, content = _assemble_complete_note(
-            text=request.text,
-            filename=request.filename,
-            author=request.author,
-            default_path=request.default_path,
-            is_new_note=is_new_note,
-        )
-
-        # Create the file write request
-        file_write_request = FileWriteRequest(
-            directory=str(full_dir_path),
-            filename=base_filename,
-            content=content,
-            overwrite=request.is_overwrite,
-        )
-        file_path = write_file(file_write_request)
-        logger.info("File written to %s", file_path)
-        return file_path
-    except FileExistsError:
-        logger.error(
-            "Error writing file: File %s already exists and overwrite is false.",
-            file_path if file_path is not None else filename,
-        )
-        raise
-    except FileNotFoundError:
-        logger.error(
-            "Error writing file: File %s not found.",
-            file_path if file_path is not None else filename,
-        )
-        raise
-    except (IOError, OSError) as e:
-        logger.error(
-            "Error writing file %s: File system error: %s",
-            file_path if file_path is not None else filename,
-            e,
-        )
-        raise
-    except ValueError as e:  # Catches errors from Pydantic, _build_file_path, etc.
-        logger.error(
-            "Error writing file (input filename '%s'): Invalid input or path: %s",
-            filename,
-            e,
-        )
-        raise
-    except Exception as e:
-        logger.error(
-            "Error writing file (input filename '%s'): An unexpected error occurred: %s",
-            filename,
-            e,
-        )
-        raise
 
 
 @handle_file_operations("note reading")
@@ -1238,6 +1028,108 @@ class GetTagsRequest(BaseModel):
         return self
 
 
+def _resolve_file_path(
+    request: GetTagsRequest,
+) -> tuple[Path, str | Path]:
+    """
+    Resolve the file path from a GetTagsRequest.
+
+    Args:
+        request: The request containing filename or filepath.
+
+    Returns:
+        Tuple of (resolved file path, logging representation)
+
+    Raises:
+        ValueError: If neither filename nor filepath can be determined.
+    """
+    file_path_for_logging: str | Path = "unknown_file (pre-resolution)"
+
+    # Path resolution logic: filepath takes precedence if both filepath and filename are provided
+    if request.filepath:
+        file_path = Path(request.filepath)
+        if not file_path.name.endswith(".md"):
+            logger.debug(
+                "Filepath provided to get_tags without .md extension: %s", file_path
+            )
+        file_path_for_logging = file_path
+    elif request.filename:
+        full_dir_path, base_filename = _build_file_path(
+            request.filename, request.default_path
+        )
+        file_path = full_dir_path / base_filename
+        file_path_for_logging = file_path
+    else:
+        # This should be caught by Pydantic validation, but checking as a safeguard
+        logger.error(
+            "Get_tags called with neither filename nor filepath (Pydantic validation missed)."
+        )
+        raise ValueError("Internal error: filename or filepath must be determined.")
+
+    return file_path, file_path_for_logging
+
+
+def _extract_tags_from_frontmatter(note_content_str: str, file_path: Path) -> list[str]:
+    """
+    Extract tags from frontmatter content.
+
+    Args:
+        note_content_str: The note content string
+        file_path: Path to the file (for logging)
+
+    Returns:
+        List of tag strings
+    """
+    try:
+        post = frontmatter.loads(note_content_str)
+    except Exception as e:
+        logger.warning(
+            "Get_tags: Failed to parse frontmatter for file %s: %s. Returning empty list.",
+            file_path,
+            e,
+        )
+        return []
+
+    # Retrieve tag data from frontmatter and handle various error cases
+    tags_data = post.metadata.get("tags")
+
+    if tags_data is None:
+        logger.debug(
+            "Get_tags: No 'tags' field in metadata for %s. Returning empty list.",
+            file_path,
+        )
+        return []
+
+    if not isinstance(tags_data, list):
+        logger.warning(
+            "Get_tags: 'tags' field in %s is not a list (type: %s). Returning empty list.",
+            file_path,
+            type(tags_data).__name__,
+        )
+        return []
+
+    # Handle non-string tag elements (may occur in manually edited files)
+    processed_tags = []
+    for tag_item in tags_data:
+        if isinstance(tag_item, str):
+            processed_tags.append(tag_item)
+        else:
+            logger.warning(
+                "Get_tags: Non-string item '%s' (type: %s) found in tags list for %s. It will be converted to string.",
+                tag_item,
+                type(tag_item).__name__,
+                file_path,
+            )
+            processed_tags.append(str(tag_item))
+
+    logger.info(
+        "Get_tags: Successfully retrieved tags %s from %s",
+        processed_tags,
+        file_path,
+    )
+    return processed_tags
+
+
 @handle_file_operations("tag retrieval")
 def get_tags(
     filename: str | None = None,
@@ -1271,89 +1163,26 @@ def get_tags(
         filepath=filepath,
         default_path=default_path,
     )
+
     # Set a placeholder for logging before the actual file path is resolved
     file_path_for_logging: str | Path = "unknown_file (pre-resolution)"
-    try:
-        # Path resolution logic: filepath takes precedence if both filepath and filename are provided
-        if request.filepath:
-            file_path = Path(request.filepath)
-            if not file_path.name.endswith(".md"):
-                logger.debug(
-                    "Filepath provided to get_tags without .md extension: %s", file_path
-                )
-            file_path_for_logging = file_path
-        elif request.filename:
-            full_dir_path, base_filename = _build_file_path(
-                request.filename, request.default_path
-            )
-            file_path = full_dir_path / base_filename
-            file_path_for_logging = file_path
-        else:
-            # This should be caught by Pydantic validation, but checking as a safeguard
-            logger.error(
-                "Get_tags called with neither filename nor filepath (Pydantic validation missed)."
-            )
-            raise ValueError("Internal error: filename or filepath must be determined.")
 
-        # Check file existence. read_note also checks, but checking here first allows
-        # for more precise error identification (non-existent file vs. read error)
+    try:
+        # Resolve the file path
+        file_path, file_path_for_logging = _resolve_file_path(request)
+
+        # Check file existence
         if not file_path.exists():
             logger.warning(
                 "Get_tags: File %s not found. Returning empty list.", file_path
             )
             return []
-        file_path_for_logging = file_path
 
+        file_path_for_logging = file_path
         note_content_str = read_note(str(file_path))
 
-        try:
-            post = frontmatter.loads(note_content_str)
-        except Exception as e:
-            logger.warning(
-                "Get_tags: Failed to parse frontmatter for file %s: %s. Returning empty list.",
-                file_path,
-                e,
-            )
-            return []
-
-        # Retrieve tag data from frontmatter and handle various error cases
-        tags_data = post.metadata.get("tags")
-
-        if tags_data is None:
-            logger.debug(
-                "Get_tags: No 'tags' field in metadata for %s. Returning empty list.",
-                file_path,
-            )
-            return []
-
-        if not isinstance(tags_data, list):
-            logger.warning(
-                "Get_tags: 'tags' field in %s is not a list (type: %s). Returning empty list.",
-                file_path,
-                type(tags_data).__name__,
-            )
-            return []
-
-        # Handle non-string tag elements (may occur in manually edited files)
-        processed_tags = []
-        for tag_item in tags_data:
-            if isinstance(tag_item, str):
-                processed_tags.append(tag_item)
-            else:
-                logger.warning(
-                    "Get_tags: Non-string item '%s' (type: %s) found in tags list for %s. It will be converted to string.",
-                    tag_item,
-                    type(tag_item).__name__,
-                    file_path,
-                )
-                processed_tags.append(str(tag_item))
-
-        logger.info(
-            "Get_tags: Successfully retrieved tags %s from %s",
-            processed_tags,
-            file_path,
-        )
-        return processed_tags
+        # Extract and process tags
+        return _extract_tags_from_frontmatter(note_content_str, file_path)
 
     # All exception cases return an empty list (fault-tolerant design)
     except FileNotFoundError:
@@ -1400,7 +1229,7 @@ class ListAllTagsRequest(BaseModel):
 
 
 @handle_file_operations("tag listing")
-def list_all_tags(directory: str | None) -> list[str]:
+def list_all_tags(directory: str | None = None) -> list[str]:
     """
     List all unique, normalized tags from all Markdown files within a specified directory (or entire vault).
 
@@ -1484,7 +1313,7 @@ class FindNotesWithTagRequest(BaseModel):
 
 
 @handle_file_operations("tag search")
-def find_notes_with_tag(tag: str, directory: str | None) -> list[str]:
+def find_notes_with_tag(tag: str, directory: str | None = None) -> list[str]:
     """
     Find all notes (returned as a list of file paths) that contain a specific tag.
 
