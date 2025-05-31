@@ -41,7 +41,7 @@ etc.
 - `feat(obsidian): Add support for note synchronization`
 - `fix(tools): Fix incorrect path handling in search_notes function`
 - `docs: Update installation instructions`
-- `test(file-handler): Add unit tests for write_note function`
+- `test(file-handler): Add unit tests for create_note function`
 - `refactor: Move common functions to utils module`
 
 Include related issue numbers in the footer:

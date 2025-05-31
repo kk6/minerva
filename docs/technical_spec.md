@@ -14,9 +14,6 @@ Minervaは階層化されたアーキテクチャを採用しています：
    - **タグ管理**:
      - `AddTagRequest`, `RemoveTagRequest`, `RenameTagRequest` クラス
      - `add_tag()`, `remove_tag()`, `rename_tag()`, `get_tags()`, `list_all_tags()`, `find_notes_with_tag()` 関数
-   - **レガシー**:
-     - `WriteNoteRequest` クラス
-     - `write_note()` 関数（後方互換性のため提供）
 
 2. **ファイル操作層** (`file_handler.py`)
    - `FileWriteRequest`, `FileReadRequest`, `FileDeleteRequest`, `SearchConfig` クラス

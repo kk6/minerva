@@ -20,7 +20,7 @@ The Minerva project adopts a "Document-First" approach. Always update relevant d
 ## Architecture
 - MCP Server (FastMCP)
 - Tool implementation (tools.py)
-  - Functions such as write_note, read_note, search_notes, etc.
+  - Functions such as create_note, edit_note, read_note, search_notes, etc.
 - File operation module (file_handler.py)
 - Configuration management (config.py)
 
