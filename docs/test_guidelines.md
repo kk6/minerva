@@ -85,7 +85,48 @@ def test_some_functionality(self):
 
 ## 3. テスト作成のベストプラクティス
 
-### 3.1 フィクスチャの活用
+### 3.1 MinervaTestHelperの使用 ⭐ **推奨**
+
+新しくテストを作成する際は、統一されたテストヘルパークラス `MinervaTestHelper` を使用してください：
+
+```python
+from tests.helpers import MinervaTestHelper
+
+def test_create_note_with_helper(tmp_path, minerva_test_helper):
+    """統一されたヘルパーを使用したテスト例."""
+    # ==================== Arrange ====================
+    content = "Test note content"
+    frontmatter_data = {"tags": ["test"], "author": "Test Author"}
+    
+    # ==================== Act ====================
+    note_path = minerva_test_helper.create_temp_note(
+        tmp_path,
+        "test_note.md", 
+        content,
+        frontmatter_data
+    )
+    
+    # ==================== Assert ====================
+    minerva_test_helper.assert_note_content(note_path, content, frontmatter_data)
+    minerva_test_helper.assert_frontmatter_fields(
+        note_path,
+        {"tags": list, "author": str}
+    )
+```
+
+#### 主なメソッド：
+- `create_temp_note()`: テスト用ノートの作成
+- `assert_note_content()`: ノート内容の検証
+- `assert_frontmatter_fields()`: フロントマターフィールドの検証
+- `setup_test_vault()`: テスト用Vault環境の初期化
+- `create_sample_notes()`: サンプルノートの作成
+
+#### 共通フィクスチャ：
+- `minerva_test_helper`: MinervaTestHelperのインスタンス
+- `test_vault`: 標準的なVault構造を持つテスト環境
+- `sample_notes`: テスト用サンプルノート
+
+### 3.2 フィクスチャの活用
 
 共通のセットアップコードは pytest フィクスチャに抽出し、再利用しましょう：
 
@@ -97,7 +138,7 @@ def temp_dir():
         yield tempdir
 ```
 
-### 3.2 モックの適切な使用
+### 3.3 モックの適切な使用
 
 外部依存関係は適切にモック化して、テストを分離しましょう：
 
@@ -112,7 +153,7 @@ def mock_write_setup(self, tmp_path):
         yield {"mock_write_file": mock_write_file, "tmp_path": tmp_path}
 ```
 
-### 3.3 パラメータ化テスト
+### 3.4 パラメータ化テスト
 
 複数のテストケースを効率的にテストするには、パラメータ化テストを使用しましょう：
 
@@ -128,11 +169,11 @@ def test_invalid_filename_validation(self, temp_dir, filename, expected_message)
     # テスト実装
 ```
 
-### 3.4 テストの独立性
+### 3.5 テストの独立性
 
 各テストは他のテストに依存せず、独立して実行できる必要があります。テスト間で状態を共有しないようにしましょう。
 
-### 3.5 エッジケースのテスト
+### 3.6 エッジケースのテスト
 
 基本機能だけでなく、以下のようなエッジケースもテストしましょう：
 - 空の入力
@@ -251,6 +292,47 @@ def test_empty_filename_validation():
 
 アプリケーションのエントリーポイントとしての`__main__.py`の機能をテストします。このテストは、コマンドラインからアプリケーションが正しく起動されることを検証します。
 
-## 8. まとめ
+## 8. 既存テストの移行ガイドライン
+
+### 8.1 段階的移行アプローチ
+
+既存のテストファイルは一度にすべて移行するのではなく、段階的に移行することを推奨します：
+
+1. **新しいテスト**: `MinervaTestHelper` を使用して作成
+2. **メンテナンス時**: 既存テストを修正する際に新しいパターンへ移行
+3. **リファクタリング時**: 大幅な変更が必要な場合に移行
+
+### 8.2 移行例
+
+従来のパターンから新しいパターンへの移行例：
+
+```python
+# === 従来のパターン ===
+def test_create_note_old_style(tmp_path):
+    file_path = tmp_path / "test.md"
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write("Test content")
+    
+    assert file_path.exists()
+    content = file_path.read_text(encoding="utf-8")
+    assert content == "Test content"
+
+# === 新しいパターン ===
+def test_create_note_new_style(tmp_path, minerva_test_helper):
+    note_path = minerva_test_helper.create_temp_note(
+        tmp_path, "test.md", "Test content"
+    )
+    
+    minerva_test_helper.assert_file_exists(note_path)
+    minerva_test_helper.assert_note_content(note_path, "Test content")
+```
+
+### 8.3 後方互換性
+
+新しいヘルパーは既存のフィクスチャと共存できるよう設計されています。既存のテストが期待通りに動作することを確認してください。
+
+## 9. まとめ
 
 テストは製品コードと同様に重要なアセットです。テストコードも読みやすく、メンテナンスしやすく、そして何よりも信頼性の高いものにしましょう。Arrange-Act-Assertパターンを一貫して適用することで、テストの意図と構造が明確になり、長期的なメンテナンス性が向上します。
+
+**新しいテストを作成する際は、必ず `MinervaTestHelper` の使用を検討してください。** これにより、テストコードの一貫性と保守性が大幅に向上します。
