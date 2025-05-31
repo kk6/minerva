@@ -71,6 +71,9 @@ class TestMinervaTestHelperExample:
         # assert file_path.exists()
 
         # ==================== New pattern ====================
+        # The following instance creation examples serve only as usage examples for MinervaTestHelper.
+        # In practice, fixtures (called `minerva_test_helper`) are already provided in conftest.py,
+        # so please use those instead.
         helper = MinervaTestHelper()
 
         note_path = helper.create_temp_note(
