@@ -330,19 +330,90 @@ def search_keyword_in_files(config: SearchConfig) -> list[SearchResult]:
 
 コードカバレッジについての詳細は、[4. コードカバレッジ](test_guidelines.md#4コードカバレッジ)を参照してください。
 
-## 6. 将来の拡張
+## 6. フロントマター管理アーキテクチャ
 
-### 6.1 潜在的な機能拡張
+### 6.1 FrontmatterManagerクラス
 
-- **タグのサポート**: Obsidianのタグシステムとの統合
+フロントマター処理を専用のクラスに分離し、コードの再利用性と保守性を向上させています。
+
+#### 6.1.1 クラス設計
+
+```python
+class FrontmatterManager:
+    """
+    YAML frontmatter metadata management for Obsidian notes.
+
+    This class centralizes all frontmatter-related operations including
+    generation, reading, updating, and tag management.
+    """
+
+    def __init__(self, default_author: str | None = None):
+        """
+        Initialize with optional default author.
+
+        Args:
+            default_author: Default author for new notes
+        """
+        self.default_author = default_author or DEFAULT_NOTE_AUTHOR
+
+    def generate_metadata(
+        self,
+        text: str,
+        author: str | None = None,
+        is_new_note: bool = True,
+        existing_frontmatter: dict | None = None,
+        tags: list[str] | None = None,
+    ) -> frontmatter.Post:
+        """Generate or update YAML frontmatter metadata for a note."""
+
+    def read_existing_metadata(self, file_path: Path) -> dict | None:
+        """Read and extract frontmatter metadata from an existing file."""
+
+    def update_tags(self, file_path: Path, tags: list[str]) -> None:
+        """Update tags in an existing note's frontmatter."""
+
+    def add_tag(self, file_path: Path, tag: str) -> None:
+        """Add a single tag to an existing note's frontmatter."""
+
+    def remove_tag(self, file_path: Path, tag: str) -> None:
+        """Remove a single tag from an existing note's frontmatter."""
+```
+
+#### 6.1.2 主な機能
+
+- **メタデータ生成**: 新規ノートおよび既存ノートのフロントマター生成
+- **メタデータ読み取り**: 既存ファイルからのフロントマター抽出
+- **タグ管理**: タグの追加、削除、更新操作
+- **日時管理**: ISO 8601形式での作成日時・更新日時の自動管理
+- **互換性維持**: 既存のプライベート関数とのAPIの互換性
+
+#### 6.1.3 責務の分離
+
+- **FrontmatterManager**: フロントマター処理に特化
+- **tools.py**: 高レベルAPIとビジネスロジック
+- **file_handler.py**: 低レベルファイル操作
+
+#### 6.1.4 移行戦略
+
+1. **段階的移行**: 既存の関数を一時的にラッパーとして保持
+2. **互換性保証**: 既存のAPIに影響を与えない
+3. **テスト継続**: 既存のテストケースが継続して動作
+4. **漸進的リプレース**: 新しい機能から順次新クラスを使用
+
+### 6.2 将来の拡張
+
+#### 6.2.1 潜在的な機能拡張
+
 - **リンクの解析**: Obsidianのウィキリンク構文の解析と処理
 - **テンプレート**: 事前定義されたテンプレートに基づくノートの作成
+- **カスタムフィールド**: ユーザー定義のメタデータフィールドのサポート
 
-### 6.2 技術的改善
+#### 6.2.2 技術的改善
 
 - **非同期API**: ファイル操作の非同期実装
 - **キャッシング**: 頻繁にアクセスされるファイルのキャッシング
 - **インデックス作成**: 高速検索のためのインデックス機能
+- **バリデーション強化**: より厳密なメタデータバリデーション
 
 ## 7. CI/CD技術仕様
 

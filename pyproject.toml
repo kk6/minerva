@@ -53,10 +53,11 @@ target-version = "py312"
 
 [tool.ruff.lint]
 # Start with basic rules to avoid overwhelming errors
-select = ["E", "W", "F"]
+select = ["E", "W", "F", "C901"]
 ignore = [
     "E501",   # line too long (handled by formatter)
 ]
+mccabe = { max-complexity = 10 }
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
