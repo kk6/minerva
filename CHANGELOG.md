@@ -3,6 +3,11 @@
 
 ## v0.5.0 (2025-05-31)
 
+### Chores
+
+- **release**: Update version to 0.5.0
+  ([`945824b`](https://github.com/kk6/minerva/commit/945824b7309b57f9fce9b5ab46ab35088cc3eb62))
+
 ### Code Style
 
 - **docs**: Remove trailing whitespace in documentation
