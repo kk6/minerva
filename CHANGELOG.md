@@ -1,6 +1,129 @@
 # CHANGELOG
 
 
+## v0.5.0 (2025-05-31)
+
+### Code Style
+
+- **docs**: Remove trailing whitespace in documentation
+  ([`f63221a`](https://github.com/kk6/minerva/commit/f63221a9f2da86368c591b8fbe98ea1b69d4f632))
+
+Remove all trailing spaces from technical_spec.md and frontmatter.md to pass CI lint checks. No
+  content changes.
+
+### Continuous Integration
+
+- Update release workflow to check for version changes and commit updates
+  ([`e4c4c9b`](https://github.com/kk6/minerva/commit/e4c4c9bec662260379ed0fd76e8bc2d8f9333e6e))
+
+### Documentation
+
+- Update Ruff commands to specify source and test directories
+  ([`88fe34f`](https://github.com/kk6/minerva/commit/88fe34f19d34f909f0710f731aa43b56b1ea050c))
+
+- **claude**: Enhance CLAUDE.md with comprehensive project context
+  ([`222be69`](https://github.com/kk6/minerva/commit/222be690f863a1ffcd73c4d8649d7541a24d45bd))
+
+- Add Project Context section detailing Minerva's purpose and role - Add Architecture Overview
+  describing main components - Add Key Features section highlighting core functionality - Add Common
+  Pitfalls to Avoid section with critical warnings - Add Testing Strategy section with AAA pattern
+  details - Add Environment Setup section with required variables - Add Known Issues section listing
+  common problems - Update Build/Test/Lint Commands with latest tooling examples - Update related
+  documentation with consistent command examples
+
+Resolves #43
+
+- **tests**: Update usage examples for MinervaTestHelper in test_helpers_example.py
+  ([`c5aa9ba`](https://github.com/kk6/minerva/commit/c5aa9baa9204276d2fff117ad04f3d26cd4f54d4))
+
+- **tools**: Improve code comments in get_tags function
+  ([`bd444b0`](https://github.com/kk6/minerva/commit/bd444b09ad30880b60aa75aef21041d4c7357dce))
+
+- Add explanatory comments to clarify error handling and processing logic - Standardize comments to
+  English following project guidelines - Enhance readability of complex tag processing sections -
+  Minor style adjustments in check_trailing_whitespace.py
+
+### Features
+
+- Implement unified MinervaTestHelper class for Issue #28
+  ([`3209026`](https://github.com/kk6/minerva/commit/3209026fc72009644d29ccababf9f197e14e58b2))
+
+## Summary - Add MinervaTestHelper class with standardized test utilities - Create common pytest
+  fixtures for backward compatibility - Update test guidelines documentation with helper usage
+  examples - Include comprehensive docstrings and type hints - Provide migration examples from old
+  to new test patterns
+
+## Changes Made ### Phase 1-2: Core Implementation - `tests/helpers.py`: MinervaTestHelper with
+  methods for note creation, content validation, and test environment setup - `tests/conftest.py`:
+  Common fixtures (minerva_test_helper, test_vault, sample_notes) with backward compatibility
+
+### Phase 3: Migration Examples - `tests/test_helpers_example.py`: Demonstration of new helper usage
+  patterns and migration from old patterns
+
+### Phase 4: Documentation - `docs/test_guidelines.md`: Updated with MinervaTestHelper usage
+  guidelines, migration recommendations, and best practices
+
+## Benefits - Reduces test code duplication - Improves test readability and consistency -
+  Standardizes test creation patterns - Maintains backward compatibility with existing tests -
+  Provides clear migration path for future test updates
+
+Closes #28
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-authored-by: kk6 <kk6@users.noreply.github.com>
+
+### Refactoring
+
+- Implement FrontmatterManager class and migrate frontmatter processing
+  ([`b66b897`](https://github.com/kk6/minerva/commit/b66b89774cd0a3b7a9ff4908e6151044a125c1bc))
+
+- Add new FrontmatterManager class with centralized frontmatter operations - Migrate
+  _assemble_complete_note and _save_note_with_updated_tags to use FrontmatterManager - Maintain
+  backward compatibility with deprecated wrapper functions - Add comprehensive test suite for
+  FrontmatterManager - Update technical specification documentation
+
+Fixes #25
+
+- Simplify tag operation functions and reduce complexity
+  ([`fbce7c1`](https://github.com/kk6/minerva/commit/fbce7c13fbd0e6f33ccbad95eb75aeab0176e029))
+
+- Extract common helper functions for file resolution and note loading: - _resolve_note_file():
+  Unified file path resolution (12 lines) - _load_note_with_tags(): Common note loading and tag
+  extraction (14 lines) - _save_note_with_updated_tags(): Unified save logic (20 lines) -
+  _rename_tag_in_file(): Single file tag renaming logic (46 lines)
+
+- Dramatically reduce function complexity while maintaining API compatibility: - add_tag(): Reduced
+  from ~130 to 28 lines (78% reduction) - remove_tag(): Reduced from ~140 to 25 lines (82%
+  reduction) - rename_tag(): Reduced from ~190 to 35 lines (82% reduction)
+
+- Eliminate over 200 lines of duplicated code - Remove numbered comments that indicated excessive
+  complexity - Maintain exact same functionality and error handling - Improve readability by
+  following single responsibility principle
+
+Addresses issue #41 - Tag operation functions complexity reduction
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: kk6 <kk6@users.noreply.github.com>
+
+- **tests**: Update test helpers and examples for clarity and consistency
+  ([`7747b64`](https://github.com/kk6/minerva/commit/7747b647d18b489fb92d19c6f8a3c9d108d25e53))
+
+- **tools**: Replace frontmatter.py with frontmatter_manager.py and clean up code
+  ([`b6f6368`](https://github.com/kk6/minerva/commit/b6f6368312c40b81363a48a3727863dbcf206360))
+
+- Renamed frontmatter.py to frontmatter_manager.py for better clarity - Extracted code into helper
+  functions _resolve_file_path and _extract_tags_from_frontmatter - Fixed directory handling in
+  _build_file_path function - Removed deprecated _read_existing_frontmatter and
+  _generate_note_metadata functions - Removed deprecated write_note function in favor of create_note
+  and edit_note - Simplified file searching by extracting common logic to _process_file_for_search -
+  Updated tests to reflect new architecture and removed write_note tests - Added default parameters
+  to list_all_tags and find_notes_with_tag functions
+
+Closes #25
+
+
 ## v0.4.1 (2025-05-26)
 
 ### Bug Fixes
