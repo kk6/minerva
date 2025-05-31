@@ -97,15 +97,15 @@ def test_create_note_with_helper(tmp_path, minerva_test_helper):
     # ==================== Arrange ====================
     content = "Test note content"
     frontmatter_data = {"tags": ["test"], "author": "Test Author"}
-    
+
     # ==================== Act ====================
     note_path = minerva_test_helper.create_temp_note(
         tmp_path,
-        "test_note.md", 
+        "test_note.md",
         content,
         frontmatter_data
     )
-    
+
     # ==================== Assert ====================
     minerva_test_helper.assert_note_content(note_path, content, frontmatter_data)
     minerva_test_helper.assert_frontmatter_fields(
@@ -312,7 +312,7 @@ def test_create_note_old_style(tmp_path):
     file_path = tmp_path / "test.md"
     with open(file_path, "w", encoding="utf-8") as f:
         f.write("Test content")
-    
+
     assert file_path.exists()
     content = file_path.read_text(encoding="utf-8")
     assert content == "Test content"
@@ -322,7 +322,7 @@ def test_create_note_new_style(tmp_path, minerva_test_helper):
     note_path = minerva_test_helper.create_temp_note(
         tmp_path, "test.md", "Test content"
     )
-    
+
     minerva_test_helper.assert_file_exists(note_path)
     minerva_test_helper.assert_note_content(note_path, "Test content")
 ```

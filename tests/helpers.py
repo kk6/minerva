@@ -6,25 +6,25 @@ import frontmatter
 
 
 class MinervaTestHelper:
-    """Minervaプロジェクト用のテストヘルパークラス."""
-    
+    """Test helper class for the Minerva project."""
+
     @staticmethod
     def create_temp_note(
-        temp_dir: Path, 
-        filename: str, 
+        temp_dir: Path,
+        filename: str,
         content: str,
-        frontmatter_data: Optional[Dict[str, Any]] = None
+        frontmatter_data: Optional[Dict[str, Any]] = None,
     ) -> Path:
-        """テスト用ノートの作成.
-        
+        """Create a test note.
+
         Args:
-            temp_dir: 一時ディレクトリのパス
-            filename: ファイル名
-            content: ノートの内容
-            frontmatter_data: フロントマターデータ（省略可能）
-            
+            temp_dir: Path to the temporary directory
+            filename: File name
+            content: Note content
+            frontmatter_data: Frontmatter data (optional)
+
         Returns:
-            作成されたファイルのパス
+            Path to the created file
         """
         if frontmatter_data:
             post = frontmatter.Post(content)
@@ -32,29 +32,29 @@ class MinervaTestHelper:
             content_with_frontmatter = frontmatter.dumps(post)
         else:
             content_with_frontmatter = content
-            
+
         file_path = temp_dir / filename
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text(content_with_frontmatter, encoding="utf-8")
         return file_path
-    
+
     @staticmethod
     def assert_note_content(
-        file_path: Path, 
+        file_path: Path,
         expected_content: str,
-        expected_frontmatter: Optional[Dict[str, Any]] = None
+        expected_frontmatter: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """ノート内容の検証.
-        
+        """Verify the content of a note.
+
         Args:
-            file_path: 検証対象のファイルパス
-            expected_content: 期待されるコンテンツ
-            expected_frontmatter: 期待されるフロントマター（省略可能）
+            file_path: Path to the file to check
+            expected_content: Expected content
+            expected_frontmatter: Expected frontmatter (optional)
         """
         assert file_path.exists(), f"File {file_path} does not exist"
-        
+
         content = file_path.read_text(encoding="utf-8")
-        
+
         if expected_frontmatter:
             post = frontmatter.loads(content)
             assert post.content.strip() == expected_content.strip()
@@ -63,91 +63,92 @@ class MinervaTestHelper:
                 assert post.metadata[key] == value
         else:
             assert content.strip() == expected_content.strip()
-    
+
     @staticmethod
     def assert_frontmatter_fields(
-        file_path: Path, 
-        expected_fields: Dict[str, Union[Any, type]]
+        file_path: Path, expected_fields: Dict[str, Union[Any, type]]
     ) -> None:
-        """フロントマターフィールドの検証.
-        
+        """Verify frontmatter fields.
+
         Args:
-            file_path: 検証対象のファイルパス
-            expected_fields: 期待されるフィールド（値または型）
+            file_path: Path to the file to check
+            expected_fields: Expected fields (value or type)
         """
         content = file_path.read_text(encoding="utf-8")
         post = frontmatter.loads(content)
-        
+
         for key, expected_value in expected_fields.items():
             assert key in post.metadata, f"Field '{key}' not found in frontmatter"
             actual_value = post.metadata[key]
-            
+
             if isinstance(expected_value, type):
-                assert isinstance(actual_value, expected_value), \
+                assert isinstance(actual_value, expected_value), (
                     f"Field '{key}' expected type {expected_value}, got {type(actual_value)}"
+                )
             else:
-                assert actual_value == expected_value, \
+                assert actual_value == expected_value, (
                     f"Field '{key}' expected {expected_value}, got {actual_value}"
-    
+                )
+
     @staticmethod
     def create_test_config(temp_dir: Path) -> Dict[str, Any]:
-        """テスト用設定の作成.
-        
+        """Create a test configuration.
+
         Args:
-            temp_dir: 一時ディレクトリのパス
-            
+            temp_dir: Path to the temporary directory
+
         Returns:
-            テスト用設定辞書
+            Dictionary for test configuration
         """
         return {
             "vault_path": temp_dir,
             "default_note_dir": "test_notes",
             "default_author": "Test Author",
-            "encoding": "utf-8"
+            "encoding": "utf-8",
         }
-    
+
     @staticmethod
     def setup_test_vault(temp_dir: Path) -> Path:
-        """テスト用Vaultの初期化.
-        
+        """Initialize a test Vault.
+
         Args:
-            temp_dir: 一時ディレクトリのパス
-            
+            temp_dir: Path to the temporary directory
+
         Returns:
-            初期化されたVaultディレクトリのパス
+            Path to the initialized Vault directory
         """
         vault_dir = temp_dir / "test_vault"
         vault_dir.mkdir(exist_ok=True)
-        
-        # テスト用サブディレクトリの作成
+
+        # Create subdirectories for testing
         (vault_dir / "test_notes").mkdir(exist_ok=True)
         (vault_dir / "archive").mkdir(exist_ok=True)
-        
+
         return vault_dir
-    
+
     @staticmethod
     def create_sample_notes(vault_dir: Path) -> List[Path]:
-        """サンプルノートの作成.
-        
+        """Create sample notes.
+
         Args:
-            vault_dir: Vaultディレクトリのパス
-            
+            vault_dir: Path to the Vault directory
+
         Returns:
-            作成されたノートファイルのパスリスト
+            List of paths to created note files
         """
         notes = []
         notes_dir = vault_dir / "test_notes"
-        
-        # 基本ノート
+
+        # Basic note
         note1 = MinervaTestHelper.create_temp_note(
             notes_dir,
             "sample1.md",
             "This is a sample note",
-            {"tags": ["sample", "test"]}
+            {"tags": ["sample", "test"]},
         )
         notes.append(note1)
-        
-        # 複雑なフロントマター付きノート
+
+        # Note with complex frontmatter
         note2 = MinervaTestHelper.create_temp_note(
             notes_dir,
             "sample2.md",
@@ -155,46 +156,44 @@ class MinervaTestHelper:
             {
                 "tags": ["example", "documentation"],
                 "created": "2025-01-01T00:00:00",
-                "author": "Test Author"
-            }
+                "author": "Test Author",
+            },
         )
         notes.append(note2)
-        
+
         return notes
-    
+
     @staticmethod
     def assert_file_exists(file_path: Path) -> None:
-        """ファイルの存在確認.
-        
+        """Check that a file exists.
+
         Args:
-            file_path: 確認対象のファイルパス
+            file_path: Path to the file to check
         """
         assert file_path.exists(), f"File {file_path} does not exist"
-    
+
     @staticmethod
     def assert_file_not_exists(file_path: Path) -> None:
-        """ファイルの非存在確認.
-        
+        """Check that a file does not exist.
+
         Args:
-            file_path: 確認対象のファイルパス
+            file_path: Path to the file to check
         """
         assert not file_path.exists(), f"File {file_path} should not exist"
-    
+
     @staticmethod
     def create_test_file_with_content(
-        temp_dir: Path,
-        filename: str,
-        content: str
+        temp_dir: Path, filename: str, content: str
     ) -> Path:
-        """テスト用ファイルの作成（フロントマターなし）.
-        
+        """Create a test file (without frontmatter).
+
         Args:
-            temp_dir: 一時ディレクトリのパス
-            filename: ファイル名
-            content: ファイル内容
-            
+            temp_dir: Path to the temporary directory
+            filename: File name
+            content: File content
+
         Returns:
-            作成されたファイルのパス
+            Path to the created file
         """
         file_path = temp_dir / filename
         file_path.parent.mkdir(parents=True, exist_ok=True)

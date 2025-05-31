@@ -1,122 +1,100 @@
-"""MinervaTestHelperの使用例とデモンストレーション."""
-
-import pytest
-from pathlib import Path
+"""Demonstration and usage examples for MinervaTestHelper."""
 
 from tests.helpers import MinervaTestHelper
 
 
 class TestMinervaTestHelperExample:
-    """MinervaTestHelperの使用例を示すテストクラス."""
-    
+    """Test class demonstrating usage examples for MinervaTestHelper."""
+
     def test_basic_note_creation(self, tmp_path, minerva_test_helper):
-        """基本的なノート作成の例.
-        
-        新しいヘルパーを使った基本的なテストパターンのデモ。
+        """Example of basic note creation.
+
+        Demonstrates a basic test pattern using the new helper.
         """
         # ==================== Arrange ====================
         content = "This is a test note"
         filename = "test_note.md"
-        
+
         # ==================== Act ====================
-        note_path = minerva_test_helper.create_temp_note(
-            tmp_path,
-            filename,
-            content
-        )
-        
+        note_path = minerva_test_helper.create_temp_note(tmp_path, filename, content)
+
         # ==================== Assert ====================
         minerva_test_helper.assert_file_exists(note_path)
         minerva_test_helper.assert_note_content(note_path, content)
-    
+
     def test_note_with_frontmatter(self, tmp_path, minerva_test_helper):
-        """フロントマター付きノートの作成例."""
+        """Example of creating a note with frontmatter."""
         # ==================== Arrange ====================
         content = "Note with metadata"
         frontmatter_data = {
             "title": "Test Note",
             "tags": ["test", "example"],
-            "author": "Test Author"
+            "author": "Test Author",
         }
-        
+
         # ==================== Act ====================
         note_path = minerva_test_helper.create_temp_note(
-            tmp_path,
-            "metadata_note.md",
-            content,
-            frontmatter_data
+            tmp_path, "metadata_note.md", content, frontmatter_data
         )
-        
+
         # ==================== Assert ====================
-        minerva_test_helper.assert_note_content(
-            note_path,
-            content,
-            frontmatter_data
-        )
-        
-        # フロントマターフィールドの型チェック
+        minerva_test_helper.assert_note_content(note_path, content, frontmatter_data)
+
+        # Check the types of frontmatter fields
         minerva_test_helper.assert_frontmatter_fields(
-            note_path,
-            {
-                "title": str,
-                "tags": list,
-                "author": "Test Author"
-            }
+            note_path, {"title": str, "tags": list, "author": "Test Author"}
         )
-    
+
     def test_vault_setup_with_sample_notes(self, tmp_path, minerva_test_helper):
-        """Vault環境のセットアップとサンプルノート作成の例."""
+        """Example of setting up a Vault environment and creating sample notes."""
         # ==================== Arrange & Act ====================
         vault_dir = minerva_test_helper.setup_test_vault(tmp_path)
         sample_notes = minerva_test_helper.create_sample_notes(vault_dir)
-        
+
         # ==================== Assert ====================
-        # Vaultディレクトリの構造確認
+        # Check Vault directory structure
         assert vault_dir.exists()
         assert (vault_dir / "test_notes").exists()
         assert (vault_dir / "archive").exists()
-        
-        # サンプルノートの確認
+
+        # Check sample notes
         assert len(sample_notes) == 2
         for note_path in sample_notes:
             minerva_test_helper.assert_file_exists(note_path)
-    
+
     def test_migration_from_old_pattern(self, tmp_path):
-        """従来のテストパターンからの移行例."""
-        # ==================== 従来のパターン ====================
+        """Example of migrating from the old test pattern."""
+        # ==================== Old pattern (commented out) ====================
         # file_path = Path(tmp_path) / "old_style.md"
         # with open(file_path, "w", encoding="utf-8") as f:
         #     f.write("Old style content")
         # assert file_path.exists()
-        
-        # ==================== 新しいパターン ====================
+
+        # ==================== New pattern ====================
         helper = MinervaTestHelper()
-        
+
         note_path = helper.create_temp_note(
-            tmp_path,
-            "new_style.md",
-            "New style content"
+            tmp_path, "new_style.md", "New style content"
         )
-        
+
         helper.assert_file_exists(note_path)
         helper.assert_note_content(note_path, "New style content")
-    
-    def test_with_fixture_integration(self, test_vault, sample_notes, minerva_test_helper):
-        """共通フィクスチャとの統合例."""
+
+    def test_with_fixture_integration(
+        self, test_vault, sample_notes, minerva_test_helper
+    ):
+        """Example of integration with common fixtures."""
         # ==================== Assert ====================
-        # test_vaultフィクスチャによるVault構造の確認
+        # Check Vault structure using test_vault fixture
         assert test_vault.exists()
         assert (test_vault / "test_notes").exists()
-        
-        # sample_notesフィクスチャによるサンプルノートの確認
+
+        # Check sample notes using sample_notes fixture
         assert len(sample_notes) == 2
-        
-        # 各ノートの内容確認
+
+        # Check each note's existence
         for note_path in sample_notes:
             minerva_test_helper.assert_file_exists(note_path)
-            
-        # 最初のノートのフロントマター確認
-        minerva_test_helper.assert_frontmatter_fields(
-            sample_notes[0],
-            {"tags": list}
-        )
+
+        # Check frontmatter of the first note
+        minerva_test_helper.assert_frontmatter_fields(sample_notes[0], {"tags": list})

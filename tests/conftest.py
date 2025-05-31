@@ -1,4 +1,4 @@
-"""共通テストフィクスチャとセットアップ."""
+"""Common test fixtures and setup."""
 
 import pytest
 from pathlib import Path
@@ -10,42 +10,42 @@ from tests.helpers import MinervaTestHelper
 
 @pytest.fixture
 def minerva_test_helper():
-    """MinervaTestHelperインスタンスを提供.
-    
+    """Provides an instance of MinervaTestHelper.
+
     Returns:
-        MinervaTestHelperのインスタンス
+        Instance of MinervaTestHelper
     """
     return MinervaTestHelper()
 
 
 @pytest.fixture
 def test_vault(tmp_path):
-    """テスト用Vaultの作成.
-    
+    """Create a test Vault directory.
+
     Args:
-        tmp_path: pytestの一時ディレクトリフィクスチャ
-        
+        tmp_path: pytest temporary directory fixture
+
     Returns:
-        初期化されたVaultディレクトリのパス
+        Path to the initialized Vault directory
     """
     return MinervaTestHelper.setup_test_vault(tmp_path)
 
 
 @pytest.fixture
 def sample_notes(test_vault, minerva_test_helper):
-    """サンプルノートの作成.
-    
+    """Create sample notes for testing.
+
     Args:
-        test_vault: テスト用Vaultフィクスチャ
-        minerva_test_helper: MinervaTestHelperフィクスチャ
-        
+        test_vault: Test Vault fixture
+        minerva_test_helper: MinervaTestHelper fixture
+
     Returns:
-        作成されたノートファイルのパスリスト
+        List of paths to created note files
     """
     return minerva_test_helper.create_sample_notes(test_vault)
 
 
-# 後方互換性のための既存フィクスチャ
+# Legacy fixture for backward compatibility
 @pytest.fixture
 def temp_dir():
     """Fixture that provides a temporary directory for file operations.
@@ -67,6 +67,7 @@ def create_test_file(temp_dir):
     Returns:
         function: Helper function that creates a file with specified name and content
     """
+
     def _create_file(filename, content):
         file_path = Path(temp_dir) / filename
         with open(file_path, "w", encoding="utf-8") as f:
