@@ -20,6 +20,7 @@ from minerva.file_handler import (
     search_keyword_in_files,
 )
 from minerva.validators import FilenameValidator, TagValidator
+from minerva.frontmatter import FrontmatterManager
 
 from minerva.config import VAULT_PATH, DEFAULT_NOTE_AUTHOR, DEFAULT_NOTE_DIR
 
@@ -222,6 +223,9 @@ def _generate_note_metadata(
     """
     Generate or update YAML frontmatter metadata for a note.
 
+    DEPRECATED: This function is a legacy wrapper around FrontmatterManager.
+    For new code, use FrontmatterManager directly for better performance and cleaner interfaces.
+
     This function processes only the metadata portion of a note (frontmatter),
     handling both creation of new metadata and updating of existing metadata.
     It does not perform any file operations or path manipulations.
@@ -244,65 +248,14 @@ def _generate_note_metadata(
         This function only handles the metadata portion of a note.
         It does not perform any file path resolution or file I/O operations.
     """
-    now = datetime.now().isoformat()
-
-    # Check and load frontmatter
-    has_frontmatter = text.startswith("---\n")
-    if has_frontmatter:
-        post = frontmatter.loads(text)
-    else:
-        post = frontmatter.Post(text)
-
-    # Copy existing frontmatter if available
-    if existing_frontmatter:
-        # Copy all existing metadata except special fields we handle manually
-        # This preserves custom fields that might be present in the existing frontmatter
-        for key, value in existing_frontmatter.items():
-            # Skip fields we'll handle separately: author, created, updated, tags
-            if key not in ["author", "created", "updated", "tags"]:
-                post.metadata[key] = value
-
-    # Add author information
-    post.metadata["author"] = author or DEFAULT_NOTE_AUTHOR
-
-    # Preserve created field from existing frontmatter
-    if existing_frontmatter and "created" in existing_frontmatter:
-        post.metadata["created"] = existing_frontmatter["created"]
-
-    # Add created field for new notes (don't overwrite if exists)
-    if is_new_note and "created" not in post.metadata:
-        post.metadata["created"] = now
-
-    # Add updated field for note updates (always update with current time)
-    if not is_new_note:
-        post.metadata["updated"] = now
-
-    # Handle tags
-    if tags is not None:
-        processed_tags = []
-        if isinstance(tags, list):
-            seen_tags = set()
-            for tag in tags:
-                normalized_tag = _normalize_tag(str(tag))  # Ensure tag is a string
-                if _validate_tag(normalized_tag):
-                    if normalized_tag not in seen_tags:
-                        processed_tags.append(normalized_tag)
-                        seen_tags.add(normalized_tag)
-                else:
-                    logger.warning(
-                        "Invalid tag '%s' (normalized: '%s') removed. Tags cannot contain: ,<>/?'\"",
-                        tag,
-                        normalized_tag,
-                    )
-
-        if processed_tags:
-            post.metadata["tags"] = processed_tags
-        elif (
-            "tags" in post.metadata
-        ):  # Explicitly provided empty list of tags means clear existing tags
-            del post.metadata["tags"]
-
-    return post
+    manager = FrontmatterManager(default_author=author)
+    return manager.generate_metadata(
+        text=text,
+        author=author,
+        is_new_note=is_new_note,
+        existing_frontmatter=existing_frontmatter,
+        tags=tags
+    )
 
 
 def _normalize_tag(tag: str) -> str:
@@ -380,6 +333,9 @@ def _read_existing_frontmatter(file_path: Path) -> dict | None:
     """
     Read and extract frontmatter metadata from an existing file.
 
+    DEPRECATED: This function is a legacy wrapper around FrontmatterManager.
+    For new code, use FrontmatterManager directly for better performance and cleaner interfaces.
+
     This function focuses only on retrieving the YAML frontmatter metadata
     from an existing file, without modifying the file or its content.
 
@@ -394,40 +350,8 @@ def _read_existing_frontmatter(file_path: Path) -> dict | None:
     Raises:
         PermissionError: When the file exists but cannot be accessed due to permission issues
     """
-    if not file_path.exists():
-        return None
-
-    try:
-        with open(file_path, "r") as f:
-            content = f.read()
-            if content.startswith("---\n"):  # If frontmatter exists
-                post = frontmatter.loads(content)
-                metadata = dict(post.metadata)
-                # Ensure date values are consistently processed as strings
-                for key, value in metadata.items():
-                    if isinstance(value, datetime):
-                        metadata[key] = value.isoformat()
-                return metadata
-            # No frontmatter found in file
-            return {}
-    except PermissionError as e:
-        logger.error("Permission denied when reading file %s: %s", file_path, e)
-        raise
-    except UnicodeDecodeError as e:
-        logger.warning(
-            "File %s cannot be decoded as text (possibly binary): %s", file_path, e
-        )
-        return None
-    except (IOError, OSError) as e:
-        logger.warning(
-            "I/O or OS error reading existing file %s for metadata: %s", file_path, e
-        )
-        return None
-    except Exception as e:
-        logger.warning(
-            "Unexpected error processing file %s for metadata: %s", file_path, e
-        )
-        return None
+    manager = FrontmatterManager()
+    return manager.read_existing_metadata(file_path)
 
 
 def _assemble_complete_note(
@@ -443,7 +367,7 @@ def _assemble_complete_note(
     This function coordinates the entire note preparation process by:
     1. Resolving the file path and filename
     2. Reading existing frontmatter if the file exists
-    3. Generating appropriate metadata
+    3. Generating appropriate metadata using FrontmatterManager
     4. Assembling the final note content with frontmatter
 
     This function acts as a coordinator between path handling and metadata handling,
@@ -465,12 +389,13 @@ def _assemble_complete_note(
     # Build file path
     full_dir_path, base_filename = _build_file_path(filename, default_path)
 
-    # Check existing frontmatter
+    # Check existing frontmatter using FrontmatterManager
     file_path = full_dir_path / base_filename
-    existing_frontmatter = _read_existing_frontmatter(file_path)
+    frontmatter_manager = FrontmatterManager(default_author=author)
+    existing_frontmatter = frontmatter_manager.read_existing_metadata(file_path)
 
-    # Generate metadata
-    post = _generate_note_metadata(
+    # Generate metadata using FrontmatterManager
+    post = frontmatter_manager.generate_metadata(
         text=text,
         author=author,
         is_new_note=is_new_note,
@@ -936,7 +861,9 @@ def _save_note_with_updated_tags(
     author_value = post.metadata.get("author")
     author_str = str(author_value) if author_value is not None else None
 
-    updated_post = _generate_note_metadata(
+    # Use FrontmatterManager directly instead of deprecated wrapper
+    frontmatter_manager = FrontmatterManager(default_author=author_str)
+    updated_post = frontmatter_manager.generate_metadata(
         text=post.content,
         author=author_str,
         is_new_note=False,
