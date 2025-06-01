@@ -32,3 +32,7 @@ When creating GitHub issues, AI assistants must:
 ## Document-First Approach
 
 Before creating issues for new features or improvements, ensure relevant documentation is updated first according to the project's document-first philosophy.
+
+## Virtual Environment Protection
+
+**CRITICAL**: Never delete, modify, or run commands that affect files in the `.venv` directory. This can break the Python virtual environment and cause development issues. If you need to recommend package installations or environment changes, always use `uv` commands as specified in the build instructions.

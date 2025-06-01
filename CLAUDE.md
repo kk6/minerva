@@ -69,6 +69,7 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 - Preserve existing frontmatter when updating notes
 - Avoid trailing whitespace in all files (Python, Markdown, YAML) as it will fail CI checks
 - Use proper line endings (LF, not CRLF) for all files
+- **CRITICAL**: Never delete or modify files in the `.venv` directory, as this can break the virtual environment
 
 ## Testing Strategy
 - Unit tests for individual functions
