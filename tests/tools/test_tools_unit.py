@@ -120,7 +120,7 @@ class TestSearchNotes:
         """Test search_notes with default case_sensitive parameter."""
         # Arrange
         mock_service = Mock(spec=MinervaService)
-        expected_results = []
+        expected_results: list[Path] = []
         mock_service.search_notes.return_value = expected_results
 
         # Act
@@ -272,7 +272,8 @@ class TestParameterHandling:
 
         # Test various functions with None parameters
         create_note(mock_service, "content", "file")
-        mock_service.create_note.assert_called_with("content", "file", None, None)
+        mock_service.create_note.assert_called_once_with("content", "file", None, None)
+        mock_service.reset_mock()
 
         edit_note(mock_service, "content", "file")
         mock_service.edit_note.assert_called_with("content", "file", None, None)

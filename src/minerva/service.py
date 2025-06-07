@@ -599,6 +599,8 @@ class MinervaService:
         normalized_new_tag = self._normalize_tag(new_tag)
         if not self._validate_tag(new_tag):
             raise ValueError(f"Invalid new_tag: {new_tag}")
+        if not self._validate_tag(old_tag):
+            raise ValueError(f"Invalid old_tag: {old_tag}")
 
         normalized_old_tag = self._normalize_tag(old_tag)
 
@@ -615,7 +617,9 @@ class MinervaService:
         md_files = list(effective_directory.rglob("*.md"))
 
         for file_path in md_files:
-            if self._rename_tag_in_file(file_path, normalized_old_tag, new_tag):
+            if self._rename_tag_in_file(
+                file_path, normalized_old_tag, normalized_new_tag
+            ):
                 modified_files.append(file_path)
                 logger.info(
                     "Renamed tag '%s' to '%s' in %s", old_tag, new_tag, file_path.name
