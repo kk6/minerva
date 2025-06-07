@@ -1390,7 +1390,7 @@ def find_notes_with_tag(tag: str, directory: str | None = None) -> list[str]:
 # ============================================================================
 
 # Global service instance for backward compatibility
-_service_instance = None
+_service_instance: MinervaService | None = None
 
 
 def _get_service() -> "MinervaService":
