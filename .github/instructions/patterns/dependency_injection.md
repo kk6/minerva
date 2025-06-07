@@ -17,7 +17,7 @@ The core business logic is encapsulated in service classes that receive their de
 ```python
 class MinervaService:
     """Main service class for note operations with dependency injection."""
-    
+
     def __init__(
         self,
         config: MinervaConfig,
@@ -40,7 +40,7 @@ class MinervaConfig:
     default_note_dir: str
     default_author: str
     encoding: str = "utf-8"
-    
+
     @classmethod
     def from_env(cls) -> "MinervaConfig":
         """Create configuration from environment variables."""
@@ -55,13 +55,13 @@ Use factory functions to create properly configured service instances:
 def create_minerva_service() -> MinervaService:
     """
     Create a MinervaService instance with default configuration.
-    
+
     This factory function provides a convenient way to create a fully
     configured MinervaService instance using environment variables.
     """
     config = MinervaConfig.from_env()
     frontmatter_manager = FrontmatterManager(config.default_author)
-    
+
     return MinervaService(config, frontmatter_manager)
 ```
 
@@ -89,7 +89,7 @@ def create_note(
 ) -> Path:
     """
     Create a new note in the Obsidian vault.
-    
+
     This is a compatibility wrapper around the service-based implementation.
     """
     service = _get_service()
@@ -106,7 +106,7 @@ Provide mechanisms to inject custom service instances for testing:
 def set_service_instance(service: "MinervaService") -> None:
     """
     Set a custom service instance for testing.
-    
+
     This allows dependency injection for testing by replacing
     the default service instance with a custom one.
     """
@@ -123,7 +123,7 @@ def get_service_instance() -> "MinervaService":
 ```python
 class TestNoteOperations:
     """Test note operations with dependency injection."""
-    
+
     @pytest.fixture
     def config(self):
         """Create test configuration."""
@@ -132,17 +132,17 @@ class TestNoteOperations:
             default_note_dir="test_notes",
             default_author="Test Author",
         )
-    
+
     @pytest.fixture
     def frontmatter_manager(self):
         """Create mock frontmatter manager."""
         return Mock(spec=FrontmatterManager)
-    
+
     @pytest.fixture
     def service(self, config, frontmatter_manager):
         """Create service instance for testing."""
         return MinervaService(config, frontmatter_manager)
-    
+
     def test_create_note(self, service):
         """Test note creation using service."""
         # Test implementation using injected service
@@ -154,19 +154,19 @@ class TestNoteOperations:
 ```python
 class TestServiceIntegration:
     """Integration tests with real file operations."""
-    
+
     def setup_method(self):
         """Set up real test environment."""
         self.temp_dir = tempfile.mkdtemp()
         self.vault_path = Path(self.temp_dir) / "test_vault"
         self.vault_path.mkdir(parents=True)
-        
+
         self.config = MinervaConfig(
             vault_path=self.vault_path,
             default_note_dir="notes",
             default_author="Test Author",
         )
-        
+
         self.frontmatter_manager = FrontmatterManager("Test Author")
         self.service = MinervaService(self.config, self.frontmatter_manager)
 ```
@@ -276,7 +276,7 @@ def create_note(text: str, filename: str) -> Path:
 class MinervaService:
     def __init__(self, config: MinervaConfig):
         self.config = config
-    
+
     def create_note(self, text: str, filename: str) -> Path:
         # Uses injected configuration
         full_path = self.config.vault_path / self.config.default_note_dir / f"{filename}.md"
@@ -336,7 +336,7 @@ class Service:
 class Service:
     def __init__(self, config: Config):
         self.config = config
-    
+
     def method(self):
         return self.config.vault_path
 ```

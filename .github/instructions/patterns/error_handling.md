@@ -126,7 +126,7 @@ else:
 def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     """
     Search for a keyword in all files in the Obsidian vault.
-    
+
     This is a compatibility wrapper around the service-based implementation.
     """
     if not query:
@@ -176,15 +176,15 @@ def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
 # Service-based implementation (modern dependency injection pattern)
 class MinervaService:
     """Service class implementing business logic with dependency injection."""
-    
+
     def __init__(self, config: MinervaConfig, frontmatter_manager: FrontmatterManager):
         self.config = config
         self.frontmatter_manager = frontmatter_manager
-    
+
     def search_notes(self, query: str, case_sensitive: bool = True) -> list[SearchResult]:
         """
         Search for a keyword in all files in the Obsidian vault.
-        
+
         This method implements the same error handling patterns as the function-based API
         but with dependency injection for improved testability.
         """

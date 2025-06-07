@@ -86,6 +86,24 @@ jobs:
             echo "This is a recommendation for maintaining good documentation practices."
           fi
 
+  pre-commit-check:
+    name: Pre-commit Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit
+        run: pre-commit run --all-files
+
   file-format-check:
     name: Basic File Format Check
     runs-on: ubuntu-latest
@@ -118,8 +136,5 @@ jobs:
             echo "Please convert to Unix line endings (LF)"
             exit 1
           fi
-
-          # Check for trailing whitespace
-          python3 scripts/check_trailing_whitespace.py
 
           echo "✓ Basic file format checks passed"
