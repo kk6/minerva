@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 import frontmatter
 
 from minerva.frontmatter_manager import FrontmatterManager
-from minerva.config import DEFAULT_NOTE_AUTHOR
+# Remove import of deleted constant
 
 
 class TestFrontmatterManagerBasic:
@@ -30,7 +30,7 @@ class TestFrontmatterManagerBasic:
         manager = FrontmatterManager()
 
         # ==================== Assert ====================
-        assert manager.default_author == DEFAULT_NOTE_AUTHOR
+        assert manager.default_author == "Minerva"
 
     def test_initialization_custom_author(self):
         """Test FrontmatterManager initialization with custom author.

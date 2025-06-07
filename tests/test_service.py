@@ -54,17 +54,6 @@ class TestMinervaConfig:
             assert config.default_note_dir == "default_notes"
             assert config.default_author == "Minerva"
 
-    def test_from_legacy_globals(self):
-        """Test configuration creation from legacy globals."""
-        with patch("minerva.config.VAULT_PATH", Path("/legacy/path")):
-            with patch("minerva.config.DEFAULT_NOTE_DIR", "legacy_notes"):
-                with patch("minerva.config.DEFAULT_NOTE_AUTHOR", "Legacy Author"):
-                    config = MinervaConfig.from_legacy_globals()
-
-                    assert config.vault_path == Path("/legacy/path")
-                    assert config.default_note_dir == "legacy_notes"
-                    assert config.default_author == "Legacy Author"
-
 
 class TestMinervaService:
     """Test MinervaService class functionality."""

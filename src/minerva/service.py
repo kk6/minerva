@@ -575,6 +575,218 @@ class MinervaService:
             )
             return []
 
+    def rename_tag(
+        self,
+        old_tag: str,
+        new_tag: str,
+        directory: str | None = None,
+    ) -> list[Path]:
+        """
+        Rename a tag in all notes within a specified directory (or the entire vault).
+
+        Args:
+            old_tag: The current tag string to be replaced
+            new_tag: The new tag string to replace the old tag
+            directory: Optional path to a directory within the vault
+
+        Returns:
+            list[Path]: A list of Path objects for each note file that was modified
+
+        Raises:
+            ValueError: If new_tag is invalid
+            FileNotFoundError: If the specified directory does not exist
+        """
+        normalized_new_tag = self._normalize_tag(new_tag)
+        if not self._validate_tag(new_tag):
+            raise ValueError(f"Invalid new_tag: {new_tag}")
+
+        normalized_old_tag = self._normalize_tag(old_tag)
+
+        if normalized_old_tag == normalized_new_tag:
+            logger.info("Old and new tags are the same after normalization")
+            return []
+
+        effective_directory = Path(directory or str(self.config.vault_path))
+        if not effective_directory.is_dir():
+            raise FileNotFoundError(f"Directory '{effective_directory}' not found")
+
+        # Process all markdown files
+        modified_files: list[Path] = []
+        md_files = list(effective_directory.rglob("*.md"))
+
+        for file_path in md_files:
+            if self._rename_tag_in_file(file_path, normalized_old_tag, new_tag):
+                modified_files.append(file_path)
+                logger.info(
+                    "Renamed tag '%s' to '%s' in %s", old_tag, new_tag, file_path.name
+                )
+
+        logger.info("Renamed tag in %d file(s)", len(modified_files))
+        return modified_files
+
+    def _rename_tag_in_file(
+        self, file_path: Path, old_tag_normalized: str, new_tag: str
+    ) -> bool:
+        """
+        Rename a tag in a single file.
+
+        Args:
+            file_path: Path to the note file
+            old_tag_normalized: Normalized old tag to replace
+            new_tag: New tag to add
+
+        Returns:
+            bool: True if file was modified, False otherwise
+        """
+        try:
+            post, current_tags = self._load_note_with_tags(file_path)
+
+            if not current_tags:
+                return False
+
+            new_tags = []
+            old_tag_found = False
+            new_tag_normalized = self._normalize_tag(new_tag)
+
+            # Remove old tag and check if new tag already exists
+            for tag in current_tags:
+                tag_normalized = self._normalize_tag(str(tag))
+                if tag_normalized == old_tag_normalized:
+                    old_tag_found = True
+                else:
+                    new_tags.append(str(tag))
+
+            if old_tag_found:
+                # Add new tag if not already present
+                if new_tag_normalized not in [self._normalize_tag(t) for t in new_tags]:
+                    new_tags.append(new_tag)
+
+                # Check if tags actually changed
+                old_normalized = {self._normalize_tag(str(t)) for t in current_tags}
+                new_normalized = {self._normalize_tag(t) for t in new_tags}
+
+                if old_normalized != new_normalized:
+                    self._save_note_with_updated_tags(file_path, post, new_tags)
+                    return True
+
+        except Exception as e:
+            logger.error("Error processing file %s: %s", file_path, e)
+
+        return False
+
+    def list_all_tags(self, directory: str | None = None) -> list[str]:
+        """
+        List all unique, normalized tags from all Markdown files within a specified directory.
+
+        Args:
+            directory: Optional path to a directory within the vault
+
+        Returns:
+            list[str]: A sorted list of unique, normalized tag strings
+
+        Raises:
+            FileNotFoundError: If the specified directory does not exist
+        """
+        effective_directory_str = (
+            directory if directory else str(self.config.vault_path)
+        )
+        effective_directory_path = Path(effective_directory_str)
+
+        if not effective_directory_path.is_dir():
+            logger.error(
+                "List_all_tags: Directory '%s' does not exist or is not a directory.",
+                effective_directory_path,
+            )
+            raise FileNotFoundError(
+                f"Directory '{effective_directory_path}' not found or is not a directory."
+            )
+
+        all_tags_set: set[str] = set()
+        files_processed_count = 0
+        tags_found_count = 0
+
+        for file_path in effective_directory_path.rglob("*.md"):
+            files_processed_count += 1
+            tags_in_file = self.get_tags(filename=None, filepath=str(file_path))
+            for tag in tags_in_file:
+                normalized_tag = self._normalize_tag(tag)
+                if normalized_tag:
+                    all_tags_set.add(normalized_tag)
+                    tags_found_count += 1
+
+        sorted_tags_list = sorted(list(all_tags_set))
+
+        logger.info(
+            "List_all_tags: Processed %d files in '%s'. Found %d unique normalized tags (from %d total tag instances). Tags: %s",
+            files_processed_count,
+            effective_directory_path,
+            len(sorted_tags_list),
+            tags_found_count,
+            sorted_tags_list
+            if len(sorted_tags_list) < 20
+            else str(sorted_tags_list[:20]) + "...",  # Avoid overly long log
+        )
+        return sorted_tags_list
+
+    def find_notes_with_tag(self, tag: str, directory: str | None = None) -> list[str]:
+        """
+        Find all notes that contain a specific tag.
+
+        Args:
+            tag: The tag to search for
+            directory: Optional path to a directory within the vault
+
+        Returns:
+            list[str]: A list of string paths for each note file containing the specified tag
+
+        Raises:
+            FileNotFoundError: If the specified directory does not exist
+        """
+        effective_directory_str = (
+            directory if directory else str(self.config.vault_path)
+        )
+        effective_directory_path = Path(effective_directory_str)
+
+        if not effective_directory_path.is_dir():
+            logger.error(
+                "Find_notes_with_tag: Directory '%s' does not exist or is not a directory.",
+                effective_directory_path,
+            )
+            raise FileNotFoundError(
+                f"Directory '{effective_directory_path}' not found or is not a directory."
+            )
+
+        normalized_target_tag = self._normalize_tag(tag)
+
+        if not normalized_target_tag:
+            logger.warning(
+                "Find_notes_with_tag: The provided tag '%s' is empty after normalization. "
+                "Cannot search for an empty tag. Returning empty list.",
+                tag,
+            )
+            return []
+
+        matching_files_paths: list[str] = []
+        files_processed_count = 0
+
+        for file_path in effective_directory_path.rglob("*.md"):
+            files_processed_count += 1
+            tags_in_file = self.get_tags(filename=None, filepath=str(file_path))
+
+            normalized_tags_in_file = [self._normalize_tag(t) for t in tags_in_file]
+
+            if normalized_target_tag in normalized_tags_in_file:
+                matching_files_paths.append(str(file_path))
+
+        logger.info(
+            "Find_notes_with_tag: Processed %d files in '%s'. Found %d notes with tag '%s'.",
+            files_processed_count,
+            effective_directory_path,
+            len(matching_files_paths),
+            tag,  # Log original tag for clarity
+        )
+        return matching_files_paths
+
 
 def create_minerva_service() -> MinervaService:
     """

@@ -11,7 +11,6 @@ from pathlib import Path
 
 import frontmatter
 
-from minerva.config import DEFAULT_NOTE_AUTHOR
 from minerva.validators import TagValidator
 
 # Set up logging
@@ -36,7 +35,7 @@ class FrontmatterManager:
             default_author: Default author name for new notes. If None,
                           uses the system default from config.
         """
-        self.default_author = default_author or DEFAULT_NOTE_AUTHOR
+        self.default_author = default_author or "Minerva"
 
     def _load_post(self, text: str) -> frontmatter.Post:
         """

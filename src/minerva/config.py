@@ -6,13 +6,6 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Legacy global variables for backward compatibility
-OBSIDIAN_VAULT_ROOT = os.environ["OBSIDIAN_VAULT_ROOT"]
-DEFAULT_VAULT = os.environ["DEFAULT_VAULT"]
-VAULT_PATH = Path(OBSIDIAN_VAULT_ROOT) / DEFAULT_VAULT
-DEFAULT_NOTE_DIR = os.getenv("DEFAULT_NOTE_DIR", "default_notes")
-DEFAULT_NOTE_AUTHOR = os.getenv("DEFAULT_NOTE_AUTHOR", "Minerva")
-
 
 @dataclass
 class MinervaConfig:
@@ -62,21 +55,4 @@ class MinervaConfig:
             vault_path=Path(vault_root) / default_vault,
             default_note_dir=os.getenv("DEFAULT_NOTE_DIR", "default_notes"),
             default_author=os.getenv("DEFAULT_NOTE_AUTHOR", "Minerva"),
-        )
-
-    @classmethod
-    def from_legacy_globals(cls) -> "MinervaConfig":
-        """
-        Create configuration from legacy global variables.
-
-        This method provides backward compatibility for existing code
-        that relies on global variables.
-
-        Returns:
-            MinervaConfig: Configuration instance using legacy globals
-        """
-        return cls(
-            vault_path=VAULT_PATH,
-            default_note_dir=DEFAULT_NOTE_DIR,
-            default_author=DEFAULT_NOTE_AUTHOR,
         )
