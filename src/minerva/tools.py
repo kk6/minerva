@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from typing import Callable, ParamSpec, TypeVar
 
+from minerva.service import MinervaService
+
 import frontmatter
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -1380,3 +1382,53 @@ def find_notes_with_tag(tag: str, directory: str | None = None) -> list[str]:
         request.tag,  # Log original tag for clarity
     )
     return matching_files_paths
+
+
+# ============================================================================
+# Service Layer Integration
+# ============================================================================
+
+# Global service instance for backward compatibility
+_service_instance: MinervaService | None = None
+
+
+def _get_service() -> "MinervaService":
+    """
+    Get or create the global service instance.
+
+    This function provides lazy initialization of the service instance
+    to maintain backward compatibility with existing function-based API.
+    """
+    global _service_instance
+    if _service_instance is None:
+        from minerva.service import create_minerva_service
+
+        _service_instance = create_minerva_service()
+    return _service_instance
+
+
+def get_service_instance() -> "MinervaService":
+    """
+    Get the current service instance.
+
+    This function allows access to the service instance for testing
+    and advanced use cases while maintaining the function-based API.
+
+    Returns:
+        MinervaService: The current service instance
+    """
+    return _get_service()
+
+
+def set_service_instance(service: "MinervaService") -> None:
+    """
+    Set a custom service instance.
+
+    This function allows dependency injection for testing by replacing
+    the default service instance with a custom one.
+
+    Args:
+        service: Custom service instance to use
+    """
+    global _service_instance
+    _service_instance = service

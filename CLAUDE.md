@@ -20,8 +20,15 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 
 ## Architecture Overview
 - **MCP Server**: FastMCP-based server (`server.py`) that provides tool endpoints
-- **Tools**: Core functionality (`tools.py`) for note operations (create, read, edit, delete, search)
+- **Service Layer**: Core business logic (`service.py`) with dependency injection pattern
+  - `MinervaService`: Main service class containing all note operations
+  - `MinervaConfig`: Configuration dataclass for dependency injection
+  - `create_minerva_service()`: Factory function for service creation
+- **Tools**: API wrapper layer (`tools.py`) maintaining backward compatibility
+  - Legacy function-based API for existing integrations
+  - Service wrapper functions with dependency injection support
 - **File Handler**: Low-level file operations (`file_handler.py`)
+- **Frontmatter Manager**: Centralized frontmatter processing (`frontmatter_manager.py`)
 - **Config**: Environment and configuration management (`config.py`)
 - **Tag System**: Comprehensive tag management for Obsidian notes
 
@@ -31,6 +38,9 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 - Tag management (add, remove, rename, search by tag)
 - Two-phase deletion process for safety
 - Automatic frontmatter generation with metadata
+- **Dependency injection architecture** for improved testability and extensibility
+- **Backward compatibility** maintained for existing API consumers
+- **Service-based architecture** with clear separation of concerns
 
 ## Code Style Guidelines
 - Python 3.12+ compatibility required
@@ -72,11 +82,63 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 - **CRITICAL**: Never delete or modify files in the `.venv` directory, as this can break the virtual environment
 
 ## Testing Strategy
-- Unit tests for individual functions
+- Unit tests for individual functions and service methods
 - Integration tests for end-to-end workflows
+- Service layer tests with dependency injection
 - Mock external dependencies (file system, environment variables)
 - Use pytest fixtures for common setup
 - Follow AAA pattern: Arrange-Act-Assert with clear section comments
+- **Test coverage target**: Maintain 92%+ code coverage
+- **Service testing**: Test both service layer and wrapper functions
+
+## Dependency Injection Usage
+
+### Service Layer
+The new service layer provides dependency injection for improved testability:
+
+```python
+from minerva.service import create_minerva_service, MinervaService
+from minerva.config import MinervaConfig
+from minerva.frontmatter_manager import FrontmatterManager
+
+# Use factory function for default configuration
+service = create_minerva_service()
+
+# Or create custom configuration for testing
+config = MinervaConfig(
+    vault_path=Path("/custom/vault"),
+    default_note_dir="notes",
+    default_author="Custom Author"
+)
+frontmatter_manager = FrontmatterManager("Custom Author")
+service = MinervaService(config, frontmatter_manager)
+```
+
+### Testing with Dependency Injection
+For testing, you can inject mock dependencies:
+
+```python
+from minerva.tools import set_service_instance
+
+# Set custom service for testing
+mock_service = Mock(spec=MinervaService)
+set_service_instance(mock_service)
+
+# Your tests will now use the mock service
+# Reset after testing
+set_service_instance(None)
+```
+
+### Backward Compatibility
+Existing function-based API continues to work unchanged:
+
+```python
+from minerva.tools import create_note, read_note
+
+# This still works exactly as before
+note_path = create_note("content", "filename")
+content = read_note(str(note_path))
+```
 
 ## Environment Setup
 Required environment variables in `.env`:

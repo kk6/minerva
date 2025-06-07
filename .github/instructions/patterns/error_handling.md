@@ -122,9 +122,12 @@ else:
 コードベースでは、エラータイプに応じた詳細なログ記録が実装されています：
 
 ```python
+# Function-based API (legacy compatibility wrapper)
 def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     """
     Search for a keyword in all files in the Obsidian vault.
+
+    This is a compatibility wrapper around the service-based implementation.
     """
     if not query:
         raise ValueError("Query cannot be empty")
@@ -169,6 +172,65 @@ def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
         ) from e
 
     return matching_files
+
+# Service-based implementation (modern dependency injection pattern)
+class MinervaService:
+    """Service class implementing business logic with dependency injection."""
+
+    def __init__(self, config: MinervaConfig, frontmatter_manager: FrontmatterManager):
+        self.config = config
+        self.frontmatter_manager = frontmatter_manager
+
+    def search_notes(self, query: str, case_sensitive: bool = True) -> list[SearchResult]:
+        """
+        Search for a keyword in all files in the Obsidian vault.
+
+        This method implements the same error handling patterns as the function-based API
+        but with dependency injection for improved testability.
+        """
+        if not query:
+            raise ValueError("Query cannot be empty")
+
+        try:
+            search_config = SearchConfig(
+                directory=str(self.config.vault_path),
+                keyword=query,
+                file_extensions=[".md"],
+                case_sensitive=case_sensitive,
+            )
+            matching_files = search_keyword_in_files(search_config)
+            logger.info("Found %s files matching the query: %s", len(matching_files), query)
+        except PermissionError as e:
+            logger.error(
+                "Permission denied during search for query '%s' in vault %s: %s",
+                query,
+                self.config.vault_path,
+                e,
+            )
+            raise
+        except (IOError, OSError) as e:
+            logger.error(
+                "File system error during search for query '%s' in vault %s: %s",
+                query,
+                self.config.vault_path,
+                e,
+            )
+            raise
+        except ValueError as e:
+            logger.error("Invalid search parameters for query '%s': %s", query, e)
+            raise
+        except Exception as e:
+            logger.error(
+                "Unexpected error searching for query '%s' in vault %s: %s",
+                query,
+                self.config.vault_path,
+                e,
+            )
+            raise RuntimeError(
+                f"Unexpected error occurred during search for query '{query}': {e}"
+            ) from e
+
+        return matching_files
 ```
 
 #### 改善されたエラーログのポイント
