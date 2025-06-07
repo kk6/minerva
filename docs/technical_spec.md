@@ -4,9 +4,17 @@
 
 ## 1. アーキテクチャ概要
 
-Minervaは階層化されたアーキテクチャを採用しています：
+Minervaは依存性注入パターンを採用した階層化アーキテクチャです：
 
-1. **ユーザー向けAPI層** (`tools.py`)
+1. **サービス層** (`service.py`) - **新規追加**
+   - **MinervaService**: 全ビジネスロジックを統合したメインサービスクラス
+   - **MinervaConfig**: 依存性注入用の設定データクラス
+   - **create_minerva_service()**: デフォルト設定でのサービスファクトリー関数
+
+2. **API互換層** (`tools.py`) - **リファクタリング済み**
+   - **レガシーAPI関数**: 既存の関数ベースAPIを維持（後方互換性）
+   - **サービスラッパー**: 内部的に新しいサービス層を使用
+   - **依存性注入サポート**: テスト用のサービスインスタンス設定機能
    - **基本操作**:
      - `CreateNoteRequest`, `EditNoteRequest`, `ReadNoteRequest`, `SearchNoteRequest` クラス
      - `create_note()`, `edit_note()`, `read_note()`, `search_notes()` 関数
@@ -15,7 +23,14 @@ Minervaは階層化されたアーキテクチャを採用しています：
      - `AddTagRequest`, `RemoveTagRequest`, `RenameTagRequest` クラス
      - `add_tag()`, `remove_tag()`, `rename_tag()`, `get_tags()`, `list_all_tags()`, `find_notes_with_tag()` 関数
 
-2. **ファイル操作層** (`file_handler.py`)
+3. **設定管理層** (`config.py`) - **拡張済み**
+   - **MinervaConfig**: 新しい設定データクラス
+   - **レガシーグローバル変数**: 既存の設定（後方互換性維持）
+
+4. **フロントマター管理層** (`frontmatter_manager.py`)
+   - **FrontmatterManager**: 専用のフロントマター処理クラス
+
+5. **ファイル操作層** (`file_handler.py`)
    - `FileWriteRequest`, `FileReadRequest`, `FileDeleteRequest`, `SearchConfig` クラス
    - `write_file()`, `read_file()`, `delete_file()`, `search_keyword_in_files()` 関数
 

@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from mcp.server.fastmcp import FastMCP
 
 from minerva.__version__ import __version__
+from minerva.service import create_minerva_service
 
 from minerva.tools import (
     read_note,
@@ -33,10 +34,21 @@ from minerva.tools import (
     get_tags,
     list_all_tags,
     find_notes_with_tag,
+    set_service_instance,
 )
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+# Initialize service layer with dependency injection
+try:
+    service = create_minerva_service()
+    set_service_instance(service)
+    logger.info("MCP server initialized with dependency injection")
+except Exception as e:
+    logger.warning(
+        "Failed to initialize service layer, falling back to legacy mode: %s", e
+    )
 
 # Create an MCP server
 mcp = FastMCP("minerva", __version__)
