@@ -1,6 +1,114 @@
 # CHANGELOG
 
 
+## v0.6.0 (2025-06-07)
+
+### Bug Fixes
+
+- **config**: Improve error message clarity for missing environment variables
+  ([`cbe13c9`](https://github.com/kk6/minerva/commit/cbe13c97f0f39323297b978a31ddc25917d7d8d5))
+
+- Check each required environment variable individually - Provide specific error message indicating
+  which variables are missing - Add type assertions to satisfy type checker after validation -
+  Improve debugging experience when configuration is incomplete
+
+### Documentation
+
+- Add guidelines for virtual environment protection in AI guidelines and CLAUDE.md
+  ([`a2596bf`](https://github.com/kk6/minerva/commit/a2596bf53fc063c112dfd6af66c6cfa553545e42))
+
+- Pre-commitフックの設定ガイドを追加
+  ([`02ede1c`](https://github.com/kk6/minerva/commit/02ede1c7fba9647a92e85edffb5ef7a0f2198f17))
+
+- Update development workflow to emphasize documentation updates for implementation changes
+  ([`8d9e159`](https://github.com/kk6/minerva/commit/8d9e1590e13ae638d5a07083641ee7608aa561b3))
+
+- Update README with enhanced pre-commit guide
+  ([`dd821a3`](https://github.com/kk6/minerva/commit/dd821a3551667a801870a9751131102fccc7cfc7))
+
+- Emphasize trailing whitespace prevention in README - Add link to detailed pre-commit setup guide -
+  Highlight CI/CD error prevention benefits
+
+- **ci**: Add pre-commit config and trailing whitespace guidelines
+  ([`09da21c`](https://github.com/kk6/minerva/commit/09da21cd2edbc758a5e8962187c5c83678fe9645))
+
+### Features
+
+- Implement dependency injection architecture for improved testability and extensibility
+  ([`ecbac00`](https://github.com/kk6/minerva/commit/ecbac00b909cd4ecac05fac2f7e399bd32147307))
+
+This comprehensive implementation addresses GitHub Issue #27 by introducing dependency injection
+  patterns throughout the Minerva codebase while maintaining 100% backward compatibility.
+
+## Key Changes
+
+### Service Layer (New) - Add MinervaService class encapsulating all business logic - Implement
+  dependency injection pattern for configuration and dependencies - Create factory function
+  create_minerva_service() for default setup
+
+### Configuration Enhancement - Add MinervaConfig dataclass for dependency injection - Maintain
+  legacy global variables for backward compatibility - Support both environment-based and
+  programmatic configuration
+
+### Backward Compatibility - Preserve all existing function-based APIs as wrapper functions -
+  Implement lazy service initialization for seamless transition - Add service instance management
+  for testing scenarios
+
+### Testing Infrastructure - Add comprehensive test suite with 29 test cases for service layer -
+  Maintain 92% code coverage target - Support both unit tests with mocks and integration tests with
+  real dependencies
+
+### Documentation Updates - Update CLAUDE.md and technical specifications to reflect new
+  architecture - Add comprehensive dependency injection patterns guide - Update development
+  instructions and error handling examples
+
+## Benefits
+
+- **Improved Testability**: Easy to mock dependencies in isolated tests - **Enhanced
+  Extensibility**: Clean boundaries enable future feature development - **Better Maintainability**:
+  Clear separation of concerns and explicit dependencies - **Production Ready**: Zero breaking
+  changes with full backward compatibility
+
+All 262 tests pass with 92% coverage. Ruff and MyPy checks pass.
+
+Closes #27
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- **ci**: Improve pre-commit configuration for trailing whitespace
+  ([`8d040d2`](https://github.com/kk6/minerva/commit/8d040d2a5ac7e26814017235472be7691bb3ec7e))
+
+- Update .pre-commit-config.yaml to use standard hooks only - Remove custom trailing whitespace
+  script (redundant) - Add pre-commit job to PR checks workflow - Add comprehensive pre-commit setup
+  guide - Update to latest pre-commit hook versions - Simplify configuration by removing duplicate
+  functionality
+
+### Refactoring
+
+- Update note handling functions and documentation
+  ([`c84c538`](https://github.com/kk6/minerva/commit/c84c53820584bc50d52dac283cd86ff31c46e239))
+
+- Replace `write_note` with `create_note` and `edit_note` in various documents for clarity and
+  consistency. - Remove deprecated `write_note` references from the documentation. - Update examples
+  and guidelines to reflect the new function names.
+
+- **service**: Remove conditional import for frontmatter and clean up code
+  ([`fe1118a`](https://github.com/kk6/minerva/commit/fe1118a117dac015b94c97c61fa9653ae7206bd3))
+
+- **tools**: Remove conditional import for MinervaService
+  ([`6f400a6`](https://github.com/kk6/minerva/commit/6f400a68f200e9f42818a2b2595ed70695c0f9da))
+
+### Testing
+
+- Add file with trailing whitespace (fixed by pre-commit)
+  ([`10d1514`](https://github.com/kk6/minerva/commit/10d151461f0fa3c58105d6462a73e6bf1f70322e))
+
+- Remove temporary test file
+  ([`fdb9787`](https://github.com/kk6/minerva/commit/fdb978738c5ba3ac87c00b0385d041b8bfe91937))
+
+
 ## v0.5.0 (2025-05-31)
 
 ### Chores
