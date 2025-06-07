@@ -8,10 +8,9 @@ coordination point between configuration, file handling, and frontmatter managem
 
 import logging
 from pathlib import Path
-from typing import ParamSpec, TypeVar, TYPE_CHECKING
+from typing import ParamSpec, TypeVar
 
-if TYPE_CHECKING:
-    import frontmatter
+import frontmatter
 
 from minerva.config import MinervaConfig
 from minerva.file_handler import (
@@ -140,9 +139,6 @@ class MinervaService:
             is_new_note=is_new_note,
             existing_frontmatter=existing_frontmatter,
         )
-
-        # Convert Post object to string with frontmatter
-        import frontmatter
 
         content = frontmatter.dumps(post)
 
