@@ -43,10 +43,20 @@ class MinervaConfig:
         vault_root = os.getenv("OBSIDIAN_VAULT_ROOT")
         default_vault = os.getenv("DEFAULT_VAULT")
 
-        if not vault_root or not default_vault:
+        missing_vars = []
+        if not vault_root:
+            missing_vars.append("OBSIDIAN_VAULT_ROOT")
+        if not default_vault:
+            missing_vars.append("DEFAULT_VAULT")
+
+        if missing_vars:
             raise ValueError(
-                "Required environment variables not set: OBSIDIAN_VAULT_ROOT and DEFAULT_VAULT must be provided"
+                f"Required environment variables not set: {', '.join(missing_vars)} must be provided"
             )
+
+        # At this point, we know vault_root and default_vault are not None
+        assert vault_root is not None
+        assert default_vault is not None
 
         return cls(
             vault_path=Path(vault_root) / default_vault,
