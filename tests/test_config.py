@@ -7,11 +7,11 @@ import unittest
 from unittest import mock
 from pathlib import Path
 
-from minerva import config
+from minerva.config import MinervaConfig
 
 
-class TestConfig(unittest.TestCase):
-    """Test suite for config module."""
+class TestMinervaConfig(unittest.TestCase):
+    """Test suite for MinervaConfig class."""
 
     @mock.patch.dict(
         os.environ,
@@ -23,19 +23,15 @@ class TestConfig(unittest.TestCase):
         },
         clear=True,
     )
-    def test_config_with_all_env_variables(self):
+    def test_config_from_env_with_all_variables(self):
         """Test loading configuration with all environment variables set."""
-        # We need to reload the module to apply the patched environment variables
-        import importlib
-
-        importlib.reload(config)
+        config = MinervaConfig.from_env()
 
         # Verify the config values reflect environment variables
-        self.assertEqual(config.OBSIDIAN_VAULT_ROOT, "/test/vault")
-        self.assertEqual(config.DEFAULT_VAULT, "test_vault")
-        self.assertEqual(config.VAULT_PATH, Path("/test/vault/test_vault"))
-        self.assertEqual(config.DEFAULT_NOTE_DIR, "test_notes")
-        self.assertEqual(config.DEFAULT_NOTE_AUTHOR, "Test Author")
+        self.assertEqual(config.vault_path, Path("/test/vault/test_vault"))
+        self.assertEqual(config.default_note_dir, "test_notes")
+        self.assertEqual(config.default_author, "Test Author")
+        self.assertEqual(config.encoding, "utf-8")
 
     @mock.patch.dict(
         os.environ,
@@ -45,18 +41,39 @@ class TestConfig(unittest.TestCase):
         },
         clear=True,
     )
-    def test_config_with_minimal_env_variables(self):
-        """Test loading configuration with only required environment variables."""
-        # We need to reload the module to apply the patched environment variables
-        import importlib
+    def test_config_from_env_with_minimal_variables(self):
+        """Test loading configuration with minimal environment variables set."""
+        config = MinervaConfig.from_env()
 
-        importlib.reload(config)
+        # Verify the config values with defaults
+        self.assertEqual(config.vault_path, Path("/test/vault/test_vault"))
+        self.assertEqual(config.default_note_dir, "default_notes")  # default value
+        self.assertEqual(config.default_author, "Minerva")  # default value
+        self.assertEqual(config.encoding, "utf-8")
 
-        # Verify required values are set
-        self.assertEqual(config.OBSIDIAN_VAULT_ROOT, "/test/vault")
-        self.assertEqual(config.DEFAULT_VAULT, "test_vault")
-        self.assertEqual(config.VAULT_PATH, Path("/test/vault/test_vault"))
+    def test_config_from_env_missing_required_variables(self):
+        """Test that missing required environment variables raise ValueError."""
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(ValueError) as context:
+                MinervaConfig.from_env()
 
-        # Verify default values are used for optional values (not checking specific values)
-        self.assertIsInstance(config.DEFAULT_NOTE_DIR, str)
-        self.assertIsInstance(config.DEFAULT_NOTE_AUTHOR, str)
+            error_message = str(context.exception)
+            self.assertIn("OBSIDIAN_VAULT_ROOT", error_message)
+            self.assertIn("DEFAULT_VAULT", error_message)
+
+    def test_config_direct_initialization(self):
+        """Test direct initialization of MinervaConfig."""
+        config = MinervaConfig(
+            vault_path=Path("/custom/vault"),
+            default_note_dir="custom_notes",
+            default_author="Custom Author",
+        )
+
+        self.assertEqual(config.vault_path, Path("/custom/vault"))
+        self.assertEqual(config.default_note_dir, "custom_notes")
+        self.assertEqual(config.default_author, "Custom Author")
+        self.assertEqual(config.encoding, "utf-8")  # default value
+
+
+if __name__ == "__main__":
+    unittest.main()

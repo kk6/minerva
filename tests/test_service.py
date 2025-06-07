@@ -54,17 +54,6 @@ class TestMinervaConfig:
             assert config.default_note_dir == "default_notes"
             assert config.default_author == "Minerva"
 
-    def test_from_legacy_globals(self):
-        """Test configuration creation from legacy globals."""
-        with patch("minerva.config.VAULT_PATH", Path("/legacy/path")):
-            with patch("minerva.config.DEFAULT_NOTE_DIR", "legacy_notes"):
-                with patch("minerva.config.DEFAULT_NOTE_AUTHOR", "Legacy Author"):
-                    config = MinervaConfig.from_legacy_globals()
-
-                    assert config.vault_path == Path("/legacy/path")
-                    assert config.default_note_dir == "legacy_notes"
-                    assert config.default_author == "Legacy Author"
-
 
 class TestMinervaService:
     """Test MinervaService class functionality."""
@@ -602,3 +591,238 @@ class TestServiceFactoryFunction:
 
         with pytest.raises(Exception, match="FM error"):
             create_minerva_service()
+
+
+class TestMinervaServiceNewTagOperations:
+    """Test the newly added tag operation methods."""
+
+    @pytest.fixture
+    def temp_vault(self):
+        """Create a temporary vault for testing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            vault_path = Path(tmpdir)
+            yield vault_path
+
+    @pytest.fixture
+    def config(self, temp_vault):
+        """Create a test configuration."""
+        return MinervaConfig(
+            vault_path=temp_vault,
+            default_note_dir="test_notes",
+            default_author="Test Author",
+        )
+
+    @pytest.fixture
+    def service(self, config):
+        """Create a MinervaService instance for testing."""
+        frontmatter_manager = FrontmatterManager("Test Author")
+        return MinervaService(config, frontmatter_manager)
+
+    def test_rename_tag_success(self, service):
+        """Test successful tag renaming."""
+        # Create test note with tags
+        note_content = "Test note content"
+        service.create_note(note_content, "test_note")
+        service.add_tag("old-tag", filename="test_note")
+
+        # Rename tag
+        modified_files = service.rename_tag("old-tag", "new-tag")
+
+        # Assert
+        assert len(modified_files) == 1
+        tags = service.get_tags(filename="test_note")
+        assert "new-tag" in tags
+        assert "old-tag" not in tags
+
+    def test_rename_tag_same_normalized(self, service):
+        """Test renaming tag to same normalized form."""
+        result = service.rename_tag("test-tag", "test-tag")
+        assert result == []
+
+    def test_rename_tag_invalid_new_tag(self, service):
+        """Test renaming to invalid tag."""
+        with pytest.raises(ValueError, match="Invalid new_tag"):
+            service.rename_tag("old-tag", "")
+
+    def test_rename_tag_nonexistent_directory(self, service):
+        """Test renaming tag in nonexistent directory."""
+        with pytest.raises(FileNotFoundError):
+            service.rename_tag("old-tag", "new-tag", "/nonexistent/directory")
+
+    def test_list_all_tags_success(self, service):
+        """Test successful listing of all tags."""
+        # Create notes with different tags
+        service.create_note("Content 1", "note1")
+        service.add_tag("tag1", filename="note1")
+        service.add_tag("tag2", filename="note1")
+
+        service.create_note("Content 2", "note2")
+        service.add_tag("tag2", filename="note2")
+        service.add_tag("tag3", filename="note2")
+
+        # List all tags
+        all_tags = service.list_all_tags()
+
+        # Assert
+        assert "tag1" in all_tags
+        assert "tag2" in all_tags
+        assert "tag3" in all_tags
+        assert len(set(all_tags)) == 3  # Should be unique
+
+    def test_list_all_tags_nonexistent_directory(self, service):
+        """Test listing tags in nonexistent directory."""
+        with pytest.raises(FileNotFoundError):
+            service.list_all_tags("/nonexistent/directory")
+
+    def test_list_all_tags_empty_vault(self, service):
+        """Test listing tags in empty vault."""
+        all_tags = service.list_all_tags()
+        assert all_tags == []
+
+    def test_find_notes_with_tag_success(self, service):
+        """Test successfully finding notes with specific tag."""
+        # Create notes with tags
+        service.create_note("Content 1", "note1")
+        service.add_tag("target-tag", filename="note1")
+
+        service.create_note("Content 2", "note2")
+        service.add_tag("other-tag", filename="note2")
+
+        service.create_note("Content 3", "note3")
+        service.add_tag("target-tag", filename="note3")
+
+        # Find notes with specific tag
+        notes_with_tag = service.find_notes_with_tag("target-tag")
+
+        # Assert
+        assert len(notes_with_tag) == 2
+        note_names = [Path(path).stem for path in notes_with_tag]
+        assert "note1" in note_names
+        assert "note3" in note_names
+        assert "note2" not in note_names
+
+    def test_find_notes_with_tag_empty_tag(self, service):
+        """Test finding notes with empty tag."""
+        result = service.find_notes_with_tag("")
+        assert result == []
+
+    def test_find_notes_with_tag_nonexistent_directory(self, service):
+        """Test finding notes in nonexistent directory."""
+        with pytest.raises(FileNotFoundError):
+            service.find_notes_with_tag("tag", "/nonexistent/directory")
+
+    def test_find_notes_with_tag_no_matches(self, service):
+        """Test finding notes when no matches exist."""
+        service.create_note("Content", "note1")
+        service.add_tag("different-tag", filename="note1")
+
+        result = service.find_notes_with_tag("target-tag")
+        assert result == []
+
+    def test_rename_tag_in_file_no_tags(self, service):
+        """Test renaming tag in file that has no tags."""
+        service.create_note("Content", "note1")
+
+        # Should return False when no tags exist
+        result = service._rename_tag_in_file(
+            service.config.vault_path / "test_notes" / "note1.md", "old-tag", "new-tag"
+        )
+        assert result is False
+
+    def test_rename_tag_in_file_tag_not_found(self, service):
+        """Test renaming tag that doesn't exist in file."""
+        service.create_note("Content", "note1")
+        service.add_tag("existing-tag", filename="note1")
+
+        # Should return False when target tag doesn't exist
+        result = service._rename_tag_in_file(
+            service.config.vault_path / "test_notes" / "note1.md",
+            "nonexistent-tag",
+            "new-tag",
+        )
+        assert result is False
+
+    def test_search_notes_empty_query(self, service):
+        """Test search with empty query raises ValueError."""
+        with pytest.raises(ValueError, match="Query cannot be empty"):
+            service.search_notes("")
+
+    def test_get_note_delete_confirmation_neither_param(self, service):
+        """Test delete confirmation when neither filename nor filepath provided."""
+        with pytest.raises(
+            ValueError, match="Either filename or filepath must be provided"
+        ):
+            service.get_note_delete_confirmation()
+
+    def test_perform_note_delete_neither_param(self, service):
+        """Test note deletion when neither filename nor filepath provided."""
+        with pytest.raises(
+            ValueError, match="Either filename or filepath must be provided"
+        ):
+            service.perform_note_delete()
+
+    def test_build_file_path_empty_filename(self, service):
+        """Test building file path with empty filename."""
+        with pytest.raises(ValueError, match="Filename cannot be empty"):
+            service._build_file_path("")
+
+    def test_resolve_note_file_neither_param(self, service):
+        """Test resolving note file when neither parameter provided."""
+        with pytest.raises(
+            ValueError, match="Either filename or filepath must be provided"
+        ):
+            service._resolve_note_file(None, None, None)
+
+    def test_add_tag_already_exists(self, service):
+        """Test adding tag that already exists (should still update file)."""
+        service.create_note("Content", "note1")
+        service.add_tag("existing-tag", filename="note1")
+
+        # Add same tag again - should not fail and should update file
+        result = service.add_tag("existing-tag", filename="note1")
+        assert result is not None
+
+        tags = service.get_tags(filename="note1")
+        assert "existing-tag" in tags
+
+    def test_get_tags_with_exception(self, service):
+        """Test get_tags when an exception occurs during processing."""
+        # Create a note first
+        service.create_note("Content", "note1")
+
+        # Mock the _resolve_note_file to raise an exception
+        with patch.object(
+            service, "_resolve_note_file", side_effect=Exception("Test error")
+        ):
+            result = service.get_tags(filename="note1")
+            assert result == []  # Should return empty list on exception
+
+    def test_rename_tag_in_file_with_exception(self, service):
+        """Test _rename_tag_in_file when an exception occurs."""
+        service.create_note("Content", "note1")
+        file_path = service.config.vault_path / "test_notes" / "note1.md"
+
+        # Mock _load_note_with_tags to raise an exception
+        with patch.object(
+            service, "_load_note_with_tags", side_effect=Exception("Test error")
+        ):
+            result = service._rename_tag_in_file(file_path, "old-tag", "new-tag")
+            assert result is False
+
+    def test_get_note_delete_confirmation_filename_none_branch(self, service):
+        """Test get_note_delete_confirmation when filename is None in filepath branch."""
+        service.create_note("Content", "note1")
+        file_path = service.config.vault_path / "test_notes" / "note1.md"
+
+        # Should work with filepath
+        result = service.get_note_delete_confirmation(filepath=str(file_path))
+        assert "file_path" in result
+
+    def test_perform_note_delete_filename_none_branch(self, service):
+        """Test perform_note_delete when filename is None in filepath branch."""
+        service.create_note("Content", "note1")
+        file_path = service.config.vault_path / "test_notes" / "note1.md"
+
+        # Should work with filepath
+        result = service.perform_note_delete(filepath=str(file_path))
+        assert result == file_path

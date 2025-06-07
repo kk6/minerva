@@ -24,9 +24,9 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
   - `MinervaService`: Main service class containing all note operations
   - `MinervaConfig`: Configuration dataclass for dependency injection
   - `create_minerva_service()`: Factory function for service creation
-- **Tools**: API wrapper layer (`tools.py`) maintaining backward compatibility
-  - Legacy function-based API for existing integrations
-  - Service wrapper functions with dependency injection support
+- **Tools**: Clean service-based API layer (`tools.py`)
+  - Service-based tool functions for MCP integration
+  - All functions require MinervaService instance as first parameter
 - **File Handler**: Low-level file operations (`file_handler.py`)
 - **Frontmatter Manager**: Centralized frontmatter processing (`frontmatter_manager.py`)
 - **Config**: Environment and configuration management (`config.py`)
@@ -39,8 +39,7 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 - Two-phase deletion process for safety
 - Automatic frontmatter generation with metadata
 - **Dependency injection architecture** for improved testability and extensibility
-- **Backward compatibility** maintained for existing API consumers
-- **Service-based architecture** with clear separation of concerns
+- **Clean service-based architecture** with clear separation of concerns
 
 ## Code Style Guidelines
 - Python 3.12+ compatibility required
@@ -91,10 +90,10 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 - **Test coverage target**: Maintain 92%+ code coverage
 - **Service testing**: Test both service layer and wrapper functions
 
-## Dependency Injection Usage
+## Service-Based Architecture
 
-### Service Layer
-The new service layer provides dependency injection for improved testability:
+### Service Layer Usage
+The service layer provides clean dependency injection:
 
 ```python
 from minerva.service import create_minerva_service, MinervaService
@@ -114,31 +113,51 @@ frontmatter_manager = FrontmatterManager("Custom Author")
 service = MinervaService(config, frontmatter_manager)
 ```
 
-### Testing with Dependency Injection
-For testing, you can inject mock dependencies:
+### Tool Functions
+Tool functions are available in two forms:
 
+1. **Direct service-based API**: Functions that require a service instance as the first parameter
 ```python
-from minerva.tools import set_service_instance
-
-# Set custom service for testing
-mock_service = Mock(spec=MinervaService)
-set_service_instance(mock_service)
-
-# Your tests will now use the mock service
-# Reset after testing
-set_service_instance(None)
-```
-
-### Backward Compatibility
-Existing function-based API continues to work unchanged:
-
-```python
+from minerva.service import create_minerva_service
 from minerva.tools import create_note, read_note
 
-# This still works exactly as before
-note_path = create_note("content", "filename")
-content = read_note(str(note_path))
+# Create service instance
+service = create_minerva_service()
+
+# Use service with tool functions
+note_path = create_note(service, "content", "filename")
+content = read_note(service, str(note_path))
 ```
+
+2. **MCP Server Integration**: The server.py creates wrapper functions with service pre-bound for MCP
+```python
+# In server.py - service is bound automatically
+def read_note(filepath: str) -> str:
+    return _read_note(service, filepath)
+```
+
+### Testing with Dependency Injection
+For testing, create mock service instances:
+
+```python
+from unittest.mock import Mock
+from minerva.service import MinervaService
+from minerva.tools import create_note
+
+# Create mock service for testing
+mock_service = Mock(spec=MinervaService)
+mock_service.create_note.return_value = Path("/fake/path")
+
+# Use mock service in tests
+result = create_note(mock_service, "test", "filename")
+mock_service.create_note.assert_called_once_with("test", "filename", None, None)
+```
+
+### Key Improvements
+- **Clean dependency injection**: Explicit service dependencies for better testability
+- **Reduced global state**: Configuration through service instances instead of global variables
+- **Improved architecture**: Clear separation between service layer and tool layer
+- **MCP server integration**: Wrapper functions with pre-bound service instances for clean API
 
 ## Environment Setup
 Required environment variables in `.env`:
