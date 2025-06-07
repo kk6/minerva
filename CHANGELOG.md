@@ -1,6 +1,53 @@
 # CHANGELOG
 
 
+## v0.7.0 (2025-06-07)
+
+### Bug Fixes
+
+- **service**: Validate old_tag in rename_tag method and normalize new_tag correctly
+  ([`d0716ea`](https://github.com/kk6/minerva/commit/d0716eaefd20e75cf7b140d87f33c89597133b65))
+
+### Features
+
+- Implement clean service-based architecture (v0.7.0)
+  ([`06136b9`](https://github.com/kk6/minerva/commit/06136b9c10c055f4f89223609e821a629ce9d230))
+
+This update introduces a cleaner architecture with dependency injection:
+
+- Remove legacy global configuration variables - Implement clean service-based API with explicit
+  dependencies - Remove legacy service instance management and Pydantic request classes - Create MCP
+  server wrapper functions with pre-bound service instances - Update documentation to reflect new
+  architecture
+
+Key improvements: - Better testability through dependency injection - Reduced global state and
+  improved separation of concerns - Clean MCP integration with automatic service binding
+
+Core functionality verified with 73 passing tests. Tool layer tests removed and will be rebuilt for
+  new architecture.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Testing
+
+- Implement comprehensive tool layer test suite with 95% coverage
+  ([`66f2ffd`](https://github.com/kk6/minerva/commit/66f2ffd90e9f37066ee4414f33b3974432eea347))
+
+Add extensive test coverage for the new dependency injection architecture: - Tool layer unit tests
+  (16 tests) verifying function delegation - Tool layer integration tests (11 tests) with real
+  service instances - MCP server integration tests (9 tests) for wrapper function validation -
+  Service layer tests expanded with 18 additional tests for new tag operations
+
+Improves overall test coverage from 82% to 95% (service.py from 65% to 98%). Ensures quality and
+  reliability of the clean service-based architecture.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.6.0 (2025-06-07)
 
 ### Bug Fixes
