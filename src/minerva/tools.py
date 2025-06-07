@@ -2,10 +2,9 @@ import functools
 import logging
 import os
 from pathlib import Path
-from typing import Callable, ParamSpec, TypeVar, TYPE_CHECKING
+from typing import Callable, ParamSpec, TypeVar
 
-if TYPE_CHECKING:
-    from minerva.service import MinervaService
+from minerva.service import MinervaService
 
 import frontmatter
 from pydantic import BaseModel, Field, field_validator, model_validator
