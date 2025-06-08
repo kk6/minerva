@@ -46,14 +46,4 @@ jobs:
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          uv run python -m semantic_release version
-          # Check if the version file or pyproject.toml has changed
-          git status --porcelain
-          # If there are changes, commit them
-          if [[ -n $(git status --porcelain) ]]; then
-            git add src/minerva/__version__.py pyproject.toml
-            VERSION=$(grep -o '".*"' src/minerva/__version__.py | tr -d '"')
-            git commit -m "chore(release): update version to $VERSION [skip ci]"
-            git push
-          fi
           uv run python -m semantic_release publish

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "minerva"
-version = "0.7.0"
+version = "0.9.1"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -82,7 +82,9 @@ minerva = "minerva.__main__:main"
 package = true
 
 [tool.semantic_release]
-version_variable = ["src/minerva/__version__.py:__version__", "pyproject.toml:version"]
+version_variables = ["src/minerva/__version__.py:__version__", "pyproject.toml:version"]
 branch = "main"
 commit_message = "chore(release): {version} [skip ci]"
 build_command = "uv build"
+changelog_file = "CHANGELOG.md"
+upload_to_vcs_release = true
