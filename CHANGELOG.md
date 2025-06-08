@@ -1,6 +1,58 @@
 # CHANGELOG
 
 
+## v0.8.0 (2025-06-08)
+
+### Bug Fixes
+
+- Add missing environment variables to CI workflows
+  ([`aee2b97`](https://github.com/kk6/minerva/commit/aee2b97491c723215a86b9eba52a6c26e7f31fdd))
+
+- Add required environment variables (OBSIDIAN_VAULT_ROOT, DEFAULT_VAULT, etc.) to quality-checks
+  job in ci.yml - Add same environment variables to pre-commit job in pr-checks.yml - Fixes CI
+  failure: ValueError: Required environment variables not set
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Chores
+
+- Bump version 0.7.0
+  ([`42a3f98`](https://github.com/kk6/minerva/commit/42a3f98d447ba64d5b940d0efc30d034739bec74))
+
+- Update minerva version to 0.7.0 in uv.lock
+  ([`64cf483`](https://github.com/kk6/minerva/commit/64cf483af85eab538e5a891abc0a9d7828c4b9ac))
+
+### Continuous Integration
+
+- Set uv version 0.7.12
+  ([`73e9f6a`](https://github.com/kk6/minerva/commit/73e9f6ab76eeab0369ce59d0fad313bcdc415ac1))
+
+### Documentation
+
+- Claude.mdに開発ワークフローに関する重要なガイドラインを追加
+  ([`b72e283`](https://github.com/kk6/minerva/commit/b72e28311f2392791b9888acae5dbe88378e35df))
+
+### Features
+
+- Implement Makefile-based development task automation
+  ([`977d326`](https://github.com/kk6/minerva/commit/977d326d494a1cadb45da8dd1e27ee7be949a96c))
+
+- Add comprehensive Makefile with color-coded help system - Provide unified interface for common
+  development commands (install, test, lint, format, etc.) - Update GitHub Actions workflows to use
+  Makefile commands - Consolidate lint and type-check jobs into quality-checks job - Add ACT
+  compatibility with env.ACT conditions - Update documentation to promote Makefile usage as
+  recommended approach - Fix trailing whitespace implementation using pre-commit hooks - Resolve
+  character deletion issues with cross-platform compatibility
+
+Closes #44
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.7.0 (2025-06-07)
 
 ### Bug Fixes
