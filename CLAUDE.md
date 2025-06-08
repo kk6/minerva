@@ -6,6 +6,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Minerva is a tool that integrates with Claude Desktop to automate tasks such as exporting Markdown documents from chat conversations. It provides MCP (Model Context Protocol) server functionality for Obsidian vault management.
 
 ## Build/Test/Lint Commands
+
+### Using Makefile (Recommended)
+For a unified development experience, use the Makefile commands:
+
+- **Development Environment**:
+  - Install dependencies: `make install`
+  - Set up development environment: `make setup-dev`
+  - Clean build artifacts: `make clean`
+
+- **Testing**:
+  - Run all tests: `make test`
+  - Run tests with coverage: `make test-cov`
+  - Run comprehensive quality checks: `make check-all`
+
+- **Code Quality**:
+  - Run linting: `make lint`
+  - Run type checking: `make type-check`
+  - Format code: `make format`
+  - Fix trailing whitespace: `make fix-whitespace`
+  - Run pre-commit hooks: `make pre-commit`
+
+- **Development Tools**:
+  - Start MCP inspector: `make dev`
+  - Show all available commands: `make help`
+
+### Direct uv Commands (Alternative)
+If you prefer to use uv commands directly:
+
 - Install dependencies: `uv pip install -e ".[dev]"`
 - Run all tests: `uv run pytest`
 - Run single test: `uv run pytest tests/path/to/test.py::TestClass::test_method`

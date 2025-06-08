@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: Lint and Format Check
+  quality-checks:
+    name: Code Quality Checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -22,45 +22,24 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "latest"
+          version: "0.7.12"
 
       - name: Set up Python
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: |
-          uv sync --dev
+        run: uv sync --dev
 
-      - name: Run Ruff linting
-        run: |
-          uv run ruff check src/ tests/
+      - name: Install project with Makefile support
+        run: make install
 
-      - name: Run Ruff format check
-        run: |
-          uv run ruff format --check src/ tests/
-
-  type-check:
-    name: Type Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: "latest"
-
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install dependencies
-        run: |
-          uv sync --dev
-
-      - name: Run MyPy type checking
-        run: |
-          uv run mypy src tests
+      - name: Run comprehensive quality checks
+        run: make check-all
+        env:
+          OBSIDIAN_VAULT_ROOT: /tmp/obsidian-vault
+          DEFAULT_VAULT: test-vault
+          DEFAULT_NOTE_DIR: test-notes
+          DEFAULT_NOTE_AUTHOR: test-author
 
   test:
     name: Test
@@ -75,27 +54,27 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "latest"
+          version: "0.7.12"
 
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: |
-          uv sync --dev
+        run: uv sync --dev
+
+      - name: Install project with Makefile support
+        run: make install
 
       - name: Run tests with coverage
-        run: |
-          uv run pytest --cov=minerva --cov-report=xml --cov-report=html --cov-report=term
+        run: make test-cov
         env:
-          PYTHONPATH: src
           OBSIDIAN_VAULT_ROOT: /tmp/obsidian-vault
           DEFAULT_VAULT: test-vault
           DEFAULT_NOTE_DIR: test-notes
           DEFAULT_NOTE_AUTHOR: test-author
 
       - name: Upload coverage reports to Codecov
-        if: matrix.python-version == '3.12'
+        if: matrix.python-version == '3.12' && !env.ACT
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
@@ -104,7 +83,7 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload HTML coverage report
-        if: matrix.python-version == '3.12'
+        if: matrix.python-version == '3.12' && !env.ACT
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
