@@ -248,7 +248,8 @@ def add_tag(
         Path to the modified note file
 
     Note:
-        If the tag already exists on the note, no changes are made
+        If the tag already exists, the tag list remains unchanged but the note's
+        timestamp is still updated
     """
     return _add_tag(service, tag, filename, filepath, default_path)
 
@@ -279,7 +280,8 @@ def remove_tag(
         Path to the modified note file
 
     Note:
-        If the tag doesn't exist on the note, no changes are made
+        If the tag doesn't exist, the tag list remains unchanged but the note's
+        timestamp is still updated
     """
     return _remove_tag(service, tag, filename, filepath, default_path)
 
