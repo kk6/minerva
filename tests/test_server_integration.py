@@ -119,7 +119,7 @@ class TestMCPServerIntegration:
         """Test that server handles service creation errors gracefully."""
         # Test with missing required environment variables
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(Exception):
+            with pytest.raises(ValueError):
                 # This should raise an exception due to missing env vars
                 import importlib
                 from minerva import server

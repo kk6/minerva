@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 import pytest
 
+from minerva.exceptions import NoteNotFoundError
 from minerva.service import create_minerva_service, MinervaService
 from minerva.config import MinervaConfig
 from minerva.frontmatter_manager import FrontmatterManager
@@ -161,15 +162,15 @@ class TestToolsServiceIntegration:
     def test_error_handling_integration(self, test_service):
         """Test error handling through the tools API."""
         # Test reading non-existent file
-        with pytest.raises((FileNotFoundError, Exception)):
+        with pytest.raises((FileNotFoundError, NoteNotFoundError)):
             read_note(test_service, "/non/existent/file.md")
 
         # Test editing non-existent file
-        with pytest.raises((FileNotFoundError, Exception)):
+        with pytest.raises((FileNotFoundError, NoteNotFoundError)):
             edit_note(test_service, "content", "non_existent_file")
 
         # Test deleting non-existent file
-        with pytest.raises((FileNotFoundError, Exception)):
+        with pytest.raises((FileNotFoundError, NoteNotFoundError)):
             get_note_delete_confirmation(test_service, filename="non_existent_file")
 
 

@@ -179,12 +179,17 @@ class TestServiceErrorHandling:
 
     def test_tag_validation_in_add_tag(self, service):
         """Test that tag validation is integrated."""
-        # Test that some exception is raised for invalid tags
-        with pytest.raises(Exception):
-            service.add_tag("", filename="test.md")
+        # Test internal tag validation methods directly
+        # since add_tag requires an existing file
 
-        with pytest.raises(Exception):
-            service.add_tag("invalid tag with spaces", filename="test.md")
+        # Test empty tag validation
+        assert not service._validate_tag("")
+
+        # Test invalid tag with forbidden characters (comma is forbidden)
+        from minerva.validators import TagValidator
+
+        with pytest.raises(ValueError):
+            TagValidator.validate_tag("invalid,tag")
 
     def test_multiple_validation_failures(self, service):
         """Test that first validation error is raised when multiple validators fail."""
