@@ -55,6 +55,7 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 - **CRITICAL**: Remove all trailing whitespace from files before committing - CI checks will fail otherwise
 
 ## Development Workflow
+- **CRITICAL**: Always create a topic branch from the latest main branch before starting work
 - Always check `.github/instructions/` for custom instructions at the beginning of coding
 - After consulting custom instructions, refer to documentation in `docs/` directory and README.md
 - Follow a document-first approach: create documentation as part of implementation planning and ask for user review
