@@ -8,7 +8,7 @@ import functools
 import logging
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TypeVar, Union
+from typing import Any, Callable, Dict, Optional, TypeVar, Union, cast
 
 from .exceptions import (
     NoteExistsError,
@@ -38,7 +38,7 @@ class MinervaErrorHandler:
         self.vault_path = vault_path
         self.performance_threshold_ms = 1000  # Log operations > 1 second
 
-    def sanitize_path(self, path: Union[str, Path]) -> str:
+    def sanitize_path(self, path: Union[str, Path, None]) -> str:
         """Sanitize file paths for secure logging.
 
         Removes or masks sensitive parts of file paths to prevent
@@ -89,7 +89,7 @@ class MinervaErrorHandler:
             elif key in ("password", "token", "secret", "key"):
                 context[key] = "<redacted>"
             else:
-                context[key] = str(value) if value is not None else None
+                context[key] = str(value) if value is not None else ""
 
         return context
 
@@ -143,7 +143,7 @@ def handle_file_operations() -> Callable[[F], F]:
                     operation=operation,
                 ) from e
 
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator
 
@@ -181,7 +181,7 @@ def validate_inputs(*validation_functions: Callable[..., None]) -> Callable[[F],
                 logger.warning("Input validation failed in %s: %s", operation, str(e))
                 raise ValidationError(f"Invalid input: {e}", operation=operation) from e
 
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator
 
@@ -225,7 +225,7 @@ def log_performance(threshold_ms: int = 1000) -> Callable[[F], F]:
                 )
                 raise
 
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator
 
@@ -271,6 +271,6 @@ def safe_operation(
 
                 return default_return
 
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator

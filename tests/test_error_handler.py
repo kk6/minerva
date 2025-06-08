@@ -101,7 +101,7 @@ class TestMinervaErrorHandler:
         )
 
         assert context["file_path"] == "<empty>"  # None values get sanitized to <empty>
-        assert context["optional_param"] is None
+        assert context["optional_param"] == ""  # None values become empty strings
 
 
 class TestHandleFileOperationsDecorator:

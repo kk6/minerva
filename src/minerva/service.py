@@ -8,7 +8,7 @@ coordination point between configuration, file handling, and frontmatter managem
 
 import logging
 from pathlib import Path
-from typing import ParamSpec, TypeVar
+from typing import ParamSpec, TypeVar, Any
 
 import frontmatter
 
@@ -43,7 +43,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def _validate_filename(*args, **kwargs) -> None:  # ignore-type[no-untyped-def]
+def _validate_filename(*args: Any, **kwargs: Any) -> None:
     """Validate filename parameter is not empty."""
     # For create_note/edit_note: self, text, filename, author=None, default_path=None
     filename = None
@@ -56,7 +56,7 @@ def _validate_filename(*args, **kwargs) -> None:  # ignore-type[no-untyped-def]
         raise ValidationError("Filename cannot be empty or whitespace")
 
 
-def _validate_text_content(*args, **kwargs) -> None:  # ignore-type[no-untyped-def]
+def _validate_text_content(*args: Any, **kwargs: Any) -> None:
     """Validate text content parameter is not empty."""
     # For create_note/edit_note: self, text, filename, author=None, default_path=None
     text = None
@@ -69,7 +69,7 @@ def _validate_text_content(*args, **kwargs) -> None:  # ignore-type[no-untyped-d
         raise ValidationError("Text content cannot be empty or whitespace")
 
 
-def _validate_search_query(*args, **kwargs) -> None:  # ignore-type[no-untyped-def]
+def _validate_search_query(*args: Any, **kwargs: Any) -> None:
     """Validate search query parameter is not empty."""
     # For search_notes: self, query, case_sensitive=True
     query = None
