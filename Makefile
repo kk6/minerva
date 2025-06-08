@@ -44,7 +44,8 @@ help: ## Display this help message
 
 install: ## Install project dependencies
 	@echo "$(BLUE)Installing dependencies...$(RESET)"
-	uv pip install -e ".[dev]"
+	uv pip install -e .
+	uv sync --group dev
 	@echo "$(GREEN)Dependencies installed successfully$(RESET)"
 
 setup-dev: install ## Set up complete development environment
@@ -57,11 +58,11 @@ setup-dev: install ## Set up complete development environment
 
 test: ## Run all tests
 	@echo "$(BLUE)Running tests...$(RESET)"
-	uv run pytest
+	PYTHONPATH=src uv run pytest
 
 test-cov: ## Run tests with coverage report
 	@echo "$(BLUE)Running tests with coverage...$(RESET)"
-	uv run pytest --cov=minerva --cov-report=xml --cov-report=html --cov-report=term
+	PYTHONPATH=src uv run pytest --cov=minerva --cov-report=xml --cov-report=html --cov-report=term
 	@echo "$(GREEN)Coverage report generated in htmlcov/$(RESET)"
 
 lint: ## Run code linting with ruff
@@ -70,7 +71,7 @@ lint: ## Run code linting with ruff
 
 type-check: ## Run type checking with mypy
 	@echo "$(BLUE)Running type checking...$(RESET)"
-	uv run mypy src tests
+	PYTHONPATH=src uv run mypy src tests
 
 format: ## Format code with ruff
 	@echo "$(BLUE)Formatting code...$(RESET)"
@@ -82,7 +83,7 @@ dev: ## Start MCP inspector for development
 		echo "$(RED)Error: .env file required for MCP inspector$(RESET)"; \
 		exit 1; \
 	fi
-	uv run mcp dev src/minerva/server.py:mcp
+	PYTHONPATH=src uv run mcp dev src/minerva/server.py:mcp
 
 clean: ## Clean build artifacts and cache
 	@echo "$(BLUE)Cleaning build artifacts...$(RESET)"
@@ -95,12 +96,12 @@ clean: ## Clean build artifacts and cache
 fix-whitespace: ## Fix trailing whitespace in source files
 	@echo "$(BLUE)Fixing trailing whitespace...$(RESET)"
 	@echo "$(YELLOW)Using pre-commit trailing-whitespace hook for safe whitespace removal$(RESET)"
-	uv run pre-commit run trailing-whitespace --all-files || true
+	PYTHONPATH=src uv run pre-commit run trailing-whitespace --all-files || true
 	@echo "$(GREEN)Trailing whitespace fixed$(RESET)"
 
 pre-commit: ## Run pre-commit hooks on all files
 	@echo "$(BLUE)Running pre-commit hooks...$(RESET)"
-	uv run pre-commit run --all-files
+	PYTHONPATH=src uv run pre-commit run --all-files
 	@echo "$(GREEN)Pre-commit checks passed!$(RESET)"
 
 check-all: lint type-check test ## Run comprehensive quality checks

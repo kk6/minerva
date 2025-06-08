@@ -13,6 +13,17 @@ from typing import ParamSpec, TypeVar
 import frontmatter
 
 from minerva.config import MinervaConfig
+from minerva.error_handler import (
+    MinervaErrorHandler,
+    handle_file_operations,
+    validate_inputs,
+    log_performance,
+    safe_operation,
+)
+from minerva.exceptions import (
+    NoteNotFoundError,
+    ValidationError,
+)
 from minerva.file_handler import (
     FileWriteRequest,
     FileReadRequest,
@@ -30,6 +41,63 @@ logger = logging.getLogger(__name__)
 # Type variables for decorator compatibility
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+def _validate_filename(*args, **kwargs) -> None:  # ignore-type[no-untyped-def]
+    """Validate filename parameter is not empty."""
+    # For create_note/edit_note: self, text, filename, author=None, default_path=None
+    filename = None
+    if len(args) >= 3:  # args[0] is self, args[1] is text, args[2] is filename
+        filename = args[2]
+    elif "filename" in kwargs:
+        filename = kwargs["filename"]
+
+    if filename is not None and not filename.strip():
+        raise ValidationError("Filename cannot be empty or whitespace")
+
+
+def _validate_text_content(*args, **kwargs) -> None:  # ignore-type[no-untyped-def]
+    """Validate text content parameter is not empty."""
+    # For create_note/edit_note: self, text, filename, author=None, default_path=None
+    text = None
+    if len(args) >= 2:  # args[0] is self, args[1] is text
+        text = args[1]
+    elif "text" in kwargs:
+        text = kwargs["text"]
+
+    if text is not None and not text.strip():
+        raise ValidationError("Text content cannot be empty or whitespace")
+
+
+def _validate_search_query(*args, **kwargs) -> None:  # ignore-type[no-untyped-def]
+    """Validate search query parameter is not empty."""
+    # For search_notes: self, query, case_sensitive=True
+    query = None
+    if len(args) >= 2:  # args[0] is self, args[1] is query
+        query = args[1]
+    elif "query" in kwargs:
+        query = kwargs["query"]
+
+    if query is not None and not query.strip():
+        raise ValidationError("Search query cannot be empty or whitespace")
+
+
+def _validate_tag(*args, **kwargs) -> None:  # ignore-type[no-untyped-def]
+    """Validate tag parameter."""
+    # For add_tag method: self, tag, filename=None, filepath=None, default_path=None
+    tag = None
+    if len(args) >= 2:  # args[0] is self, args[1] is tag
+        tag = args[1]
+    elif "tag" in kwargs:
+        tag = kwargs["tag"]
+
+    if tag is not None:
+        if not tag.strip():
+            raise ValidationError("Tag cannot be empty or whitespace")
+        try:
+            TagValidator.validate_tag(tag)
+        except ValueError as e:
+            raise ValidationError(f"Invalid tag: {e}") from e
 
 
 class MinervaService:
@@ -56,6 +124,7 @@ class MinervaService:
         """
         self.config = config
         self.frontmatter_manager = frontmatter_manager
+        self.error_handler = MinervaErrorHandler(vault_path=config.vault_path)
 
     def _build_file_path(
         self, filename: str, default_path: str | None = None
@@ -144,6 +213,9 @@ class MinervaService:
 
         return full_dir_path, base_filename, content
 
+    @log_performance(threshold_ms=500)
+    @validate_inputs(_validate_text_content, _validate_filename)
+    @handle_file_operations()
     def create_note(
         self,
         text: str,
@@ -189,6 +261,8 @@ class MinervaService:
         logger.info("New note created at %s", file_path)
         return file_path
 
+    @log_performance(threshold_ms=500)
+    @validate_inputs(_validate_text_content, _validate_filename)
     def edit_note(
         self,
         text: str,
@@ -241,6 +315,8 @@ class MinervaService:
         logger.info("Note edited at %s", file_path)
         return file_path
 
+    @log_performance(threshold_ms=200)
+    @handle_file_operations()
     def read_note(self, filepath: str) -> str:
         """
         Read a note from a file in the Obsidian vault.
@@ -263,6 +339,7 @@ class MinervaService:
         logger.info("File read from %s", filepath)
         return content
 
+    @log_performance(threshold_ms=1000)
     def search_notes(
         self, query: str, case_sensitive: bool = True
     ) -> list[SearchResult]:
@@ -276,7 +353,7 @@ class MinervaService:
         Returns:
             list[SearchResult]: A list of search results
         """
-        if not query:
+        if not query or not query.strip():
             raise ValueError("Query cannot be empty")
 
         search_config = SearchConfig(
@@ -445,6 +522,7 @@ class MinervaService:
 
         return write_file(file_write_request)
 
+    @log_performance(threshold_ms=300)
     def add_tag(
         self,
         tag: str,
@@ -537,6 +615,8 @@ class MinervaService:
 
         return written_path
 
+    @log_performance(threshold_ms=200)
+    @safe_operation(default_return=[], log_errors=True)
     def get_tags(
         self,
         filename: str | None = None,
@@ -554,26 +634,14 @@ class MinervaService:
         Returns:
             list[str]: A list of tag strings
         """
-        try:
-            file_path = self._resolve_note_file(filename, filepath, default_path)
+        file_path = self._resolve_note_file(filename, filepath, default_path)
 
-            if not file_path.exists():
-                logger.warning(
-                    "Get_tags: File %s not found. Returning empty list.", file_path
-                )
-                return []
+        if not file_path.exists():
+            raise NoteNotFoundError(f"File {file_path} not found")
 
-            _, tags = self._load_note_with_tags(file_path)
-            logger.info(
-                "Get_tags: Successfully retrieved tags %s from %s", tags, file_path
-            )
-            return tags
-
-        except Exception as e:
-            logger.error(
-                "Get_tags: Error processing file: %s. Returning empty list.", e
-            )
-            return []
+        _, tags = self._load_note_with_tags(file_path)
+        logger.info("Get_tags: Successfully retrieved tags %s from %s", tags, file_path)
+        return tags
 
     def rename_tag(
         self,

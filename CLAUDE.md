@@ -69,6 +69,29 @@ If you prefer to use uv commands directly:
 - **Dependency injection architecture** for improved testability and extensibility
 - **Clean service-based architecture** with clear separation of concerns
 
+## Language Usage Rules
+
+Follow the language conventions defined in `.github/instructions/language_rules.md`:
+
+### Code and Technical Content
+- **Source code comments and docstrings**: English only
+  - All inline comments, function/class docstrings, module docstrings
+  - Type hints and annotations
+- **Log messages**: English only
+- **System-level error messages**: English only
+- **Variable and function names**: English only (snake_case for Python)
+
+### User-Facing Documentation
+- **Documentation in `docs/` directory**: Japanese (with English technical terms)
+- **README.md and user guides**: Japanese (with English technical terms)
+- **User-facing error messages**: Japanese
+
+### File Format Requirements
+- **No trailing whitespace** in any file (Python, Markdown, YAML, etc.)
+- **Unix line endings (LF)** for all files
+- **Files must end with a newline character**
+- **UTF-8 encoding** for all text files
+
 ## Code Style Guidelines
 - Python 3.12+ compatibility required
 - Follow PEP 8 and AAA (Arrange-Act-Assert) pattern in tests
