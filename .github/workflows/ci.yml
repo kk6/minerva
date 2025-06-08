@@ -35,6 +35,11 @@ jobs:
 
       - name: Run comprehensive quality checks
         run: make check-all
+        env:
+          OBSIDIAN_VAULT_ROOT: /tmp/obsidian-vault
+          DEFAULT_VAULT: test-vault
+          DEFAULT_NOTE_DIR: test-notes
+          DEFAULT_NOTE_AUTHOR: test-author
 
   test:
     name: Test

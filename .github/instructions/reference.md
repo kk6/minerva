@@ -42,14 +42,18 @@ The Minerva project adopts a "Document-First" approach. Always update relevant d
 
 ### Using Makefile (Recommended)
 - `make help` - Show all available commands
+- `make install` - Install project dependencies
 - `make setup-dev` - Set up complete development environment
+- `make clean` - Clean build artifacts and cache
 - `make test` - Run all tests
 - `make test-cov` - Run tests with coverage
 - `make lint` - Run linting
 - `make type-check` - Run type checking
 - `make format` - Format code
+- `make fix-whitespace` - Fix trailing whitespace in source files
 - `make check-all` - Run comprehensive quality checks
 - `make pre-commit` - Run pre-commit hooks
+- `make dev` - Start MCP inspector for development
 
 ### Direct uv Commands (Alternative)
 - `uv run pytest` - Run tests

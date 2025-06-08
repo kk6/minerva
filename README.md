@@ -74,8 +74,14 @@ Minervaでは開発タスクの統一的なインターフェースとして、M
 # 利用可能なコマンドを表示
 make help
 
+# 依存関係のインストール
+make install
+
 # 開発環境のセットアップ
 make setup-dev
+
+# ビルドアーティファクトのクリーンアップ
+make clean
 
 # テストの実行
 make test

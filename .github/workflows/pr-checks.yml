@@ -96,7 +96,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
         with:
-          version: "latest"
+          version: "0.13.0"
 
       - name: Set up Python
         run: uv python install 3.12
@@ -109,6 +109,11 @@ jobs:
 
       - name: Run pre-commit
         run: make pre-commit
+        env:
+          OBSIDIAN_VAULT_ROOT: /tmp/obsidian-vault
+          DEFAULT_VAULT: test-vault
+          DEFAULT_NOTE_DIR: test-notes
+          DEFAULT_NOTE_AUTHOR: test-author
 
   file-format-check:
     name: Basic File Format Check
