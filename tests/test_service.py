@@ -11,6 +11,7 @@ import shutil
 from minerva.config import MinervaConfig
 from minerva.service import MinervaService, create_minerva_service
 from minerva.frontmatter_manager import FrontmatterManager
+from minerva.exceptions import NoteNotFoundError
 
 
 class TestMinervaConfig:
@@ -162,7 +163,7 @@ class TestMinervaService:
     def test_edit_note_not_found(self, service):
         """Test editing a non-existent note."""
         with patch("pathlib.Path.exists", return_value=False):
-            with pytest.raises(FileNotFoundError):
+            with pytest.raises(NoteNotFoundError):
                 service.edit_note("content", "nonexistent")
 
     @patch("minerva.file_handler.read_file")

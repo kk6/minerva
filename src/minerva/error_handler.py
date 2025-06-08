@@ -200,11 +200,11 @@ def log_performance(threshold_ms: int = 1000) -> Callable[[F], F]:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             operation = f"{func.__module__}.{func.__name__}"
-            start_time = time.time()
+            start_time = time.perf_counter()
 
             try:
                 result = func(*args, **kwargs)
-                execution_time_ms = (time.time() - start_time) * 1000
+                execution_time_ms = (time.perf_counter() - start_time) * 1000
 
                 if execution_time_ms > threshold_ms:
                     logger.info(
@@ -216,7 +216,7 @@ def log_performance(threshold_ms: int = 1000) -> Callable[[F], F]:
                 return result
 
             except Exception as e:
-                execution_time_ms = (time.time() - start_time) * 1000
+                execution_time_ms = (time.perf_counter() - start_time) * 1000
                 logger.error(
                     "Operation %s failed after %.2fms: %s",
                     operation,

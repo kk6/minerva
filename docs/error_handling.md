@@ -135,18 +135,34 @@ def get_tags(self, filepath):
 
 エラーハンドリングシステムは `MinervaService` メソッドに統合されています：
 
-### 例: create_note メソッド
+### 適用されているメソッド
+
+以下の主要メソッドにエラーハンドリングデコレーターが適用されています：
 
 ```python
+# ノート作成
 @log_performance(threshold_ms=500)
 @validate_inputs(_validate_text_content, _validate_filename)
 @handle_file_operations()
 def create_note(self, text: str, filename: str, ...):
     # メソッドの実装
+
+# ノート編集
+@log_performance(threshold_ms=500)
+@validate_inputs(_validate_text_content, _validate_filename)
+@handle_file_operations()
+def edit_note(self, text: str, filename: str, ...):
+    # メソッドの実装
+
+# ノート読み取り
+@log_performance(threshold_ms=200)
+@handle_file_operations()
+def read_note(self, filepath: str) -> str:
+    # メソッドの実装
 ```
 
 これにより以下が提供されます：
-- パフォーマンスログ記録（>500ms の場合ログ出力）
+- パフォーマンスログ記録（設定された閾値を超える場合）
 - 入力検証（テキストとファイル名をチェック）
 - ファイル操作のエラー変換
 - 一貫したエラーコンテキスト
@@ -197,6 +213,13 @@ context = handler.create_error_context(
 ```
 
 ## パフォーマンス監視
+
+### 高精度タイミング測定
+
+パフォーマンス測定には `time.perf_counter()` を使用しており、以下の利点があります：
+- 高解像度の単調増加タイマー
+- NTPジャンプやシステム時刻変更の影響を受けない
+- マイクロ秒単位の正確な測定
 
 ### 自動ログ記録
 
@@ -257,6 +280,12 @@ def get_optional_metadata(self, filepath):
 - **ERROR**: 操作完了を妨げる重大な障害
 - **WARNING**: 回復可能な問題、検証失敗
 - **INFO**: 成功した操作、パフォーマンス情報
+
+### 5. エラーハンドリングの一貫性を保つ
+
+- すべてのファイル操作メソッド（`create_note`、`edit_note`、`read_note`など）には`@handle_file_operations()`を適用
+- テストでは具体的なMinerva例外（`NoteNotFoundError`など）を期待し、汎用的な`Exception`は避ける
+- デコレーターの適用順序を統一：`@log_performance` → `@validate_inputs` → `@handle_file_operations`
 
 ## エラー回復パターン
 

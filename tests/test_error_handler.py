@@ -174,20 +174,24 @@ class TestHandleFileOperationsDecorator:
         assert result == "success"
 
 
+def _validator_not_empty(*args, **kwargs):
+    """Validator that checks if text is not empty."""
+    # args layout: (self, text, ...)
+    text = kwargs.get("text") or (args[1] if len(args) > 1 else None)
+    if not text or not text.strip():
+        raise ValidationError("Text cannot be empty")
+
+
+def _validator_positive_number(*args, **kwargs):
+    """Validator that checks if number is positive."""
+    # args layout: (self, text, number, …)
+    number = kwargs.get("number") or (args[2] if len(args) > 2 else None)
+    if number is not None and number <= 0:
+        raise ValidationError("Number must be positive")
+
+
 class TestValidateInputsDecorator:
     """Test cases for validate_inputs decorator."""
-
-    def _validator_not_empty(self, *args, **kwargs):
-        """Validator that checks if text is not empty."""
-        text = kwargs.get("text") or (args[0] if args else None)
-        if not text or not text.strip():
-            raise ValidationError("Text cannot be empty")
-
-    def _validator_positive_number(self, *args, **kwargs):
-        """Validator that checks if number is positive."""
-        number = kwargs.get("number") or (args[1] if len(args) > 1 else None)
-        if number is not None and number <= 0:
-            raise ValidationError("Number must be positive")
 
     @validate_inputs()
     def _test_function_no_validators(self, text: str) -> str:

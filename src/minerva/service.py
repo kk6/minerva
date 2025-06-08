@@ -82,24 +82,6 @@ def _validate_search_query(*args, **kwargs) -> None:  # ignore-type[no-untyped-d
         raise ValidationError("Search query cannot be empty or whitespace")
 
 
-def _validate_tag(*args, **kwargs) -> None:  # ignore-type[no-untyped-def]
-    """Validate tag parameter."""
-    # For add_tag method: self, tag, filename=None, filepath=None, default_path=None
-    tag = None
-    if len(args) >= 2:  # args[0] is self, args[1] is tag
-        tag = args[1]
-    elif "tag" in kwargs:
-        tag = kwargs["tag"]
-
-    if tag is not None:
-        if not tag.strip():
-            raise ValidationError("Tag cannot be empty or whitespace")
-        try:
-            TagValidator.validate_tag(tag)
-        except ValueError as e:
-            raise ValidationError(f"Invalid tag: {e}") from e
-
-
 class MinervaService:
     """
     Main service class for Minerva note operations.
@@ -263,6 +245,7 @@ class MinervaService:
 
     @log_performance(threshold_ms=500)
     @validate_inputs(_validate_text_content, _validate_filename)
+    @handle_file_operations()
     def edit_note(
         self,
         text: str,
