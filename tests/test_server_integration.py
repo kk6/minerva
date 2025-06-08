@@ -11,6 +11,8 @@ from pathlib import Path
 from unittest.mock import patch
 import pytest
 
+from minerva.exceptions import NoteNotFoundError
+
 
 class TestMCPServerIntegration:
     """Test MCP server integration with service layer."""
@@ -117,7 +119,7 @@ class TestMCPServerIntegration:
         """Test that server handles service creation errors gracefully."""
         # Test with missing required environment variables
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(Exception):
+            with pytest.raises(ValueError):
                 # This should raise an exception due to missing env vars
                 import importlib
                 from minerva import server
@@ -232,11 +234,11 @@ class TestMCPServerErrorHandling:
                 from minerva import server
 
                 # Test error handling for non-existent file
-                with pytest.raises(FileNotFoundError):
+                with pytest.raises(NoteNotFoundError):
                     server.read_note("/non/existent/file.md")
 
                 # Test error handling for invalid operations
-                with pytest.raises(FileNotFoundError):
+                with pytest.raises(NoteNotFoundError):
                     server.edit_note("content", "non_existent_file")
 
     def test_server_logging_configuration(self):
