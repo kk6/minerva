@@ -1,6 +1,40 @@
 # CHANGELOG
 
 
+## v0.9.1 (2025-06-08)
+
+### Bug Fixes
+
+- Correct add_tag and remove_tag docstring accuracy
+  ([`9793b8a`](https://github.com/kk6/minerva/commit/9793b8ae161047579425b5d7a73a66ec7f19acc2))
+
+- Fix misleading statements about "no changes" being made - Clarify that timestamp is always updated
+  even when tag operations don't change the tag list - Improve accuracy of side-effect descriptions
+  in docstrings
+
+Addresses feedback from Gemini Code Assist review
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Documentation
+
+- Improve MCP client tool docstrings for better usability
+  ([`b329300`](https://github.com/kk6/minerva/commit/b329300740bf270f5fa7282767203b7d7bc4d04c))
+
+- Rewrite all 12 tool function docstrings to be user-friendly instead of technical - Add practical
+  usage examples for each tool function - Clarify parameter descriptions and error conditions -
+  Establish consistent documentation format across all tools - Focus on Claude Desktop client
+  experience rather than developer documentation
+
+Resolves #60
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.9.0 (2025-06-08)
 
 ### Bug Fixes
