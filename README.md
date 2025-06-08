@@ -64,11 +64,38 @@ pre-commit は以下のチェックを自動的に実行します：
 
 詳細な設定とトラブルシューティングについては、[Pre-commit Setup Guide](docs/pre-commit-guide.md) を参照してください。
 
-## MCP Inspector を起動する
+## 開発環境のセットアップ
+
+### Makefileを使用した開発（推奨）
+
+Minervaでは開発タスクの統一的なインターフェースとして、Makefileを提供しています。
+
+```bash
+# 利用可能なコマンドを表示
+make help
+
+# 開発環境のセットアップ
+make setup-dev
+
+# テストの実行
+make test
+
+# カバレッジ付きテスト
+make test-cov
+
+# コードの品質チェック（lint、type-check、testを一括実行）
+make check-all
+```
+
+### MCP Inspector を起動する
 
 プロジェクトルートで以下を実行してください。
 
 ```bash
+# Makefileを使用（推奨）
+make dev
+
+# または直接uvコマンドを使用
 uv run mcp dev src/minerva/server.py:mcp
 ```
 
@@ -125,6 +152,13 @@ tail -f ~/Library/Logs/Claude/mcp-server-minerva.log
 pytestを使用して、テストを実行することができます。
 
 ```bash
+# Makefileを使用（推奨）
+make test
+
+# カバレッジ付きテスト
+make test-cov
+
+# または直接uvコマンドを使用
 uv run pytest
 ```
 

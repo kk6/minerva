@@ -13,6 +13,13 @@ applyTo: '**/*.py'
 - Remove all trailing whitespace from files
 - Use Unix line endings (LF, not CRLF)
 
+## Code Quality Tools
+- Run `make lint` to check code style with Ruff
+- Run `make format` to auto-format code
+- Run `make type-check` to verify type annotations with mypy
+- Run `make check-all` for comprehensive quality checks
+- Use `make fix-whitespace` to remove trailing whitespace safely
+
 ## Logging Guidelines
 - Do NOT use f-strings when logging!
   - Correct example: `logger.info("Found %s files matching the query: %s", len(matching_files), query)`
@@ -36,6 +43,8 @@ Group imports in the following order:
 - Structure tests following the AAA pattern (Arrange-Act-Assert)
 - Include appropriate docstrings in test functions
 - Update corresponding tests when the code being tested changes
+- Run tests using `make test` (recommended) or `uv run pytest`
+- Check test coverage with `make test-cov`
 
 ## Docstrings
 - Docstrings should be written in English

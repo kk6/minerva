@@ -18,6 +18,18 @@ cd minerva
 
 ### 2. 開発用依存関係のインストール
 
+#### Makefileを使用（推奨）
+
+```bash
+# 依存関係のインストール
+make install
+
+# 開発環境の完全セットアップ（依存関係インストール + pre-commit設定）
+make setup-dev
+```
+
+#### 直接uvコマンドを使用
+
 ```bash
 uv pip install -e ".[dev]"
 ```

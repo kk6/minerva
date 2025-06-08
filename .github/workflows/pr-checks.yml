@@ -93,16 +93,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
         with:
-          python-version: '3.11'
+          version: "latest"
 
-      - name: Install pre-commit
-        run: pip install pre-commit
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Install project with Makefile support
+        run: make install
 
       - name: Run pre-commit
-        run: pre-commit run --all-files
+        run: make pre-commit
 
   file-format-check:
     name: Basic File Format Check
@@ -110,6 +116,29 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Check for trailing whitespace (dry-run)
+        run: |
+          echo "Checking for trailing whitespace..."
+          # Use pre-commit to check trailing whitespace without fixing
+          if ! uv run pre-commit run trailing-whitespace --all-files; then
+            echo "✗ Files with trailing whitespace found"
+            echo "Please run 'make fix-whitespace' to fix these issues"
+            exit 1
+          else
+            echo "✓ No trailing whitespace found"
+          fi
 
       - name: Check for common file format issues
         run: |

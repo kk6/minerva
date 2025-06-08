@@ -36,6 +36,25 @@ The Minerva project adopts a "Document-First" approach. Always update relevant d
 ## Development Environment
 - Python 3.12+
 - uv package manager
+- Makefile for unified development commands (recommended)
+
+## Common Development Commands
+
+### Using Makefile (Recommended)
+- `make help` - Show all available commands
+- `make setup-dev` - Set up complete development environment
+- `make test` - Run all tests
+- `make test-cov` - Run tests with coverage
+- `make lint` - Run linting
+- `make type-check` - Run type checking
+- `make format` - Format code
+- `make check-all` - Run comprehensive quality checks
+- `make pre-commit` - Run pre-commit hooks
+
+### Direct uv Commands (Alternative)
+- `uv run pytest` - Run tests
+- `uv run ruff check` - Run linting
+- `uv run mypy src tests` - Run type checking
 
 ## Dependencies
 Main dependencies:
