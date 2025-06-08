@@ -1,6 +1,85 @@
 # CHANGELOG
 
 
+## v0.9.0 (2025-06-08)
+
+### Bug Fixes
+
+- Correct test exception expectations after CodeRabbit review
+  ([`9f64231`](https://github.com/kk6/minerva/commit/9f64231c677764fbaba94f3b9e972efbc577408d))
+
+Update test cases to use appropriate specific exception types instead of generic Exception:
+
+- Fix test_tag_validation_in_add_tag to properly test tag validation without file dependency - Test
+  tag validation logic directly using service._validate_tag() and TagValidator.validate_tag() - Use
+  forbidden characters (comma) in validation tests instead of spaces which are allowed - Remove file
+  creation dependency from tag validation tests in mocked service environment - Update server
+  integration tests to expect NoteNotFoundError instead of generic Exception
+
+All 264 tests now pass with more specific and accurate exception expectations.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Resolve mypy type checking errors
+  ([`69753e3`](https://github.com/kk6/minerva/commit/69753e35fe6c475299abbe648fedb1eba3550416))
+
+Fix all mypy type checking issues to ensure code quality:
+
+- Add cast() to decorator return types for proper TypeVar compatibility - Fix sanitize_path to
+  accept Union[str, Path, None] for flexible input handling - Add proper type annotations to
+  validator functions (*args: Any, **kwargs: Any) - Update error context handling to convert None
+  values to empty strings consistently - Add missing typing imports (cast, Any) where needed -
+  Update test expectations to match new None value handling behavior
+
+All 264 tests pass and mypy reports no type errors.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Features
+
+- Implement comprehensive error handling system
+  ([`6f7eeaf`](https://github.com/kk6/minerva/commit/6f7eeaff6f3ab03afeb2e2e927768c36b3cda680))
+
+Add custom exception hierarchy and error handling utilities to provide consistent error management
+  across the Minerva application.
+
+Key features: - Custom exception hierarchy with structured error context - Error handler decorators
+  for file operations, validation, and performance monitoring - Security features including path
+  sanitization and credential redaction - Graceful degradation patterns for non-critical operations
+  - Integration with service layer methods
+
+Technical improvements: - Fix build system configuration with hatchling backend - Add PYTHONPATH to
+  Makefile commands for proper module resolution - Update Japanese documentation for error handling
+  system - Add language usage rules to CLAUDE.md
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Refactoring
+
+- Improve error handling based on CodeRabbit review
+  ([`dfb2fb4`](https://github.com/kk6/minerva/commit/dfb2fb4e660502a44649511454b184e7196138ba))
+
+Address CodeRabbit review feedback to enhance error handling consistency and reliability:
+
+- Add missing @handle_file_operations() decorator to edit_note method for consistent error
+  conversion - Remove unused _validate_tag function to eliminate name clash with instance method -
+  Fix off-by-one error in test validator for accurate argument position (args[2] for number
+  parameter) - Replace time.time() with time.perf_counter() for more accurate performance
+  measurement - Update test expectations from Exception to NoteNotFoundError for better error
+  specificity - Improve documentation with technical details on timing accuracy and decorator
+  consistency
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.8.0 (2025-06-08)
 
 ### Bug Fixes
