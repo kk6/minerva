@@ -62,13 +62,12 @@ Predefined label categories include:
 If you need a label that doesn't exist, ask for permission before creating it.
 
 - **MCP Server**: FastMCP-based server (`server.py`) that provides tool endpoints
+  - Uses `@mcp.tool()` decorators for direct service integration
+  - Tool functions directly call service methods without wrapper layer
 - **Service Layer**: Core business logic (`service.py`) with dependency injection pattern
   - `MinervaService`: Main service class containing all note operations
   - `MinervaConfig`: Configuration dataclass for dependency injection
   - `create_minerva_service()`: Factory function for service creation
-- **Tools**: Clean service-based API layer (`tools.py`)
-  - Service-based tool functions for MCP integration
-  - All functions require MinervaService instance as first parameter
 - **File Handler**: Low-level file operations (`file_handler.py`)
 - **Frontmatter Manager**: Centralized frontmatter processing (`frontmatter_manager.py`)
 - **Config**: Environment and configuration management (`config.py`)
@@ -81,7 +80,7 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - Two-phase deletion process for safety
 - Automatic frontmatter generation with metadata
 - **Dependency injection architecture** for improved testability and extensibility
-- **Clean service-based architecture** with clear separation of concerns
+- **Simplified MCP server architecture** with direct service integration using FastMCP decorators
 
 ## Language Usage Rules
 
@@ -156,6 +155,11 @@ Follow the language conventions defined in `.github/instructions/language_rules.
 - **Test coverage target**: Maintain 92%+ code coverage
 - **Service testing**: Test both service layer and wrapper functions
 
+### Testing Gotchas ⚠️
+- **Module caching issues**: Tests that patch environment variables may need to clear `sys.modules` to ensure fresh imports
+- **Exception testing**: `pytest.raises` may fail with custom exceptions; use explicit `try/except` with `isinstance` checks
+- **See `docs/test_guidelines.md` for detailed solutions and best practices**
+
 ## Service-Based Architecture
 
 ### Service Layer Usage
@@ -179,27 +183,25 @@ frontmatter_manager = FrontmatterManager("Custom Author")
 service = MinervaService(config, frontmatter_manager)
 ```
 
-### Tool Functions
-Tool functions are available in two forms:
+### MCP Server Integration
+The server.py uses `@mcp.tool()` decorators for direct service integration:
 
-1. **Direct service-based API**: Functions that require a service instance as the first parameter
 ```python
-from minerva.service import create_minerva_service
-from minerva.tools import create_note, read_note
-
-# Create service instance
-service = create_minerva_service()
-
-# Use service with tool functions
-note_path = create_note(service, "content", "filename")
-content = read_note(service, str(note_path))
-```
-
-2. **MCP Server Integration**: The server.py creates wrapper functions with service pre-bound for MCP
-```python
-# In server.py - service is bound automatically
+# In server.py - tools directly call service methods
+@mcp.tool()
 def read_note(filepath: str) -> str:
-    return _read_note(service, filepath)
+    """Read the content of a markdown note from your Obsidian vault."""
+    return service.read_note(filepath)
+
+@mcp.tool()
+def create_note(
+    text: str,
+    filename: str,
+    author: str | None = None,
+    default_path: str | None = None,
+) -> Path:
+    """Create a new markdown note in your Obsidian vault."""
+    return service.create_note(text, filename, author, default_path)
 ```
 
 ### Testing with Dependency Injection
@@ -208,22 +210,21 @@ For testing, create mock service instances:
 ```python
 from unittest.mock import Mock
 from minerva.service import MinervaService
-from minerva.tools import create_note
 
 # Create mock service for testing
 mock_service = Mock(spec=MinervaService)
 mock_service.create_note.return_value = Path("/fake/path")
 
-# Use mock service in tests
-result = create_note(mock_service, "test", "filename")
-mock_service.create_note.assert_called_once_with("test", "filename", None, None)
+# Use mock service in tests (test server functions directly)
+from minerva import server
+result = server.create_note("test", "filename")
 ```
 
 ### Key Improvements
-- **Clean dependency injection**: Explicit service dependencies for better testability
-- **Reduced global state**: Configuration through service instances instead of global variables
-- **Improved architecture**: Clear separation between service layer and tool layer
-- **MCP server integration**: Wrapper functions with pre-bound service instances for clean API
+- **Simplified architecture**: Direct service calls via `@mcp.tool()` decorators
+- **Reduced code duplication**: Eliminated redundant wrapper functions
+- **Clean dependency injection**: Service instances for better testability
+- **FastMCP integration**: Native decorator-based tool registration
 
 ## Environment Setup
 Required environment variables in `.env`:

@@ -3,7 +3,6 @@
 import pytest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest import mock
 
 from tests.helpers import MinervaTestHelper
 
@@ -75,13 +74,3 @@ def create_test_file(temp_dir):
         return file_path
 
     return _create_file
-
-
-@pytest.fixture
-def mock_write_setup(tmp_path):
-    """Fixture providing common mock setup for write tests."""
-    with (
-        mock.patch("minerva.tools.write_file") as mock_write_file,
-        mock.patch("minerva.tools.VAULT_PATH", tmp_path),
-    ):
-        yield {"mock_write_file": mock_write_file, "tmp_path": tmp_path}

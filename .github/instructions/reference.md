@@ -18,15 +18,14 @@ The Minerva project adopts a "Document-First" approach. Always update relevant d
   - `docs/note_operations.md` contains specifications for note operation features
 
 ## Architecture
-- MCP Server (FastMCP) with dependency injection initialization
+- MCP Server (server.py) with FastMCP and @mcp.tool() decorators
+  - Direct service integration without wrapper functions
+  - Tool functions: create_note, edit_note, read_note, search_notes, etc.
+  - Simplified architecture with ~5% code reduction
 - Service layer architecture (service.py)
   - MinervaService class encapsulating all business logic
   - Dependency injection pattern for improved testability and extensibility
   - Factory function `create_minerva_service()` for default configuration
-- Tool implementation layer (tools.py)
-  - Backward-compatible function-based API wrapping service layer
-  - Functions such as create_note, edit_note, read_note, search_notes, etc.
-  - Service instance management with lazy initialization
 - Configuration management (config.py)
   - MinervaConfig dataclass for dependency injection
   - Legacy global variables for backward compatibility

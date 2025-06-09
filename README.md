@@ -253,7 +253,7 @@ tags:
 ## Claude Desktop からの起動時の import エラーについて
 
 Claude Desktop から Minerva サーバーを起動する場合、Python の import パス（sys.path）がコマンドライン実行時と異なるため、
-`from minerva.tools import ...` のような絶対importで「No module named 'minerva'」エラーが発生することがあります。
+`from minerva.service import ...` のような絶対importで「No module named 'minerva'」エラーが発生することがあります。
 
 この問題を回避するため、`server.py` の先頭で以下のように sys.path に親ディレクトリを追加しています。
 

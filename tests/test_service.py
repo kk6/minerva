@@ -9,7 +9,7 @@ import tempfile
 import shutil
 
 from minerva.config import MinervaConfig
-from minerva.service import MinervaService, create_minerva_service
+from minerva.service import MinervaService
 from minerva.frontmatter_manager import FrontmatterManager
 from minerva.exceptions import NoteNotFoundError
 
@@ -228,11 +228,11 @@ class TestMinervaService:
 
     def test_normalize_tag(self, service):
         """Test tag normalization."""
-        with patch(
-            "minerva.validators.TagValidator.normalize_tag", return_value="normalized"
-        ):
-            result = service._normalize_tag("Test Tag")
-            assert result == "normalized"
+        # Test actual normalization behavior
+        result = service._normalize_tag("Test Tag")
+        assert (
+            result == "test tag"
+        )  # TagValidator.normalize_tag converts to lowercase with spaces
 
     def test_validate_tag_valid(self, service):
         """Test tag validation for valid tag."""
@@ -282,6 +282,8 @@ class TestCreateMinervaService:
         mock_fm_class.return_value = mock_fm
 
         # Act
+        from minerva.service import create_minerva_service, MinervaService
+
         service = create_minerva_service()
 
         # Assert
@@ -579,6 +581,8 @@ class TestServiceFactoryFunction:
         mock_config_from_env.side_effect = ValueError("Config error")
 
         with pytest.raises(ValueError, match="Config error"):
+            from minerva.service import create_minerva_service
+
             create_minerva_service()
 
     @patch("minerva.service.MinervaConfig.from_env")
@@ -591,6 +595,8 @@ class TestServiceFactoryFunction:
         mock_fm_class.side_effect = Exception("FM error")
 
         with pytest.raises(Exception, match="FM error"):
+            from minerva.service import create_minerva_service
+
             create_minerva_service()
 
 

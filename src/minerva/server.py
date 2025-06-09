@@ -1,6 +1,6 @@
 # NOTE:
 # When running this file from the command line (e.g. `uv run mcp dev src/minerva/server.py:mcp`),
-# the parent directory is automatically added to sys.path, so absolute imports like `from minerva.tools import ...` work fine.
+# the parent directory is automatically added to sys.path, so absolute imports like `from minerva.service import ...` work fine.
 # However, when launched from Claude Desktop (see `claude_desktop_config.json`), the sys.path may not include the parent directory.
 # In that case, adding the following lines ensures the minerva package can always be imported:
 #
@@ -21,20 +21,6 @@ from mcp.server.fastmcp import FastMCP
 
 from minerva.__version__ import __version__
 from minerva.service import create_minerva_service
-from minerva.tools import (
-    read_note as _read_note,
-    search_notes as _search_notes,
-    create_note as _create_note,
-    edit_note as _edit_note,
-    get_note_delete_confirmation as _get_note_delete_confirmation,
-    perform_note_delete as _perform_note_delete,
-    add_tag as _add_tag,
-    remove_tag as _remove_tag,
-    rename_tag as _rename_tag,
-    get_tags as _get_tags,
-    list_all_tags as _list_all_tags,
-    find_notes_with_tag as _find_notes_with_tag,
-)
 from minerva.file_handler import SearchResult
 
 # Set up logging
@@ -51,10 +37,8 @@ except Exception as e:
 # Create an MCP server
 mcp = FastMCP("minerva", __version__)
 
-# Create wrapper functions that bind the service instance
-# These wrappers maintain the original function signatures for MCP
 
-
+@mcp.tool()
 def read_note(filepath: str) -> str:
     """
     Read the content of a markdown note from your Obsidian vault.
@@ -75,9 +59,10 @@ def read_note(filepath: str) -> str:
     Note:
         If the file doesn't exist, you'll get a FileNotFoundError
     """
-    return _read_note(service, filepath)
+    return service.read_note(filepath)
 
 
+@mcp.tool()
 def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     """
     Search for text across all markdown files in your Obsidian vault.
@@ -99,9 +84,10 @@ def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     Note:
         Binary files are automatically skipped during search
     """
-    return _search_notes(service, query, case_sensitive)
+    return service.search_notes(query, case_sensitive)
 
 
+@mcp.tool()
 def create_note(
     text: str,
     filename: str,
@@ -130,9 +116,10 @@ def create_note(
     Note:
         If a file with the same name already exists, you'll get a FileExistsError
     """
-    return _create_note(service, text, filename, author, default_path)
+    return service.create_note(text, filename, author, default_path)
 
 
+@mcp.tool()
 def edit_note(
     text: str,
     filename: str,
@@ -161,9 +148,10 @@ def edit_note(
     Note:
         If the file doesn't exist, you'll get a FileNotFoundError
     """
-    return _edit_note(service, text, filename, author, default_path)
+    return service.edit_note(text, filename, author, default_path)
 
 
+@mcp.tool()
 def get_note_delete_confirmation(
     filename: str | None = None,
     filepath: str | None = None,
@@ -190,9 +178,10 @@ def get_note_delete_confirmation(
     Note:
         You must provide either filename or filepath. Use perform_note_delete() after this.
     """
-    return _get_note_delete_confirmation(service, filename, filepath, default_path)
+    return service.get_note_delete_confirmation(filename, filepath, default_path)
 
 
+@mcp.tool()
 def perform_note_delete(
     filename: str | None = None,
     filepath: str | None = None,
@@ -219,9 +208,10 @@ def perform_note_delete(
     Warning:
         This permanently deletes the file! Use get_note_delete_confirmation() first.
     """
-    return _perform_note_delete(service, filename, filepath, default_path)
+    return service.perform_note_delete(filename, filepath, default_path)
 
 
+@mcp.tool()
 def add_tag(
     tag: str,
     filename: str | None = None,
@@ -251,9 +241,10 @@ def add_tag(
         If the tag already exists, the tag list remains unchanged but the note's
         timestamp is still updated
     """
-    return _add_tag(service, tag, filename, filepath, default_path)
+    return service.add_tag(tag, filename, filepath, default_path)
 
 
+@mcp.tool()
 def remove_tag(
     tag: str,
     filename: str | None = None,
@@ -283,9 +274,10 @@ def remove_tag(
         If the tag doesn't exist, the tag list remains unchanged but the note's
         timestamp is still updated
     """
-    return _remove_tag(service, tag, filename, filepath, default_path)
+    return service.remove_tag(tag, filename, filepath, default_path)
 
 
+@mcp.tool()
 def rename_tag(
     old_tag: str,
     new_tag: str,
@@ -312,9 +304,10 @@ def rename_tag(
     Note:
         This operation can modify many files at once - use carefully!
     """
-    return _rename_tag(service, old_tag, new_tag, directory)
+    return service.rename_tag(old_tag, new_tag, directory)
 
 
+@mcp.tool()
 def get_tags(
     filename: str | None = None,
     filepath: str | None = None,
@@ -341,9 +334,10 @@ def get_tags(
     Note:
         Returns empty list if the note has no tags or no frontmatter
     """
-    return _get_tags(service, filename, filepath, default_path)
+    return service.get_tags(filename, filepath, default_path)
 
 
+@mcp.tool()
 def list_all_tags(directory: str | None = None) -> list[str]:
     """
     Get a complete list of all unique tags used across your vault.
@@ -364,9 +358,10 @@ def list_all_tags(directory: str | None = None) -> list[str]:
     Note:
         Useful for getting an overview of your tagging system
     """
-    return _list_all_tags(service, directory)
+    return service.list_all_tags(directory)
 
 
+@mcp.tool()
 def find_notes_with_tag(tag: str, directory: str | None = None) -> list[str]:
     """
     Find all notes that have a specific tag assigned.
@@ -388,19 +383,4 @@ def find_notes_with_tag(tag: str, directory: str | None = None) -> list[str]:
     Note:
         Great for finding all notes related to a specific topic or project
     """
-    return _find_notes_with_tag(service, tag, directory)
-
-
-# Register tools with MCP server
-mcp.add_tool(read_note)
-mcp.add_tool(search_notes)
-mcp.add_tool(create_note)
-mcp.add_tool(edit_note)
-mcp.add_tool(get_note_delete_confirmation)
-mcp.add_tool(perform_note_delete)
-mcp.add_tool(add_tag)
-mcp.add_tool(remove_tag)
-mcp.add_tool(rename_tag)
-mcp.add_tool(get_tags)
-mcp.add_tool(list_all_tags)
-mcp.add_tool(find_notes_with_tag)
+    return service.find_notes_with_tag(tag, directory)
