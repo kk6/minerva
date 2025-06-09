@@ -1,6 +1,5 @@
 import pytest
 from pathlib import Path
-from tempfile import TemporaryDirectory
 import pydantic
 
 from minerva.file_handler import (
@@ -16,43 +15,13 @@ from minerva.file_handler import (
     search_keyword_in_files,
 )
 from minerva.validators import FilenameValidator
-
-
-@pytest.fixture
-def temp_dir():
-    """Fixture that provides a temporary directory for file operations.
-
-    Yields:
-        str: Path to a temporary directory that is automatically cleaned up.
-    """
-    with TemporaryDirectory() as tempdir:
-        yield tempdir
-
-
-@pytest.fixture
-def create_test_file(temp_dir):
-    """Helper fixture for creating test files with specified content.
-
-    Args:
-        temp_dir: Temporary directory fixture
-
-    Returns:
-        function: Helper function that creates a file with specified name and content
-    """
-
-    def _create_file(filename, content):
-        file_path = Path(temp_dir) / filename
-        with open(file_path, "w", encoding=ENCODING) as f:
-            f.write(content)
-        return file_path
-
-    return _create_file
+from tests.helpers import MinervaTestHelper
 
 
 class TestFileHandler:
     """Test suite for file handler functions."""
 
-    def test_write_file_success(self, temp_dir):
+    def test_write_file_success(self, tmp_path):
         """Test writing a file successfully.
 
         Arrange:
@@ -66,7 +35,7 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         request = FileWriteRequest(
-            directory=temp_dir,
+            directory=str(tmp_path),
             filename="test.txt",
             content="Hello, World!",
             overwrite=True,
@@ -76,13 +45,12 @@ class TestFileHandler:
         file_path = write_file(request)
 
         # ==================== Assert ====================
-        assert file_path == Path(temp_dir) / "test.txt"
+        assert file_path == Path(tmp_path) / "test.txt"
         assert file_path.exists()
-        with open(file_path, "r", encoding=ENCODING) as f:
-            content = f.read()
-            assert content == "Hello, World!"
+        content = file_path.read_text(encoding=ENCODING)
+        assert content == "Hello, World!"
 
-    def test_write_file_overwrite_false(self, temp_dir):
+    def test_write_file_overwrite_false(self, tmp_path):
         """Test writing a file with overwrite set to False.
 
         Arrange:
@@ -93,14 +61,13 @@ class TestFileHandler:
             - Verify that original file content remains unchanged
         """
         # ==================== Arrange ====================
-        file_path = Path(temp_dir) / "existing.txt"
+        file_path = Path(tmp_path) / "existing.txt"
         # Create a file to ensure it exists
-        with open(file_path, "w", encoding=ENCODING) as f:
-            f.write("Hello, World!")
+        file_path.write_text("Hello, World!", encoding=ENCODING)
 
         # Create a request to write the file with overwrite set to False
         request = FileWriteRequest(
-            directory=temp_dir,
+            directory=str(tmp_path),
             filename="existing.txt",
             content="New Content",
             overwrite=False,
@@ -113,11 +80,10 @@ class TestFileHandler:
 
         # ==================== Additional Assert ====================
         # Check that the original content is still there
-        with open(file_path, "r", encoding=ENCODING) as f:
-            content = f.read()
-            assert content == "Hello, World!"
+        content = file_path.read_text(encoding=ENCODING)
+        assert content == "Hello, World!"
 
-    def test_write_file_overwrite_true(self, temp_dir):
+    def test_write_file_overwrite_true(self, tmp_path):
         """Test writing a file with overwrite set to True.
 
         Arrange:
@@ -129,14 +95,13 @@ class TestFileHandler:
             - Verify that file content has been updated
         """
         # ==================== Arrange ====================
-        file_path = Path(temp_dir) / "existing.txt"
+        file_path = Path(tmp_path) / "existing.txt"
         # Create a file to ensure it exists
-        with open(file_path, "w", encoding=ENCODING) as f:
-            f.write("Hello, World!")
+        file_path.write_text("Hello, World!", encoding=ENCODING)
 
         # Create a request to write the file with overwrite set to True
         request = FileWriteRequest(
-            directory=temp_dir,
+            directory=str(tmp_path),
             filename="existing.txt",
             content="New Content",
             overwrite=True,
@@ -148,9 +113,8 @@ class TestFileHandler:
 
         # ==================== Assert ====================
         # Check that the content has been updated
-        with open(file_path, "r", encoding=ENCODING) as f:
-            content = f.read()
-            assert content == "New Content"
+        content = file_path.read_text(encoding=ENCODING)
+        assert content == "New Content"
 
     def test_write_file_invalid_directory(self):
         """Test writing a file with an invalid directory.
@@ -174,7 +138,7 @@ class TestFileHandler:
             write_file(request)
         assert str(excinfo.value) == "Directory must be an absolute path"
 
-    def test_write_file_invalid_filename(self, temp_dir):
+    def test_write_file_invalid_filename(self, tmp_path):
         """Test writing a file with an invalid filename.
 
         Arrange:
@@ -186,7 +150,7 @@ class TestFileHandler:
         # The validation happens during object creation in this case
         with pytest.raises(ValueError) as excinfo:
             FileWriteRequest(
-                directory=temp_dir,
+                directory=str(tmp_path),
                 filename="invalid/filename.txt",
                 content="Hello, World!",
                 overwrite=True,
@@ -197,7 +161,7 @@ class TestFileHandler:
             in str(excinfo.value)
         )
 
-    def test_write_file_creates_directory(self, temp_dir):
+    def test_write_file_creates_directory(self, tmp_path):
         """Test write_file creates directory structure if it doesn't exist.
 
         Arrange:
@@ -212,7 +176,7 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create path to non-existent subdirectory
-        sub_dir = Path(temp_dir) / "non_existent_dir" / "sub_dir"
+        sub_dir = Path(tmp_path) / "non_existent_dir" / "sub_dir"
 
         request = FileWriteRequest(
             directory=str(sub_dir),
@@ -229,12 +193,11 @@ class TestFileHandler:
         assert file_path.parent.exists()  # Directory should be created
 
         # Verify content was written correctly
-        with open(file_path, "r", encoding=ENCODING) as f:
-            content = f.read()
-            assert content == "Test content"
+        content = file_path.read_text(encoding=ENCODING)
+        assert content == "Test content"
 
     @pytest.mark.parametrize("filename", ["test_unicode_文字.txt", "emoji_😀.txt"])
-    def test_write_file_with_international_characters(self, temp_dir, filename):
+    def test_write_file_with_international_characters(self, tmp_path, filename):
         """Test writing files with international characters in filename.
 
         Arrange:
@@ -249,7 +212,7 @@ class TestFileHandler:
         # ==================== Arrange ====================
         content = "International character test"
         request = FileWriteRequest(
-            directory=temp_dir,
+            directory=str(tmp_path),
             filename=filename,
             content=content,
             overwrite=True,
@@ -263,7 +226,7 @@ class TestFileHandler:
 
         # ==================== Act (Read Back) ====================
         read_request = FileReadRequest(
-            directory=temp_dir,
+            directory=str(tmp_path),
             filename=filename,
         )
         read_content = read_file(read_request)
@@ -271,7 +234,7 @@ class TestFileHandler:
         # ==================== Assert (Content) ====================
         assert read_content == content
 
-    def test_read_file_success(self, temp_dir):
+    def test_read_file_success(self, tmp_path):
         """Test reading a file successfully.
 
         Arrange:
@@ -283,13 +246,12 @@ class TestFileHandler:
             - Verify content matches what was written
         """
         # ==================== Arrange ====================
-        file_path = Path(temp_dir) / "test.txt"
+        file_path = Path(tmp_path) / "test.txt"
         # Create a file to read
-        with open(file_path, "w", encoding=ENCODING) as f:
-            f.write("Hello, World!")
+        file_path.write_text("Hello, World!", encoding=ENCODING)
 
         request = FileReadRequest(
-            directory=temp_dir,
+            directory=str(tmp_path),
             filename="test.txt",
         )
 
@@ -299,7 +261,7 @@ class TestFileHandler:
         # ==================== Assert ====================
         assert content == "Hello, World!"
 
-    def test_read_file_not_found(self, temp_dir):
+    def test_read_file_not_found(self, tmp_path):
         """Test reading a file that does not exist.
 
         Arrange:
@@ -309,7 +271,7 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         request = FileReadRequest(
-            directory=temp_dir,
+            directory=str(tmp_path),
             filename="non_existent.txt",
         )
 
@@ -347,7 +309,7 @@ class TestFileHandler:
             ),
         ],
     )
-    def test_invalid_filename_validation(self, temp_dir, filename, expected_message):
+    def test_invalid_filename_validation(self, tmp_path, filename, expected_message):
         """Test validation of invalid filenames.
 
         Tests various invalid filename scenarios using parametrization.
@@ -361,12 +323,12 @@ class TestFileHandler:
         # The validation happens during object creation
         with pytest.raises(ValueError) as excinfo:
             FileReadRequest(
-                directory=temp_dir,
+                directory=str(tmp_path),
                 filename=filename,
             )
         assert expected_message in str(excinfo.value)
 
-    def test_read_file_invalid_encoding(self, temp_dir):
+    def test_read_file_invalid_encoding(self, tmp_path):
         """Test reading a file with invalid encoding.
 
         Arrange:
@@ -376,13 +338,13 @@ class TestFileHandler:
             - Verify UnicodeDecodeError is raised when attempting to read
         """
         # ==================== Arrange ====================
-        file_path = Path(temp_dir) / "test.txt"
+        file_path = Path(tmp_path) / "test.txt"
         # Create a file with invalid encoding
         with open(file_path, "wb") as f:
             f.write(b"\x80\x81\x82")
 
         request = FileReadRequest(
-            directory=temp_dir,
+            directory=str(tmp_path),
             filename="test.txt",
         )
 
@@ -390,7 +352,7 @@ class TestFileHandler:
         with pytest.raises(UnicodeDecodeError):
             read_file(request)
 
-    def test_is_binary_file(self, temp_dir):
+    def test_is_binary_file(self, tmp_path):
         """Test detecting binary files.
 
         Arrange:
@@ -402,12 +364,11 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create a text file
-        text_file_path = Path(temp_dir) / "text.txt"
-        with open(text_file_path, "w", encoding=ENCODING) as f:
-            f.write("Hello, World!")
+        text_file_path = Path(tmp_path) / "text.txt"
+        text_file_path.write_text("Hello, World!", encoding=ENCODING)
 
         # Create a binary file
-        binary_file_path = Path(temp_dir) / "binary.bin"
+        binary_file_path = Path(tmp_path) / "binary.bin"
         with open(binary_file_path, "wb") as f:
             f.write(b"\x00\x01\x02\x03")
 
@@ -415,7 +376,7 @@ class TestFileHandler:
         assert not is_binary_file(text_file_path)
         assert is_binary_file(binary_file_path)
 
-    def test_is_binary_file_permission_error(self, mocker, temp_dir):
+    def test_is_binary_file_permission_error(self, mocker, tmp_path):
         """Test handling permission errors when checking if a file is binary.
 
         Arrange:
@@ -428,7 +389,7 @@ class TestFileHandler:
         # ==================== Arrange ====================
         from minerva.file_handler import is_binary_file
 
-        dummy_path = Path(temp_dir) / "dummy.txt"
+        dummy_path = Path(tmp_path) / "dummy.txt"
         dummy_path.touch()
 
         # ==================== Act & Assert (PermissionError) ====================
@@ -439,7 +400,7 @@ class TestFileHandler:
         mocker.patch("builtins.open", side_effect=IOError)
         assert is_binary_file(dummy_path) is False
 
-    def test_search_keyword_basic(self, temp_dir):
+    def test_search_keyword_basic(self, tmp_path):
         """Test basic keyword search functionality.
 
         Arrange:
@@ -454,15 +415,15 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create test files
-        file1 = Path(temp_dir) / "file1.txt"
-        with open(file1, "w", encoding=ENCODING) as f:
-            f.write("This is a test file with a keyword: apple")
+        file1 = Path(tmp_path) / "file1.txt"
+        file1.write_text("This is a test file with a keyword: apple", encoding=ENCODING)
 
-        file2 = Path(temp_dir) / "file2.txt"
-        with open(file2, "w", encoding=ENCODING) as f:
-            f.write("This file doesn't have the keyword")
+        file2 = Path(tmp_path) / "file2.txt"
+        file2.write_text("This file doesn't have the keyword", encoding=ENCODING)
 
-        config = SearchConfig(directory=temp_dir, keyword="apple", case_sensitive=True)
+        config = SearchConfig(
+            directory=str(tmp_path), keyword="apple", case_sensitive=True
+        )
 
         # ==================== Act ====================
         results = search_keyword_in_files(config)
@@ -474,7 +435,7 @@ class TestFileHandler:
         assert results[0].context is not None
         assert "keyword: apple" in results[0].context
 
-    def test_search_keyword_case_sensitivity(self, temp_dir):
+    def test_search_keyword_case_sensitivity(self, tmp_path):
         """Test case sensitivity in keyword search.
 
         Arrange:
@@ -488,13 +449,14 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create test file
-        file_path = Path(temp_dir) / "case.txt"
-        with open(file_path, "w", encoding=ENCODING) as f:
-            f.write("This file has APPLE and apple")
+        file_path = Path(tmp_path) / "case.txt"
+        file_path.write_text("This file has APPLE and apple", encoding=ENCODING)
 
         # ==================== Act & Assert (Case-sensitive) ====================
         # Case sensitive search should find only lowercase
-        config1 = SearchConfig(directory=temp_dir, keyword="apple", case_sensitive=True)
+        config1 = SearchConfig(
+            directory=str(tmp_path), keyword="apple", case_sensitive=True
+        )
         results1 = search_keyword_in_files(config1)
 
         # ==================== Assert (Case-sensitive) ====================
@@ -505,7 +467,7 @@ class TestFileHandler:
         # ==================== Act (Case-insensitive) ====================
         # Case insensitive search should find both
         config2 = SearchConfig(
-            directory=temp_dir, keyword="apple", case_sensitive=False
+            directory=str(tmp_path), keyword="apple", case_sensitive=False
         )
         results2 = search_keyword_in_files(config2)
 
@@ -514,7 +476,7 @@ class TestFileHandler:
         assert results2[0].context is not None
         assert "APPLE and apple" in results2[0].context
 
-    def test_search_with_file_extensions(self, temp_dir):
+    def test_search_with_file_extensions(self, tmp_path):
         """Test search with file extension filtering.
 
         Arrange:
@@ -527,17 +489,15 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create files with different extensions
-        txt_file = Path(temp_dir) / "file.txt"
-        with open(txt_file, "w", encoding=ENCODING) as f:
-            f.write("This is a text file with keyword")
+        txt_file = Path(tmp_path) / "file.txt"
+        txt_file.write_text("This is a text file with keyword", encoding=ENCODING)
 
-        py_file = Path(temp_dir) / "file.py"
-        with open(py_file, "w", encoding=ENCODING) as f:
-            f.write("# This is a Python file with keyword")
+        py_file = Path(tmp_path) / "file.py"
+        py_file.write_text("# This is a Python file with keyword", encoding=ENCODING)
 
         # Configure search for only .txt files
         config = SearchConfig(
-            directory=temp_dir,
+            directory=str(tmp_path),
             keyword="keyword",
             case_sensitive=True,
             file_extensions=[".txt"],
@@ -550,7 +510,7 @@ class TestFileHandler:
         assert len(results) == 1
         assert results[0].file_path == str(txt_file)
 
-    def test_search_config_validation(self, temp_dir):
+    def test_search_config_validation(self, tmp_path):
         """Test validation in SearchConfig.
 
         Arrange & Act & Assert:
@@ -561,15 +521,17 @@ class TestFileHandler:
         """
         # ==================== Arrange & Act & Assert (Valid config) ====================
         # Test valid config
-        config = SearchConfig(directory=temp_dir, keyword="test", case_sensitive=True)
-        assert config.directory == temp_dir
+        config = SearchConfig(
+            directory=str(tmp_path), keyword="test", case_sensitive=True
+        )
+        assert config.directory == str(tmp_path)
         assert config.keyword == "test"
         assert config.case_sensitive is True
 
         # ==================== Arrange & Act & Assert (Extension formatting) ====================
         # Test file extensions formatting
         config = SearchConfig(
-            directory=temp_dir, keyword="test", file_extensions=["txt", "py"]
+            directory=str(tmp_path), keyword="test", file_extensions=["txt", "py"]
         )
         assert config.file_extensions == [".txt", ".py"]
 
@@ -578,7 +540,7 @@ class TestFileHandler:
         extensions_str = "txt,py"
         extensions_list = extensions_str.split(",")
         config = SearchConfig(
-            directory=temp_dir,
+            directory=str(tmp_path),
             keyword="test",
             file_extensions=[str(ext) for ext in extensions_list],
         )
@@ -590,7 +552,7 @@ class TestFileHandler:
             SearchConfig(directory="non_existent_dir", keyword="test")
 
     @pytest.mark.parametrize("bad_ext", [123, {"py": 1}, ["txt", 123]])
-    def test_search_config_file_extensions_type_error(self, temp_dir, bad_ext):
+    def test_search_config_file_extensions_type_error(self, tmp_path, bad_ext):
         """Test invalid file extensions type.
 
         Arrange:
@@ -600,9 +562,11 @@ class TestFileHandler:
         """
         # ==================== Arrange & Act & Assert ====================
         with pytest.raises(ValueError):
-            SearchConfig(directory=temp_dir, keyword="test", file_extensions=bad_ext)
+            SearchConfig(
+                directory=str(tmp_path), keyword="test", file_extensions=bad_ext
+            )
 
-    def test_search_with_multiple_files(self, temp_dir):
+    def test_search_with_multiple_files(self, tmp_path):
         """Test search across multiple files.
 
         Arrange:
@@ -617,12 +581,13 @@ class TestFileHandler:
         # ==================== Arrange ====================
         # Create multiple files with the keyword
         for i in range(3):
-            file_path = Path(temp_dir) / f"file{i}.txt"
-            with open(file_path, "w", encoding=ENCODING) as f:
-                f.write(f"This is file {i} with the keyword")
+            file_path = Path(tmp_path) / f"file{i}.txt"
+            file_path.write_text(
+                f"This is file {i} with the keyword", encoding=ENCODING
+            )
 
         config = SearchConfig(
-            directory=temp_dir, keyword="keyword", case_sensitive=True
+            directory=str(tmp_path), keyword="keyword", case_sensitive=True
         )
 
         # ==================== Act ====================
@@ -633,9 +598,9 @@ class TestFileHandler:
         # Verify each file is found
         found_files = [result.file_path for result in results]
         for i in range(3):
-            assert str(Path(temp_dir) / f"file{i}.txt") in found_files
+            assert str(Path(tmp_path) / f"file{i}.txt") in found_files
 
-    def test_get_validated_file_path_relative(self, temp_dir):
+    def test_get_validated_file_path_relative(self, tmp_path):
         """Test _get_validated_file_path with a relative path.
 
         Arrange:
@@ -672,7 +637,7 @@ class TestFileHandler:
                 overwrite=True,
             )
 
-    def test_large_file_search(self, temp_dir, create_test_file):
+    def test_large_file_search(self, tmp_path):
         """Test search in a large file.
 
         This test verifies that the search functionality works correctly
@@ -689,9 +654,11 @@ class TestFileHandler:
         # ==================== Arrange ====================
         # Create a large file with repeated content and a keyword in the middle
         large_content = "A" * 500000 + "KEYWORD_TO_FIND" + "B" * 500000
-        large_file = create_test_file("large_file.txt", large_content)
+        large_file = MinervaTestHelper.create_test_file_with_content(
+            tmp_path, "large_file.txt", large_content
+        )
 
-        config = SearchConfig(directory=temp_dir, keyword="KEYWORD_TO_FIND")
+        config = SearchConfig(directory=str(tmp_path), keyword="KEYWORD_TO_FIND")
 
         # ==================== Act ====================
         results = search_keyword_in_files(config)
@@ -702,7 +669,7 @@ class TestFileHandler:
         assert results[0].context is not None
         assert "KEYWORD_TO_FIND" in results[0].context
 
-    def test_search_keyword_exception_handling(self, temp_dir, mocker):
+    def test_search_keyword_exception_handling(self, tmp_path, mocker):
         """Test exception handling in search_keyword_in_files.
 
         This test verifies that exceptions during the search process are
@@ -716,14 +683,13 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create a test file
-        file_path = Path(temp_dir) / "test.txt"
-        with open(file_path, "w", encoding=ENCODING) as f:
-            f.write("Test content")
+        file_path = Path(tmp_path) / "test.txt"
+        file_path.write_text("Test content", encoding=ENCODING)
 
         # Mock os.walk to raise an exception
         mocker.patch("os.walk", side_effect=PermissionError("Access denied"))
 
-        config = SearchConfig(directory=temp_dir, keyword="test")
+        config = SearchConfig(directory=str(tmp_path), keyword="test")
 
         # ==================== Act & Assert ====================
         # The exception should be propagated
@@ -793,7 +759,7 @@ class TestFileHandler:
         with pytest.raises(pydantic.ValidationError):
             SearchResult(file_path=123)  # type: ignore
 
-    def test_search_with_mocked_os_walk(self, temp_dir, mocker, create_test_file):
+    def test_search_with_mocked_os_walk(self, tmp_path, mocker):
         """Test search with mocked os.walk functionality.
 
         This test verifies that search works correctly by mocking the os.walk function
@@ -810,13 +776,15 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create a test file that doesn't contain the keyword
-        test_file = create_test_file("test.txt", "This file contains the test phrase")
+        test_file = MinervaTestHelper.create_test_file_with_content(
+            tmp_path, "test.txt", "This file contains the test phrase"
+        )
 
         # Mock os.walk to return a more complex directory structure
         mock_walk_data = [
-            (temp_dir, ["subdir1", "subdir2"], ["test.txt"]),
-            (str(Path(temp_dir) / "subdir1"), [], ["file1.txt", "file2.py"]),
-            (str(Path(temp_dir) / "subdir2"), [], ["file3.txt"]),
+            (tmp_path, ["subdir1", "subdir2"], ["test.txt"]),
+            (str(Path(tmp_path) / "subdir1"), [], ["file1.txt", "file2.py"]),
+            (str(Path(tmp_path) / "subdir2"), [], ["file3.txt"]),
         ]
         mocker.patch("os.walk", return_value=mock_walk_data)
 
@@ -868,7 +836,7 @@ class TestFileHandler:
         mocker.patch("builtins.open", side_effect=mock_open)
 
         config = SearchConfig(
-            directory=temp_dir,
+            directory=str(tmp_path),
             keyword="keyword",
             case_sensitive=True,
         )
@@ -888,7 +856,7 @@ class TestFileHandler:
         assert not any(str(test_file) == path for path in result_paths)
         assert not any("file2.py" in path for path in result_paths)
 
-    def test_delete_file_success(self, temp_dir):
+    def test_delete_file_success(self, tmp_path):
         """Test deleting a file successfully.
 
         Arrange:
@@ -902,16 +870,15 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create the file to be deleted
-        file_path = Path(temp_dir) / "to_delete.txt"
-        with open(file_path, "w", encoding=ENCODING) as f:
-            f.write("This file will be deleted")
+        file_path = Path(tmp_path) / "to_delete.txt"
+        file_path.write_text("This file will be deleted", encoding=ENCODING)
 
         # Verify the file exists before deletion
         assert file_path.exists()
 
         # Create a request to delete the file
         request = FileDeleteRequest(
-            directory=temp_dir,
+            directory=str(tmp_path),
             filename="to_delete.txt",
         )
 
@@ -922,7 +889,7 @@ class TestFileHandler:
         assert result_path == file_path
         assert not file_path.exists()
 
-    def test_delete_file_not_found(self, temp_dir):
+    def test_delete_file_not_found(self, tmp_path):
         """Test deleting a file that does not exist.
 
         Arrange:
@@ -933,7 +900,7 @@ class TestFileHandler:
         # ==================== Arrange ====================
         # Create a request for a non-existent file
         request = FileDeleteRequest(
-            directory=temp_dir,
+            directory=str(tmp_path),
             filename="non_existent.txt",
         )
 
@@ -961,7 +928,7 @@ class TestFileHandler:
             delete_file(request)
         assert str(excinfo.value) == "Directory must be an absolute path"
 
-    def test_delete_file_and_check_existence(self, temp_dir):
+    def test_delete_file_and_check_existence(self, tmp_path):
         """Test deleting a file and verifying it's truly gone.
 
         Arrange:
@@ -975,20 +942,19 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create multiple files
-        file1 = Path(temp_dir) / "file1.txt"
-        file2 = Path(temp_dir) / "file2.txt"
-        file3 = Path(temp_dir) / "file3.txt"
+        file1 = Path(tmp_path) / "file1.txt"
+        file2 = Path(tmp_path) / "file2.txt"
+        file3 = Path(tmp_path) / "file3.txt"
 
         for file in [file1, file2, file3]:
-            with open(file, "w", encoding=ENCODING) as f:
-                f.write(f"Content for {file.name}")
+            file.write_text(f"Content for {file.name}", encoding=ENCODING)
 
         # Verify all files exist
         assert file1.exists() and file2.exists() and file3.exists()
 
         # Create a request to delete one specific file
         request = FileDeleteRequest(
-            directory=temp_dir,
+            directory=str(tmp_path),
             filename="file2.txt",
         )
 

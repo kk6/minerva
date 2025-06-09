@@ -46,6 +46,23 @@ If you believe a new label is needed that doesn't exist in the predefined list, 
 - 生成根拠: <!-- ユーザーの要求やプロンプトの概要 -->
 ```
 
+## Branch Naming Convention
+
+When creating topic branches for development, follow the naming convention defined in `docs/github_workflow.md`:
+
+- Feature addition: `feature/issue-NUMBER-short-description`
+- Bug fix: `fix/issue-NUMBER-short-description`  
+- Refactoring: `refactor/issue-NUMBER-short-description`
+- Documentation: `docs/issue-NUMBER-short-description`
+
+Examples:
+- `feature/issue-64-remove-legacy-fixtures`
+- `fix/issue-123-handle-encoding-error`
+- `refactor/issue-456-simplify-service-layer`
+- `docs/issue-789-update-test-guidelines`
+
+**CRITICAL**: Always create a topic branch before making any code changes. Never work directly on the main branch.
+
 ## Document-First Approach
 
 Before creating issues for new features or improvements, ensure relevant documentation is updated first according to the project's document-first philosophy.

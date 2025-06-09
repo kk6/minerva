@@ -27,7 +27,7 @@ Minervaプロジェクトでは、以下のテスト戦略を採用していま�
 ```python
 # ==================== Arrange ====================
 request = FileWriteRequest(
-    directory=temp_dir,
+    directory=str(tmp_path),
     filename="test.txt",
     content="Hello, World!",
     overwrite=True,
@@ -47,11 +47,10 @@ file_path = write_file(request)
 
 ```python
 # ==================== Assert ====================
-assert file_path == Path(temp_dir) / "test.txt"
+assert file_path == tmp_path / "test.txt"
 assert file_path.exists()
-with open(file_path, "r", encoding=ENCODING) as f:
-    content = f.read()
-    assert content == "Hello, World!"
+content = file_path.read_text(encoding=ENCODING)
+assert content == "Hello, World!"
 ```
 
 ### 2.2 例外テストの特別なケース
@@ -162,11 +161,12 @@ def test_create_note_with_helper(tmp_path, minerva_test_helper):
 共通のセットアップコードは pytest フィクスチャに抽出し、再利用しましょう：
 
 ```python
-@pytest.fixture
-def temp_dir():
-    """ファイル操作のための一時ディレクトリを提供するフィクスチャ"""
-    with TemporaryDirectory() as tempdir:
-        yield tempdir
+# 推奨: pytest標準のtmp_pathフィクスチャを使用
+def test_file_operation(tmp_path):
+    """標準のtmp_pathフィクスチャを使用した例"""
+    file_path = tmp_path / "test.txt"
+    file_path.write_text("test content", encoding="utf-8")
+    assert file_path.exists()
 ```
 
 ### 3.3 モックの適切な使用
@@ -196,7 +196,7 @@ def mock_write_setup(self, tmp_path):
         ("/absolute/path/to/file.txt", "Filename cannot be an absolute path"),
     ],
 )
-def test_invalid_filename_validation(self, temp_dir, filename, expected_message):
+def test_invalid_filename_validation(self, tmp_path, filename, expected_message):
     # テスト実装
 ```
 

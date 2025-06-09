@@ -94,6 +94,11 @@ Follow the language conventions defined in `.github/instructions/language_rules.
 - **System-level error messages**: English only
 - **Variable and function names**: English only (snake_case for Python)
 
+### AI and Development Documentation
+- **CLAUDE.md**: English only
+- **All files in `.github/instructions/`**: English only
+  - These files are AI-specific guidelines and must remain in English for consistency
+
 ### User-Facing Documentation
 - **Documentation in `docs/` directory**: Japanese (with English technical terms)
 - **README.md and user guides**: Japanese (with English technical terms)
@@ -119,7 +124,44 @@ Follow the language conventions defined in `.github/instructions/language_rules.
 - **CRITICAL**: Remove all trailing whitespace from files before committing - CI checks will fail otherwise
 
 ## Development Workflow
-- **CRITICAL**: Always create a topic branch from the latest main branch before starting work
+
+### **MANDATORY FIRST STEP: Create Topic Branch**
+**BEFORE ANY CODE CHANGES**: You MUST create a topic branch. Do NOT work on main branch.
+
+**Branch Naming Convention** (from `docs/github_workflow.md`):
+- Feature addition: `feature/issue-NUMBER-short-description`
+- Bug fix: `fix/issue-NUMBER-short-description`
+- Refactoring: `refactor/issue-NUMBER-short-description`
+- Documentation: `docs/issue-NUMBER-short-description`
+
+```bash
+# Check current branch first
+git branch --show-current
+
+# If on main, create topic branch immediately with proper naming
+git checkout -b feature/issue-64-remove-legacy-fixtures
+# or
+git checkout -b fix/issue-123-handle-encoding-error
+# or
+git checkout -b refactor/issue-456-simplify-service-layer
+# or
+git checkout -b docs/issue-789-update-test-guidelines
+```
+
+**If you are already on main branch and have made changes:**
+1. Stash changes: `git stash`
+2. Create topic branch: `git checkout -b feature/issue-NUMBER-description`
+3. Apply changes: `git stash pop`
+
+### **MANDATORY: Check Documentation Impact IMMEDIATELY**
+**BEFORE starting implementation**: You MUST check if documentation needs updates:
+
+1. **Identify affected documentation**: Search docs/ for related content
+2. **Plan documentation updates**: What files need changes?
+3. **Update documentation DURING implementation**, not after
+4. **Ask user to verify documentation changes** before finalizing
+
+### Development Process
 - Always check `.github/instructions/` for custom instructions at the beginning of coding
 - After consulting custom instructions, refer to documentation in `docs/` directory and README.md
 - Follow a document-first approach: create documentation as part of implementation planning and ask for user review
@@ -127,13 +169,16 @@ Follow the language conventions defined in `.github/instructions/language_rules.
 - **CRITICAL**: Whenever implementation specs change, you MUST update corresponding documentation
 - Update documentation during implementation if discrepancies or improvements are identified
 - Before creating a pull request, verify that documentation accurately reflects the implementation
-- **PR Preparation Checklist**:
-  1. Verify all code follows style guidelines
-  2. Run `python scripts/check_trailing_whitespace.py` to detect and fix trailing whitespace
-  3. Run local CI checks: `uv run ruff check` and `uv run ruff format`
-  4. Ensure all tests pass with `uv run pytest`
-  5. **Verify documentation has been updated to match implementation changes**
-  6. If you modified any function signatures or behavior, ensure it's documented in appropriate .md files
+
+### **PR Preparation Checklist**
+1. **Confirm you are on a topic branch** (not main)
+2. Verify all code follows style guidelines
+3. Run `python scripts/check_trailing_whitespace.py` to detect and fix trailing whitespace
+4. Run local CI checks: `uv run ruff check` and `uv run ruff format`
+5. Ensure all tests pass with `uv run pytest`
+6. **Verify documentation has been updated to match implementation changes**
+7. If you modified any function signatures or behavior, ensure it's documented in appropriate .md files
+8. **Ask user to review documentation changes before creating PR**
 
 ## Common Pitfalls to Avoid
 - Never use f-strings in logging statements (performance issue when log level is disabled)
