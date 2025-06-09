@@ -220,6 +220,7 @@ Minervaの目標は、Claude Desktopと連携してObsidianの操作を自然言
 - [テストガイドライン](docs/test_guidelines.md) - テスト作成のガイドラインとAAA（Arrange-Act-Assert）パターンの解説
 - [開発ワークフロー](docs/development_workflow.md) - 開発プロセス、ブランチ戦略、コードレビュー、リリースフロー
 - [GitHub開発プロセス](docs/github_workflow.md) - GitHubを使用した開発プロセスの詳細
+- [ラベル管理ガイド](docs/label_management.md) - GitHubラベルの体系的な管理と使用方法
 - [Issueと PR の効果的な活用ガイド](docs/issue_pr_guide.md) - IssueとPRの効果的な活用方法
 - [GitHub Copilot カスタム指示ガイドライン](docs/copilot_guidelines.md) - GitHub Copilotのカスタム指示を使用した開発ガイドライン
 - [リリースプロセス](docs/release_process.md) - リリースプロセスと自動化の詳細

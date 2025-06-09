@@ -27,22 +27,30 @@ Issueは次の目的で活用します：
 Issueとプルリクエストを整理するために、以下のラベルを使用します：
 
 ### タイプ別ラベル
-- `feature`: 新機能追加に関するIssue/PR
-- `bug`: バグ修正に関するIssue/PR
-- `docs`: ドキュメント関連のIssue/PR
-- `refactor`: コードリファクタリングに関するIssue/PR
-- `test`: テスト関連のIssue/PR
-- `chore`: メンテナンス作業に関するIssue/PR
+- `type:feature`: 新機能追加に関するIssue/PR
+- `type:bug`: バグ修正に関するIssue/PR
+- `type:docs`: ドキュメント関連のIssue/PR
+- `type:refactor`: コードリファクタリングに関するIssue/PR
+- `type:test`: テスト関連のIssue/PR
+- `type:chore`: メンテナンス作業に関するIssue/PR
+- `type:ci`: CI/CD関連のIssue/PR
 
 ### 機能別ラベル
-- `obsidian`: Obsidian連携関連のIssue/PR
-- `claude`: Claude連携関連のIssue/PR
-- `markdown`: Markdown処理関連のIssue/PR
-- `create`: create_note機能関連のIssue/PR
-- `edit`: edit_note機能関連のIssue/PR
-- `read`: read_note機能関連のIssue/PR
-- `search`: search_notes機能関連のIssue/PR
-- `config`: 設定関連のIssue/PR
+- `feature:obsidian`: Obsidian連携関連のIssue/PR
+- `feature:claude`: Claude連携関連のIssue/PR
+- `feature:markdown`: Markdown処理関連のIssue/PR
+- `feature:create`: create_note機能関連のIssue/PR
+- `feature:edit`: edit_note機能関連のIssue/PR
+- `feature:read`: read_note機能関連のIssue/PR
+- `feature:search`: search_notes機能関連のIssue/PR
+- `feature:tags`: タグ管理機能関連のIssue/PR
+- `feature:delete`: ノート削除機能関連のIssue/PR
+- `feature:config`: 設定関連のIssue/PR
+
+### エリア別ラベル
+- `area:backend`: バックエンド関連のIssue/PR
+- `area:ci`: CI/CD関連のIssue/PR
+- `area:docs`: ドキュメント関連（エリア）のIssue/PR
 
 ### 優先度ラベル
 - `priority:high`: 高優先度のIssue/PR
@@ -66,6 +74,33 @@ Issueとプルリクエストを整理するために、以下のラベルを使
 - `pr:wip`: 作業進行中のPR
 - `pr:needs-rebase`: リベースが必要なPR
 - `pr:needs-tests`: テスト追加が必要なPR
+
+### ラベル使用例
+
+#### 典型的なラベルの組み合わせ
+
+**新機能開発のIssue例:**
+- `type:feature` + `feature:create` + `priority:medium` + `scope:core`
+
+**バグ修正のIssue例:**
+- `type:bug` + `feature:search` + `priority:high`
+
+**ドキュメント更新のIssue例:**
+- `type:docs` + `area:docs` + `priority:low`
+
+**CI/CD改善のIssue例:**
+- `type:ci` + `area:ci` + `priority:medium`
+
+**プルリクエスト例:**
+- `type:feature` + `feature:tags` + `pr:ready`
+
+#### ラベル選択のガイドライン
+
+1. **必須**: 必ず `type:` ラベルを1つ選択する
+2. **機能特定**: 関連する機能がある場合は `feature:` ラベルを追加
+3. **エリア指定**: 開発領域が明確な場合は `area:` ラベルを追加
+4. **優先度設定**: プロジェクト管理のため `priority:` ラベルを設定
+5. **スコープ明示**: 影響範囲が明確な場合は `scope:` ラベルを追加
 
 ## 開発ワークフロー
 

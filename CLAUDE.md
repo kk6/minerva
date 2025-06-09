@@ -46,7 +46,21 @@ If you prefer to use uv commands directly:
 - Check for trailing whitespace: `python scripts/check_trailing_whitespace.py`
 - Fix trailing whitespace (in-place): `find . -type f \( -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" \) -not -path "*/.git/*" -not -path "*/__pycache__/*" -not -path "*/.venv/*" -not -path "*/venv/*" -not -path "*/.egg-info/*" -exec sed -i 's/[ \t]*$//' {} \;`
 
-## Architecture Overview
+
+## GitHub Labels
+**IMPORTANT**: Only use predefined labels listed in `docs/github_workflow.md`. Do NOT create new labels without explicit approval.
+
+Predefined label categories include:
+- **Type**: `type:feature`, `type:bug`, `type:docs`, `type:refactor`, `type:test`, `type:chore`, `type:ci`
+- **Feature**: `feature:obsidian`, `feature:claude`, `feature:markdown`, `feature:create`, `feature:edit`, `feature:read`, `feature:search`, `feature:tags`, `feature:delete`, `feature:config`
+- **Area**: `area:backend`, `area:ci`, `area:docs`
+- **Priority**: `priority:high`, `priority:medium`, `priority:low`
+- **Status**: `status:wip`, `status:review`, `status:blocked`, `status:ready`
+- **Scope**: `scope:core`, `scope:ui`, `scope:performance`, `scope:security`
+- **PR**: `pr:ready`, `pr:wip`, `pr:needs-rebase`, `pr:needs-tests`
+
+If you need a label that doesn't exist, ask for permission before creating it.
+
 - **MCP Server**: FastMCP-based server (`server.py`) that provides tool endpoints
 - **Service Layer**: Core business logic (`service.py`) with dependency injection pattern
   - `MinervaService`: Main service class containing all note operations
@@ -220,3 +234,38 @@ Required environment variables in `.env`:
 - Import path handling for Claude Desktop vs command line execution
 - Binary file detection in search operations
 - Frontmatter datetime serialization consistency
+
+## GitHub Management Guidelines
+
+### Label Management
+**CRITICAL**: Minerva uses a well-defined label system for issue and PR management. AI agents MUST follow these rules:
+
+1. **Use existing labels only**: Only use labels that already exist in the repository
+2. **Never create new labels**: Do not create new labels without explicit approval
+3. **Required confirmation**: If you believe a new label is necessary, ask the user for permission first
+4. **Reference documentation**: See `docs/label_management.md` for the complete label system
+
+**Existing label categories**:
+- `type:` (required) - feature, bug, docs, refactor, test, chore, ci
+- `feature:` (recommended) - obsidian, claude, markdown, create, edit, read, search, tags, delete, config
+- `area:` (optional) - backend, ci, docs
+- `priority:` (recommended) - high, medium, low
+- `status:` (optional) - wip, review, blocked, ready
+- `scope:` (optional) - core, ui, performance, security
+- `pr:` (PR only) - ready, wip, needs-rebase, needs-tests
+
+**Example of proper label usage**:
+```bash
+# Correct - using existing labels
+gh issue edit 123 --add-label "type:feature,feature:create,priority:medium"
+
+# Incorrect - do not create new labels
+gh label create "new-category" --description "..." --color "..."
+```
+
+### Pull Request Creation
+When creating PRs, ensure:
+1. Use appropriate existing labels only
+2. Follow the established naming conventions
+3. Include proper documentation updates if needed
+4. Reference related issues using "Closes #123" syntax

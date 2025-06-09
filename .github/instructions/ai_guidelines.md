@@ -4,13 +4,30 @@ applyTo: '**'
 
 # AI Assistant Guidelines for Minerva
 
-## Issue Creation Guidelines
 
-When creating GitHub issues, AI assistants must:
+## Issue and Pull Request Creation Guidelines
 
-1. **Always identify yourself**: Include your model name in the issue description
+When creating GitHub issues or pull requests, AI assistants must:
+
+1. **Always identify yourself**: Include your model name in the issue/PR description
 2. **Use appropriate templates**: Select the most relevant issue template
 3. **Provide complete information**: Fill out all required fields in the template
+4. **Use only predefined labels**: ONLY use labels listed in `docs/github_workflow.md` - do NOT create new labels without explicit approval
+
+### GitHub Labels Policy
+
+**CRITICAL**: Only use predefined labels from the official list in `docs/github_workflow.md`. The predefined label categories are:
+
+- **Type**: `type:feature`, `type:bug`, `type:docs`, `type:refactor`, `type:test`, `type:chore`, `type:ci`
+- **Feature**: `feature:obsidian`, `feature:claude`, `feature:markdown`, `feature:create`, `feature:edit`, `feature:read`, `feature:search`, `feature:tags`, `feature:delete`, `feature:config`
+- **Area**: `area:backend`, `area:ci`, `area:docs`
+- **Priority**: `priority:high`, `priority:medium`, `priority:low`
+- **Status**: `status:wip`, `status:review`, `status:blocked`, `status:ready`
+- **Scope**: `scope:core`, `scope:ui`, `scope:performance`, `scope:security`
+- **PR**: `pr:ready`, `pr:wip`, `pr:needs-rebase`, `pr:needs-tests`
+
+If you believe a new label is needed that doesn't exist in the predefined list, you MUST ask for explicit permission before creating it. Explain why the existing labels are insufficient and what the new label would accomplish.
+
 
 ### Required Information for AI-Created Issues and Pull Requests
 
