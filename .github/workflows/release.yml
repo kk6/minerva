@@ -46,4 +46,4 @@ jobs:
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          uv run python -m semantic_release publish --skip-existing
+          uv run python -m semantic_release publish
