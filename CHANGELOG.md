@@ -1,6 +1,51 @@
 # CHANGELOG
 
 
+## v0.9.2 (2025-06-09)
+
+### Bug Fixes
+
+- Synchronize version files with GitHub releases and fix semantic-release workflow
+  ([`08cc2fb`](https://github.com/kk6/minerva/commit/08cc2fb59eae96a997bea8118a39322b2aeeb761))
+
+- Update pyproject.toml and __version__.py from 0.7.0 to 0.9.1 to match current release - Fix
+  semantic-release workflow by removing duplicate version/publish commands - Correct
+  semantic-release config: version_variable -> version_variables - Add changelog and release upload
+  configuration
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Documentation
+
+- Add strict GitHub labels policy for AI assistants
+  ([`fca4fe9`](https://github.com/kk6/minerva/commit/fca4fe94213453c59277523418ee90f19baf1084))
+
+- Add GitHub Labels section to CLAUDE.md with predefined label reference - Update ai_guidelines.md
+  to enforce labels-only policy for issues/PRs - Create github_labels.md with comprehensive label
+  management guidelines - Establish permission-based process for new label creation - Prevent AI
+  agents from creating unauthorized labels
+
+### Refactoring
+
+- Simplify MCP server architecture with @mcp.tool() decorators for Issue #62
+  ([`d5ba140`](https://github.com/kk6/minerva/commit/d5ba14048f191eb4eac7e22fcd8980916643eb99))
+
+Eliminate redundant wrapper functions in server.py by adopting FastMCP's native @mcp.tool()
+  decorator pattern. Remove tools.py module entirely and replace with direct service integration,
+  achieving cleaner architecture and improved maintainability.
+
+- Replace manual wrapper functions with @mcp.tool() decorators - Remove tools.py and associated test
+  files (27 tests eliminated) - Add comprehensive integration tests (9 new workflow tests) - Update
+  all documentation to reflect simplified architecture - Achieve ~5% code reduction in server.py
+  (406→387 lines)
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.9.1 (2025-06-08)
 
 ### Bug Fixes
