@@ -8,6 +8,7 @@ coordination point between configuration, file handling, and frontmatter managem
 
 import logging
 from pathlib import Path
+from typing import ParamSpec, TypeVar, Any
 
 import frontmatter
 
@@ -15,6 +16,7 @@ from minerva.config import MinervaConfig
 from minerva.error_handler import (
     MinervaErrorHandler,
     handle_file_operations,
+    validate_inputs,
     log_performance,
     safe_operation,
 )
@@ -36,21 +38,48 @@ from minerva.validators import TagValidator
 # Set up logging
 logger = logging.getLogger(__name__)
 
+# Type variables for decorator compatibility
+P = ParamSpec("P")
+R = TypeVar("R")
 
-def _validate_filename(filename: str, operation: str | None = None) -> None:
+
+def _validate_filename(*args: Any, **kwargs: Any) -> None:
     """Validate filename parameter is not empty."""
-    if not filename.strip():
-        raise ValidationError(
-            "Filename cannot be empty or whitespace", operation=operation
-        )
+    # For create_note/edit_note: self, text, filename, author=None, default_path=None
+    filename = None
+    if len(args) >= 3:  # args[0] is self, args[1] is text, args[2] is filename
+        filename = args[2]
+    elif "filename" in kwargs:
+        filename = kwargs["filename"]
+
+    if filename is not None and not filename.strip():
+        raise ValidationError("Filename cannot be empty or whitespace")
 
 
-def _validate_text_content(text: str, operation: str | None = None) -> None:
+def _validate_text_content(*args: Any, **kwargs: Any) -> None:
     """Validate text content parameter is not empty."""
-    if not text.strip():
-        raise ValidationError(
-            "Text content cannot be empty or whitespace", operation=operation
-        )
+    # For create_note/edit_note: self, text, filename, author=None, default_path=None
+    text = None
+    if len(args) >= 2:  # args[0] is self, args[1] is text
+        text = args[1]
+    elif "text" in kwargs:
+        text = kwargs["text"]
+
+    if text is not None and not text.strip():
+        raise ValidationError("Text content cannot be empty or whitespace")
+
+
+def _validate_search_query(*args: Any, **kwargs: Any) -> None:
+    """Validate search query parameter is not empty."""
+    # For search_notes: self, query, case_sensitive=True
+    query = None
+    if len(args) >= 2:  # args[0] is self, args[1] is query
+        query = args[1]
+    elif "query" in kwargs:
+        query = kwargs["query"]
+
+    if query is not None and not query.strip():
+        raise ValidationError("Search query cannot be empty or whitespace")
 
 
 class MinervaService:
@@ -167,6 +196,7 @@ class MinervaService:
         return full_dir_path, base_filename, content
 
     @log_performance(threshold_ms=500)
+    @validate_inputs(_validate_text_content, _validate_filename)
     @handle_file_operations()
     def create_note(
         self,
@@ -188,18 +218,8 @@ class MinervaService:
             Path: The path to the created file
 
         Raises:
-            ValidationError: If text or filename is invalid
             FileExistsError: If the file already exists
         """
-        operation = (
-            f"{self.__class__.__module__}.{self.__class__.__qualname__}.create_note"
-        )
-        try:
-            _validate_text_content(text, operation)
-            _validate_filename(filename, operation)
-        except ValidationError as e:
-            logger.warning("Validation failed in %s: %s", operation, str(e))
-            raise
         from minerva.file_handler import write_file
 
         # Prepare note for writing
@@ -224,6 +244,7 @@ class MinervaService:
         return file_path
 
     @log_performance(threshold_ms=500)
+    @validate_inputs(_validate_text_content, _validate_filename)
     @handle_file_operations()
     def edit_note(
         self,
@@ -245,18 +266,8 @@ class MinervaService:
             Path: The path to the edited file
 
         Raises:
-            ValidationError: If text or filename is invalid
             FileNotFoundError: If the file doesn't exist
         """
-        operation = (
-            f"{self.__class__.__module__}.{self.__class__.__qualname__}.edit_note"
-        )
-        try:
-            _validate_text_content(text, operation)
-            _validate_filename(filename, operation)
-        except ValidationError as e:
-            logger.warning("Validation failed in %s: %s", operation, str(e))
-            raise
         from minerva.file_handler import write_file
 
         # Prepare note for writing
@@ -452,7 +463,7 @@ class MinervaService:
 
     def _load_note_with_tags(
         self, file_path: Path
-    ) -> tuple[frontmatter.Post, list[str]]:
+    ) -> tuple["frontmatter.Post", list[str]]:
         """Load note and extract current tags."""
         import frontmatter
 
@@ -466,7 +477,7 @@ class MinervaService:
         return post, tags
 
     def _save_note_with_updated_tags(
-        self, file_path: Path, post: frontmatter.Post, tags: list[str]
+        self, file_path: Path, post: "frontmatter.Post", tags: list[str]
     ) -> Path:
         """Save note with updated tags."""
         import frontmatter

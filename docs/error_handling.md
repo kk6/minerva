@@ -87,25 +87,23 @@ def my_file_operation():
     # 自動的に NoteNotFoundError に変換される
 ```
 
-#### 入力検証
+#### @validate_inputs(validators...)
 
-一貫したエラーハンドリングで入力検証を提供します。現在は明示的な検証関数呼び出しを使用：
+一貫したエラーハンドリングで入力検証を提供します：
 
 ```python
+from minerva.error_handler import validate_inputs
 from minerva.exceptions import ValidationError
 
-def _validate_text_content(text: str, operation: str | None = None):
-    if not text.strip():
-        raise ValidationError("テキストは空にできません", operation=operation)
+def validate_not_empty(*args, **kwargs):
+    text = args[1] if len(args) > 1 else kwargs.get('text')
+    if not text or not text.strip():
+        raise ValidationError("テキストは空にできません")
 
+@validate_inputs(validate_not_empty)
 def create_note(self, text: str, filename: str):
-    operation = f"{self.__class__.__module__}.{self.__class__.__qualname__}.create_note"
-    try:
-        _validate_text_content(text, operation)
-    except ValidationError as e:
-        logger.warning("Validation failed in %s: %s", operation, str(e))
-        raise
-    # メソッド実装...
+    # 検証はメソッド実行前に自動的に実行される
+    pass
 ```
 
 #### @log_performance(threshold_ms=1000)
@@ -144,30 +142,16 @@ def get_tags(self, filepath):
 ```python
 # ノート作成
 @log_performance(threshold_ms=500)
+@validate_inputs(_validate_text_content, _validate_filename)
 @handle_file_operations()
 def create_note(self, text: str, filename: str, ...):
-    # 明示的な入力検証
-    operation = f"{self.__class__.__module__}.{self.__class__.__qualname__}.create_note"
-    try:
-        _validate_text_content(text, operation)
-        _validate_filename(filename, operation)
-    except ValidationError as e:
-        logger.warning("Validation failed in %s: %s", operation, str(e))
-        raise
     # メソッドの実装
 
 # ノート編集
 @log_performance(threshold_ms=500)
+@validate_inputs(_validate_text_content, _validate_filename)
 @handle_file_operations()
 def edit_note(self, text: str, filename: str, ...):
-    # 明示的な入力検証
-    operation = f"{self.__class__.__module__}.{self.__class__.__qualname__}.edit_note"
-    try:
-        _validate_text_content(text, operation)
-        _validate_filename(filename, operation)
-    except ValidationError as e:
-        logger.warning("Validation failed in %s: %s", operation, str(e))
-        raise
     # メソッドの実装
 
 # ノート読み取り
@@ -179,7 +163,7 @@ def read_note(self, filepath: str) -> str:
 
 これにより以下が提供されます：
 - パフォーマンスログ記録（設定された閾値を超える場合）
-- 明示的な入力検証（テキストとファイル名をチェック）
+- 入力検証（テキストとファイル名をチェック）
 - ファイル操作のエラー変換
 - 一貫したエラーコンテキスト
 
@@ -301,8 +285,7 @@ def get_optional_metadata(self, filepath):
 
 - すべてのファイル操作メソッド（`create_note`、`edit_note`、`read_note`など）には`@handle_file_operations()`を適用
 - テストでは具体的なMinerva例外（`NoteNotFoundError`など）を期待し、汎用的な`Exception`は避ける
-- デコレーターの適用順序を統一：`@log_performance` → `@handle_file_operations`
-- 入力検証は明示的な関数呼び出しで実行し、適切なログレベル（WARNING）で記録
+- デコレーターの適用順序を統一：`@log_performance` → `@validate_inputs` → `@handle_file_operations`
 
 ## エラー回復パターン
 
