@@ -1,9 +1,6 @@
 """Common test fixtures and setup."""
 
 import pytest
-from pathlib import Path
-from tempfile import TemporaryDirectory
-
 from tests.helpers import MinervaTestHelper
 
 
@@ -42,35 +39,3 @@ def sample_notes(test_vault, minerva_test_helper):
         List of paths to created note files
     """
     return minerva_test_helper.create_sample_notes(test_vault)
-
-
-# Legacy fixture for backward compatibility
-@pytest.fixture
-def temp_dir():
-    """Fixture that provides a temporary directory for file operations.
-
-    Yields:
-        str: Path to a temporary directory that is automatically cleaned up.
-    """
-    with TemporaryDirectory() as tempdir:
-        yield tempdir
-
-
-@pytest.fixture
-def create_test_file(temp_dir):
-    """Helper fixture for creating test files with specified content.
-
-    Args:
-        temp_dir: Temporary directory fixture
-
-    Returns:
-        function: Helper function that creates a file with specified name and content
-    """
-
-    def _create_file(filename, content):
-        file_path = Path(temp_dir) / filename
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        return file_path
-
-    return _create_file
