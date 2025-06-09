@@ -11,16 +11,12 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
    - **MinervaConfig**: 依存性注入用の設定データクラス
    - **create_minerva_service()**: デフォルト設定でのサービスファクトリー関数
 
-2. **API互換層** (`tools.py`) - **リファクタリング済み**
-   - **レガシーAPI関数**: 既存の関数ベースAPIを維持（後方互換性）
-   - **サービスラッパー**: 内部的に新しいサービス層を使用
-   - **依存性注入サポート**: テスト用のサービスインスタンス設定機能
-   - **基本操作**:
-     - `CreateNoteRequest`, `EditNoteRequest`, `ReadNoteRequest`, `SearchNoteRequest` クラス
-     - `create_note()`, `edit_note()`, `read_note()`, `search_notes()` 関数
+2. **MCPサーバー層** (`server.py`) - **簡素化済み**
+   - **FastMCPサーバー**: `@mcp.tool()` デコレータを使用した直接的なツール登録
+   - **ダイレクトサービス統合**: ラッパー関数を排除し、サービスメソッドを直接呼び出し
+   - **ツール機能**:
+     - `read_note()`, `create_note()`, `edit_note()`, `search_notes()` 関数
      - `get_note_delete_confirmation()`, `perform_note_delete()` 関数（2段階削除プロセス）
-   - **タグ管理**:
-     - `AddTagRequest`, `RemoveTagRequest`, `RenameTagRequest` クラス
      - `add_tag()`, `remove_tag()`, `rename_tag()`, `get_tags()`, `list_all_tags()`, `find_notes_with_tag()` 関数
 
 3. **設定管理層** (`config.py`) - **拡張済み**
@@ -46,7 +42,8 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
 
 ### 2.2 責務の分離
 
-- `tools.py`モジュールはObsidianノート固有の機能を提供します
+- `server.py`モジュールはFastMCPサーバーとツール関数を提供します
+- `service.py`モジュールはObsidianノート固有のビジネスロジックを提供します
 - `file_handler.py`モジュールは汎用的なファイル操作関数を提供します
 - この分離により、将来的に異なるタイプのノートやドキュメントシステムをサポートすることが容易になります
 
@@ -64,91 +61,56 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
 
 ## 3. モジュール詳細
 
-### 3.1 tools.py
+### 3.1 server.py - MCPサーバー層
 
-#### 3.1.1 基本ノート操作
+#### 3.1.1 アーキテクチャ設計
 
-以下のリクエストモデルと対応する関数が実装されています：
-
-- `CreateNoteRequest`: 新規ノート作成リクエスト
-- `EditNoteRequest`: 既存ノート編集リクエスト
-- `ReadNoteRequest`: ノート読取リクエスト
-- `SearchNoteRequest`: ノート検索リクエスト
-- `DeleteConfirmationRequest`: ノート削除確認リクエスト
-- `DeleteNoteRequest`: ノート削除実行リクエスト
-- `WriteNoteRequest`: レガシーノート作成・更新リクエスト（後方互換性用）
-
-#### 3.1.2 タグ管理機能
-
-タグ操作のための以下のリクエストモデルと関数が実装されています：
-
-- `AddTagRequest`: タグ追加リクエスト
-  - `tag`: 追加するタグ文字列
-  - `filename` または `filepath`: 対象ノート
-  - `default_path`: デフォルトディレクトリパス
-
-- `RemoveTagRequest`: タグ削除リクエスト
-  - `tag`: 削除するタグ文字列
-  - `filename` または `filepath`: 対象ノート
-  - `default_path`: デフォルトディレクトリパス
-
-- `RenameTagRequest`: タグ名変更リクエスト
-  - `old_tag`: 変更元のタグ名
-  - `new_tag`: 変更後のタグ名
-  - `directory`: 対象ディレクトリ（省略時はvault全体）
-
-- `GetTagsRequest`: タグ取得リクエスト
-  - `filename` または `filepath`: 対象ノート
-  - `default_path`: デフォルトディレクトリパス
-
-- `ListAllTagsRequest`: 全タグリスト取得リクエスト
-  - `directory`: 対象ディレクトリ（省略時はvault全体）
-
-- `FindNotesWithTagRequest`: タグによるノート検索リクエスト
-  - `tag`: 検索対象のタグ
-  - `directory`: 対象ディレクトリ（省略時はvault全体）
-
-#### 3.1.3 共通ユーティリティ関数
-
-タグ管理のための内部処理関数：
-
-- `_normalize_tag()`: タグの正規化（小文字化、空白削除）
-- `_validate_tag()`: タグの形式検証（禁止文字チェック）
-- `_generate_note_metadata()`: フロントマターの生成と更新
-
-#### 3.1.4 フロントマター処理
-
-ノートのメタデータ管理は、python-frontmatterパッケージを使用して実装されています。すべてのノートには以下の情報が自動的に追加されます：
+FastMCPフレームワークを使用したシンプルなサーバー実装：
 
 ```python
-def _generate_note_metadata(
-    text: str,
-    author: str | None = None,
-    is_new_note: bool = True,
-    existing_frontmatter: dict | None = None,
-    tags: list[str] | None = None,
-) -> frontmatter.Post:
-    """
-    Generate metadata for a new or existing note.
+# サービスインスタンスを初期化
+service = create_minerva_service()
 
-    Args:
-        text: The text content of the note
-        author: Optional author name to include in the metadata
-        is_new_note: Whether this is a new note or updating an existing one
-        existing_frontmatter: Any existing frontmatter to preserve
-        tags: Optional list of tags to include/update in the metadata
+# FastMCPサーバーを作成
+mcp = FastMCP("minerva", __version__)
 
-    Returns:
-        A frontmatter.Post object with the note content and metadata
-    """
+# @mcp.tool()デコレータでツールを直接登録
+@mcp.tool()
+def read_note(filepath: str) -> str:
+    """Read the content of a markdown note from your Obsidian vault."""
+    return service.read_note(filepath)
 ```
 
-このメタデータには以下の情報が含まれます：
+#### 3.1.2 提供ツール関数
 
-- `created`: ノート作成日時（ISO 8601形式）- 新規作成時のみ追加
-- `updated`: 最終更新日時（ISO 8601形式）- 常に現在時刻に更新
-- `author`: 作成者名（指定された場合）
-- `tags`: タグのリスト（タグ管理機能で追加された場合）
+サーバーは以下のツール関数を提供します：
+
+**基本ノート操作**:
+- `read_note(filepath: str) -> str`: ノートの読み取り
+- `create_note(text: str, filename: str, author: str | None = None, default_path: str | None = None) -> Path`: 新規ノート作成
+- `edit_note(text: str, filename: str, author: str | None = None, default_path: str | None = None) -> Path`: 既存ノート編集
+- `search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]`: ノート内容検索
+
+**削除操作（2段階プロセス）**:
+- `get_note_delete_confirmation(filename: str | None = None, filepath: str | None = None, default_path: str | None = None) -> dict[str, str]`: 削除確認情報の取得
+- `perform_note_delete(filename: str | None = None, filepath: str | None = None, default_path: str | None = None) -> Path`: 実際の削除実行
+
+**タグ管理**:
+- `add_tag(tag: str, filename: str | None = None, filepath: str | None = None, default_path: str | None = None) -> Path`: タグ追加
+- `remove_tag(tag: str, filename: str | None = None, filepath: str | None = None, default_path: str | None = None) -> Path`: タグ削除
+- `rename_tag(old_tag: str, new_tag: str, directory: str | None = None) -> list[Path]`: タグ名変更
+- `get_tags(filename: str | None = None, filepath: str | None = None, default_path: str | None = None) -> list[str]`: ノートのタグ一覧取得
+- `list_all_tags(directory: str | None = None) -> list[str]`: vault全体のタグ一覧
+- `find_notes_with_tag(tag: str, directory: str | None = None) -> list[str]`: 特定タグを持つノート検索
+
+#### 3.1.3 設計上の利点
+
+新しいアーキテクチャの利点：
+
+- **コード削減**: ラッパー関数の排除により約5%のコード削減を実現
+- **保守性向上**: 重複コードの削除によりメンテナンスが容易
+- **直接統合**: サービス層との直接的な統合によりパフォーマンス向上
+- **FastMCP活用**: モダンなデコレータベースの実装
 
 ### 3.2 file_handler.py
 
@@ -402,7 +364,8 @@ class FrontmatterManager:
 #### 6.1.3 責務の分離
 
 - **FrontmatterManager**: フロントマター処理に特化
-- **tools.py**: 高レベルAPIとビジネスロジック
+- **service.py**: ビジネスロジックとコアサービス
+- **server.py**: MCPツール実装と@mcp.tool()デコレータ
 - **file_handler.py**: 低レベルファイル操作
 
 #### 6.1.4 移行戦略

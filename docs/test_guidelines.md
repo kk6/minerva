@@ -64,6 +64,37 @@ with pytest.raises(FileExistsError):
     write_file(request)
 ```
 
+#### 例外テストでのハマりどころ ⚠️ **重要**
+
+**問題**: `pytest.raises` が期待する例外をキャッチできない場合があります。特に以下のケースで発生します：
+
+1. **カスタム例外の継承階層の問題**
+2. **モジュールキャッシングによる例外クラスの不一致**
+3. **例外が複数のレイヤーで変換される場合**
+
+**解決策**: `try/except` を使った明示的な例外テスト：
+
+```python
+# 問題のあるテスト（pytest.raises が機能しない場合）
+with pytest.raises(NoteNotFoundError):
+    server.read_note("/non/existent/file.md")  # 失敗する可能性
+
+# 推奨される解決策
+try:
+    server.read_note("/non/existent/file.md")
+    assert False, "Expected an exception but none was raised"
+except Exception as e:
+    # 動的インポートで正しい例外クラスを取得
+    from minerva.exceptions import NoteNotFoundError as MinervaNotFoundError
+    assert isinstance(e, (FileNotFoundError, MinervaNotFoundError)), f"Unexpected exception type: {type(e)}"
+```
+
+**重要なポイント**:
+- テスト内での動的インポートで例外クラスの不一致を回避
+- 複数の例外タイプを許可する（継承関係やエラーハンドラーによる変換を考慮）
+- 詳細なエラーメッセージで実際の例外タイプを表示
+- 例外が発生しない場合の明示的な失敗
+
 ### 2.3 docstring の形式
 
 各テストメソッドには、以下の構造を持つ docstring を含めてください：
@@ -172,6 +203,71 @@ def test_invalid_filename_validation(self, temp_dir, filename, expected_message)
 ### 3.5 テストの独立性
 
 各テストは他のテストに依存せず、独立して実行できる必要があります。テスト間で状態を共有しないようにしましょう。
+
+#### 3.5.1 モジュールキャッシングの問題と対策 ⚠️ **重要**
+
+Pythonのモジュールキャッシング機能により、テスト間でモジュールの状態が共有されてしまう問題があります。特に、以下のような場合に問題が発生します：
+
+**問題のケース**:
+- 環境変数を `patch.dict()` で変更するテスト
+- モジュールレベルでサービスやオブジェクトを初期化するコード
+- 複数のテストが同じモジュールをインポートする場合
+
+**具体的な問題例**:
+```python
+# 問題のあるテスト例
+def test_with_different_env():
+    with patch.dict(os.environ, {"VAULT_PATH": "/test/path"}):
+        from minerva import server  # モジュールが既にキャッシュされている場合、
+                                   # 新しい環境変数が反映されない
+        # テストが期待通りに動作しない
+```
+
+**解決策 - モジュールキャッシュのクリア**:
+
+テスト環境の分離を確実にするため、テスト前にモジュールキャッシュをクリアします：
+
+```python
+def test_with_fresh_module():
+    with patch.dict(os.environ, {"VAULT_PATH": "/test/path"}):
+        # 関連するモジュールキャッシュをクリア
+        sys.modules.pop("minerva.server", None)
+        sys.modules.pop("minerva.service", None)
+        sys.modules.pop("minerva.config", None)
+
+        from minerva import server  # noqa: E402
+        # これで新しい環境変数が正しく反映される
+```
+
+**フィクスチャでの実装例**:
+```python
+@pytest.fixture
+def temp_vault_env(self):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with patch.dict(os.environ, {"VAULT_ROOT": tmpdir}):
+            # モジュールキャッシュをクリア
+            modules_to_clear = [
+                "minerva.server",
+                "minerva.service",
+                "minerva.config"
+            ]
+            for module in modules_to_clear:
+                sys.modules.pop(module, None)
+
+            from minerva import server  # noqa: E402
+            yield server
+```
+
+**重要なポイント**:
+- モジュールキャッシュクリアは環境変数パッチング**前**に行う
+- 依存関係のあるモジュールも合わせてクリアする
+- `# noqa: E402` コメントで import の位置警告を抑制する
+- 全てのminerva関連モジュールをクリアする場合：
+  ```python
+  modules_to_clear = [name for name in sys.modules.keys() if name.startswith("minerva")]
+  for module in modules_to_clear:
+      sys.modules.pop(module, None)
+  ```
 
 ### 3.6 エッジケースのテスト
 
