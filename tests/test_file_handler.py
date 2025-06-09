@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 import pydantic
 
 from minerva.file_handler import (
@@ -45,7 +44,7 @@ class TestFileHandler:
         file_path = write_file(request)
 
         # ==================== Assert ====================
-        assert file_path == Path(tmp_path) / "test.txt"
+        assert file_path == tmp_path / "test.txt"
         assert file_path.exists()
         content = file_path.read_text(encoding=ENCODING)
         assert content == "Hello, World!"
@@ -61,7 +60,7 @@ class TestFileHandler:
             - Verify that original file content remains unchanged
         """
         # ==================== Arrange ====================
-        file_path = Path(tmp_path) / "existing.txt"
+        file_path = tmp_path / "existing.txt"
         # Create a file to ensure it exists
         file_path.write_text("Hello, World!", encoding=ENCODING)
 
@@ -95,7 +94,7 @@ class TestFileHandler:
             - Verify that file content has been updated
         """
         # ==================== Arrange ====================
-        file_path = Path(tmp_path) / "existing.txt"
+        file_path = tmp_path / "existing.txt"
         # Create a file to ensure it exists
         file_path.write_text("Hello, World!", encoding=ENCODING)
 
@@ -176,7 +175,7 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create path to non-existent subdirectory
-        sub_dir = Path(tmp_path) / "non_existent_dir" / "sub_dir"
+        sub_dir = tmp_path / "non_existent_dir" / "sub_dir"
 
         request = FileWriteRequest(
             directory=str(sub_dir),
@@ -246,7 +245,7 @@ class TestFileHandler:
             - Verify content matches what was written
         """
         # ==================== Arrange ====================
-        file_path = Path(tmp_path) / "test.txt"
+        file_path = tmp_path / "test.txt"
         # Create a file to read
         file_path.write_text("Hello, World!", encoding=ENCODING)
 
@@ -338,7 +337,7 @@ class TestFileHandler:
             - Verify UnicodeDecodeError is raised when attempting to read
         """
         # ==================== Arrange ====================
-        file_path = Path(tmp_path) / "test.txt"
+        file_path = tmp_path / "test.txt"
         # Create a file with invalid encoding
         with open(file_path, "wb") as f:
             f.write(b"\x80\x81\x82")
@@ -364,11 +363,11 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create a text file
-        text_file_path = Path(tmp_path) / "text.txt"
+        text_file_path = tmp_path / "text.txt"
         text_file_path.write_text("Hello, World!", encoding=ENCODING)
 
         # Create a binary file
-        binary_file_path = Path(tmp_path) / "binary.bin"
+        binary_file_path = tmp_path / "binary.bin"
         with open(binary_file_path, "wb") as f:
             f.write(b"\x00\x01\x02\x03")
 
@@ -389,7 +388,7 @@ class TestFileHandler:
         # ==================== Arrange ====================
         from minerva.file_handler import is_binary_file
 
-        dummy_path = Path(tmp_path) / "dummy.txt"
+        dummy_path = tmp_path / "dummy.txt"
         dummy_path.touch()
 
         # ==================== Act & Assert (PermissionError) ====================
@@ -415,10 +414,10 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create test files
-        file1 = Path(tmp_path) / "file1.txt"
+        file1 = tmp_path / "file1.txt"
         file1.write_text("This is a test file with a keyword: apple", encoding=ENCODING)
 
-        file2 = Path(tmp_path) / "file2.txt"
+        file2 = tmp_path / "file2.txt"
         file2.write_text("This file doesn't have the keyword", encoding=ENCODING)
 
         config = SearchConfig(
@@ -449,7 +448,7 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create test file
-        file_path = Path(tmp_path) / "case.txt"
+        file_path = tmp_path / "case.txt"
         file_path.write_text("This file has APPLE and apple", encoding=ENCODING)
 
         # ==================== Act & Assert (Case-sensitive) ====================
@@ -489,10 +488,10 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create files with different extensions
-        txt_file = Path(tmp_path) / "file.txt"
+        txt_file = tmp_path / "file.txt"
         txt_file.write_text("This is a text file with keyword", encoding=ENCODING)
 
-        py_file = Path(tmp_path) / "file.py"
+        py_file = tmp_path / "file.py"
         py_file.write_text("# This is a Python file with keyword", encoding=ENCODING)
 
         # Configure search for only .txt files
@@ -581,7 +580,7 @@ class TestFileHandler:
         # ==================== Arrange ====================
         # Create multiple files with the keyword
         for i in range(3):
-            file_path = Path(tmp_path) / f"file{i}.txt"
+            file_path = tmp_path / f"file{i}.txt"
             file_path.write_text(
                 f"This is file {i} with the keyword", encoding=ENCODING
             )
@@ -598,9 +597,9 @@ class TestFileHandler:
         # Verify each file is found
         found_files = [result.file_path for result in results]
         for i in range(3):
-            assert str(Path(tmp_path) / f"file{i}.txt") in found_files
+            assert str(tmp_path / f"file{i}.txt") in found_files
 
-    def test_get_validated_file_path_relative(self, tmp_path):
+    def test_get_validated_file_path_relative(self):
         """Test _get_validated_file_path with a relative path.
 
         Arrange:
@@ -683,7 +682,7 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create a test file
-        file_path = Path(tmp_path) / "test.txt"
+        file_path = tmp_path / "test.txt"
         file_path.write_text("Test content", encoding=ENCODING)
 
         # Mock os.walk to raise an exception
@@ -783,8 +782,8 @@ class TestFileHandler:
         # Mock os.walk to return a more complex directory structure
         mock_walk_data = [
             (tmp_path, ["subdir1", "subdir2"], ["test.txt"]),
-            (str(Path(tmp_path) / "subdir1"), [], ["file1.txt", "file2.py"]),
-            (str(Path(tmp_path) / "subdir2"), [], ["file3.txt"]),
+            (str(tmp_path / "subdir1"), [], ["file1.txt", "file2.py"]),
+            (str(tmp_path / "subdir2"), [], ["file3.txt"]),
         ]
         mocker.patch("os.walk", return_value=mock_walk_data)
 
@@ -870,7 +869,7 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create the file to be deleted
-        file_path = Path(tmp_path) / "to_delete.txt"
+        file_path = tmp_path / "to_delete.txt"
         file_path.write_text("This file will be deleted", encoding=ENCODING)
 
         # Verify the file exists before deletion
@@ -942,9 +941,9 @@ class TestFileHandler:
         """
         # ==================== Arrange ====================
         # Create multiple files
-        file1 = Path(tmp_path) / "file1.txt"
-        file2 = Path(tmp_path) / "file2.txt"
-        file3 = Path(tmp_path) / "file3.txt"
+        file1 = tmp_path / "file1.txt"
+        file2 = tmp_path / "file2.txt"
+        file3 = tmp_path / "file3.txt"
 
         for file in [file1, file2, file3]:
             file.write_text(f"Content for {file.name}", encoding=ENCODING)

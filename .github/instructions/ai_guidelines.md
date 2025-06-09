@@ -51,7 +51,7 @@ If you believe a new label is needed that doesn't exist in the predefined list, 
 When creating topic branches for development, follow the naming convention defined in `docs/github_workflow.md`:
 
 - Feature addition: `feature/issue-NUMBER-short-description`
-- Bug fix: `fix/issue-NUMBER-short-description`  
+- Bug fix: `fix/issue-NUMBER-short-description`
 - Refactoring: `refactor/issue-NUMBER-short-description`
 - Documentation: `docs/issue-NUMBER-short-description`
 

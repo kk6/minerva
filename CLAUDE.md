@@ -150,7 +150,7 @@ git checkout -b docs/issue-789-update-test-guidelines
 
 **If you are already on main branch and have made changes:**
 1. Stash changes: `git stash`
-2. Create topic branch: `git checkout -b feature/issue-NUMBER-description`
+2. Create topic branch: `git checkout -b feature/issue-NUMBER-short-description`
 3. Apply changes: `git stash pop`
 
 ### **MANDATORY: Check Documentation Impact IMMEDIATELY**
