@@ -14,7 +14,7 @@ class MinervaConfig:
 
     This class encapsulates all configuration parameters needed for
     Minerva's operation, providing a clean interface for dependency injection
-    and testing while maintaining backward compatibility.
+    and testing.
     """
 
     vault_path: Path
