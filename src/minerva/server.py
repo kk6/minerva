@@ -368,3 +368,127 @@ def find_notes_with_tag(tag: str, directory: str | None = None) -> list[str]:
         Great for finding all notes related to a specific topic or project
     """
     return service.find_notes_with_tag(tag, directory)
+
+
+@mcp.tool()
+def add_alias(
+    alias: str,
+    filename: str | None = None,
+    filepath: str | None = None,
+    default_path: str | None = None,
+    allow_conflicts: bool = False,
+) -> Path:
+    """
+    Add an alias to an existing note's frontmatter.
+
+    Aliases provide alternative names for notes, making them easier to reference
+    and discover. They're stored in the frontmatter 'aliases' field and are
+    compatible with Obsidian's alias system.
+
+    Example:
+        add_alias("last week's meeting", filename="meeting_20250523.md")
+        add_alias("May review", filepath="/full/path/to/note.md")
+
+    Args:
+        alias: The alias to add to the note
+        filename: Name of the file to modify (provide this OR filepath)
+        filepath: Full path to the file to modify (provide this OR filename)
+        default_path: Subfolder to look for the file (optional)
+        allow_conflicts: Whether to allow aliases that conflict with existing filenames or aliases
+
+    Returns:
+        Path to the modified note file
+
+    Note:
+        By default, prevents adding aliases that conflict with existing filenames
+        or other aliases. Set allow_conflicts=True to override this protection.
+    """
+    return service.add_alias(alias, filename, filepath, default_path, allow_conflicts)
+
+
+@mcp.tool()
+def remove_alias(
+    alias: str,
+    filename: str | None = None,
+    filepath: str | None = None,
+    default_path: str | None = None,
+) -> Path:
+    """
+    Remove an alias from an existing note's frontmatter.
+
+    This removes the specified alias from the note's aliases list.
+    Alias matching is case-insensitive.
+
+    Example:
+        remove_alias("old name", filename="updated-note.md")
+        remove_alias("temp alias", filepath="/full/path/to/note.md")
+
+    Args:
+        alias: The alias to remove from the note
+        filename: Name of the file to modify (provide this OR filepath)
+        filepath: Full path to the file to modify (provide this OR filename)
+        default_path: Subfolder to look for the file (optional)
+
+    Returns:
+        Path to the modified note file
+
+    Note:
+        If the alias doesn't exist, the note's timestamp is still updated
+    """
+    return service.remove_alias(alias, filename, filepath, default_path)
+
+
+@mcp.tool()
+def get_aliases(
+    filename: str | None = None,
+    filepath: str | None = None,
+    default_path: str | None = None,
+) -> list[str]:
+    """
+    Get all aliases from a specific note's frontmatter.
+
+    This returns the list of aliases currently assigned to a note.
+    Aliases are read from the frontmatter 'aliases' field.
+
+    Example:
+        get_aliases(filename="project-notes.md")
+        get_aliases(filepath="/full/path/to/note.md")
+
+    Args:
+        filename: Name of the file to check (provide this OR filepath)
+        filepath: Full path to the file to check (provide this OR filename)
+        default_path: Subfolder to look for the file (optional)
+
+    Returns:
+        List of alias strings assigned to the note
+
+    Note:
+        Returns empty list if the note has no aliases or no frontmatter
+    """
+    return service.get_aliases(filename, filepath, default_path)
+
+
+@mcp.tool()
+def search_by_alias(alias: str, directory: str | None = None) -> list[str]:
+    """
+    Find notes that have a specific alias.
+
+    This searches through all notes and returns the file paths of those
+    that contain the specified alias in their frontmatter.
+
+    Example:
+        search_by_alias("meeting notes")
+        search_by_alias("project alpha", directory="projects")
+
+    Args:
+        alias: The alias to search for
+        directory: Specific folder to search (if None, searches entire vault)
+
+    Returns:
+        List of file paths for notes containing the alias
+
+    Note:
+        Alias matching is case-insensitive. Useful for finding notes by
+        their alternative names or natural language references.
+    """
+    return service.search_by_alias(alias, directory)
