@@ -37,7 +37,7 @@ class TestMinervaConfig:
 
     def test_from_env_missing_required(self):
         """Test configuration creation with missing required environment variables."""
-        with patch.dict("os.environ", {}, clear=True):
+        with patch.dict("os.environ", {"MINERVA_SKIP_DOTENV": "1"}, clear=True):
             with pytest.raises(
                 ValueError, match="Required environment variables not set"
             ):
@@ -47,7 +47,11 @@ class TestMinervaConfig:
         """Test configuration creation with defaults for optional variables."""
         with patch.dict(
             "os.environ",
-            {"OBSIDIAN_VAULT_ROOT": "/test/vault", "DEFAULT_VAULT": "test_vault"},
+            {
+                "OBSIDIAN_VAULT_ROOT": "/test/vault",
+                "DEFAULT_VAULT": "test_vault",
+                "MINERVA_SKIP_DOTENV": "1",
+            },
             clear=True,
         ):
             config = MinervaConfig.from_env()

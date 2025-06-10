@@ -1,7 +1,17 @@
 """Common test fixtures and setup."""
 
+import os
 import pytest
 from tests.helpers import MinervaTestHelper
+
+
+@pytest.fixture(scope="session", autouse=True)
+def skip_dotenv_in_tests():
+    """Automatically skip .env loading during all tests."""
+    os.environ["MINERVA_SKIP_DOTENV"] = "1"
+    yield
+    # Cleanup after tests
+    os.environ.pop("MINERVA_SKIP_DOTENV", None)
 
 
 @pytest.fixture

@@ -3,9 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
-
 
 @dataclass
 class MinervaConfig:
@@ -33,6 +30,10 @@ class MinervaConfig:
         Raises:
             ValueError: If required environment variables are not set
         """
+        # Load .env file unless explicitly disabled (e.g., in test environments)
+        if not os.getenv("MINERVA_SKIP_DOTENV"):
+            load_dotenv(override=False)  # Don't override existing env vars
+
         vault_root = os.getenv("OBSIDIAN_VAULT_ROOT")
         default_vault = os.getenv("DEFAULT_VAULT")
 

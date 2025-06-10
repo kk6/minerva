@@ -46,10 +46,20 @@ cp .env.example .env
 
 `.env`ファイルを編集して、以下の変数を設定します：
 
+#### 必須環境変数
 ```
 OBSIDIAN_VAULT_ROOT=<Obsidianのvaultルートディレクトリのパス>
 DEFAULT_VAULT=<デフォルトで使用するvault名>
 ```
+
+#### 開発・テスト用オプション環境変数
+```
+# テスト実行時は自動的に設定されるため、通常は設定不要
+# CI/CDや特殊なテスト環境で.envファイルの読み込みを無効化する場合のみ設定
+MINERVA_SKIP_DOTENV=1
+```
+
+**注意**: `MINERVA_SKIP_DOTENV`は通常の開発では設定する必要はありません。pytestは自動的にテスト環境を検出し、`.env`ファイルの読み込みを適切に制御します。
 
 ### 4. pre-commit フックのセットアップ
 
