@@ -1132,8 +1132,7 @@ class MinervaService:
         Raises:
             FileNotFoundError: If the specified directory does not exist
         """
-        if not alias or not alias.strip():
-            raise ValueError("Alias cannot be empty or only whitespace")
+        self._validate_alias(alias)
 
         effective_directory_str = (
             directory if directory else str(self.config.vault_path)
