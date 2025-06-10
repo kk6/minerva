@@ -1,6 +1,209 @@
 # CHANGELOG
 
 
+## v0.10.0 (2025-06-11)
+
+### Bug Fixes
+
+- Address Gemini code review feedback
+  ([`74ce4e8`](https://github.com/kk6/minerva/commit/74ce4e83231db74b7d011bf1bf726311c062a8d2))
+
+- Remove redundant Path() wrapping of tmp_path objects in test_file_handler.py - Remove unused
+  pathlib.Path import from test_file_handler.py - Fix trailing whitespace in ai_guidelines.md - Fix
+  branch naming inconsistency in CLAUDE.md (description -> short-description) - Remove unused
+  tmp_path parameter from test_get_validated_file_path_relative
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Address PR #76 code review comments
+  ([`a9ff7c3`](https://github.com/kk6/minerva/commit/a9ff7c3fac3ac13f294059cf1c598229d223504a))
+
+- Fix alias timestamp update logic to only update when changes occur - add_alias: only save file
+  when alias is actually added - remove_alias: only save file when alias is actually removed - Move
+  local imports to module level following PEP 8 - Add write_file to module-level imports - Remove
+  local import statements from _save_note_with_updated_aliases - Remove unused
+  _validate_search_query function
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Prevent test files from being created in real Obsidian vault
+  ([`9e869b4`](https://github.com/kk6/minerva/commit/9e869b463c2d4f985dc52b7aa04eee7e2b8b9694))
+
+Problem: Tests were creating test_note_* files in the actual Obsidian vault because .env file was
+  loaded at module import time, overriding test patches.
+
+Changes: - Move .env loading from module level to MinervaConfig.from_env() method - Add test
+  environment detection to skip .env loading during tests - Implement lazy service initialization in
+  server.py to support testing - Update server integration tests to work with lazy initialization -
+  Add missing alias functions to expected_functions test list
+
+This ensures tests run in isolated temporary directories while preserving normal .env behavior for
+  production usage.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- **release**: Remove --skip-existing option from semantic release command
+  ([`8689093`](https://github.com/kk6/minerva/commit/868909368b7a18071d122262c2241a58656a200f))
+
+### Continuous Integration
+
+- Add --skip-existing option to semantic-release command
+  ([`7fe4bf6`](https://github.com/kk6/minerva/commit/7fe4bf6f4a231db65ed73655e9b29952a502fe7d))
+
+- Add workflow_dispatch trigger and verbose output to release workflow
+  ([`51f4194`](https://github.com/kk6/minerva/commit/51f41946ebf534125ba3d6463023873d00c74557))
+
+- Enable manual triggering of release workflow - Add verbose output for semantic-release debugging
+
+### Documentation
+
+- Add MINERVA_SKIP_DOTENV environment variable documentation
+  ([`87862f5`](https://github.com/kk6/minerva/commit/87862f598d343531f2d98f741d41d67c233e4d2b))
+
+Update all relevant documentation to include the new MINERVA_SKIP_DOTENV environment variable
+  introduced for test isolation:
+
+- README.md: Add optional environment variables section with usage examples - docs/requirements.md:
+  Document required and optional environment variables - docs/development_setup.md: Add
+  development-specific guidance - docs/test_guidelines.md: Add comprehensive section on automatic
+  test environment control
+
+Key documentation improvements: - Explain automatic test environment detection via conftest.py -
+  Document lazy service initialization pattern for testing - Provide CI/CD configuration examples -
+  List benefits of improved test isolation
+
+This ensures developers understand how to use the new environment variable for test control and
+  CI/CD pipeline configuration.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Remove backward compatibility reference from MinervaConfig docstring
+  ([`49b461e`](https://github.com/kk6/minerva/commit/49b461eed2aedbe45f46b1be8b6a47f2c7bc0a09))
+
+Remove outdated "while maintaining backward compatibility" text from MinervaConfig class docstring
+  to accurately reflect current design philosophy and prevent developer confusion.
+
+Closes #65
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Remove outdated Claude Desktop configuration example
+  ([`b9a5a3d`](https://github.com/kk6/minerva/commit/b9a5a3d52bc72bc276427901e7d4f08525713fc3))
+
+Remove confusing legacy configuration example as suggested in PR review. The current recommended
+  approach is using `uv run mcp install` command.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Update documentation to reflect implemented alias functionality
+  ([`044ccd4`](https://github.com/kk6/minerva/commit/044ccd4e2d9ae0f9a245b144dcc364116bb4c7c5))
+
+- Move alias functionality from roadmap to implemented features in README.md - Add alias management
+  section to main feature overview - Update current version from v0.4.0 to v0.9.2 - Add Claude
+  Desktop usage examples for alias operations - Update frontmatter documentation to include aliases
+  field - Add comprehensive alias functionality section to requirements.md - Update system
+  architecture diagram to include alias MCP tools
+
+The alias functionality has been fully implemented in Issue #32 but documentation was not updated to
+  reflect this. This commit aligns documentation with the current implementation state.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Features
+
+- Implement smart alias feature for Obsidian notes
+  ([`4fec54c`](https://github.com/kk6/minerva/commit/4fec54c83801a3494d36cc9ef3103d7de00b51bc))
+
+Add comprehensive alias management functionality that allows notes to have alternative names for
+  easier reference and discovery:
+
+- Add alias validation with Obsidian-compatible restrictions - Implement add_alias(),
+  remove_alias(), get_aliases(), and search_by_alias() methods - Include conflict detection to
+  prevent duplicate aliases or filename conflicts - Add 4 new MCP tool endpoints for Claude Desktop
+  integration - Support case-insensitive search and normalized alias comparison - Preserve original
+  alias casing while enabling flexible matching - Full compatibility with Obsidian's standard
+  aliases frontmatter field
+
+Testing includes 24 comprehensive test cases covering validation, operations, conflict detection,
+  search functionality, and integration scenarios.
+
+Documentation updated with detailed Japanese specifications and usage examples.
+
+Closes #32
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Refactoring
+
+- Improve alias validation API and fix type annotations
+  ([`bda1933`](https://github.com/kk6/minerva/commit/bda19334e6fc4ae21ad7d1f9352e0905df495a60))
+
+- Update _validate_alias to return validated alias string for cleaner API - Add proper type
+  annotations to server.py to resolve mypy errors - Enhance code documentation and type safety
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Remove legacy test fixtures and enhance development guidelines
+  ([`a61ddbd`](https://github.com/kk6/minerva/commit/a61ddbd929c3045f5795f2580e060de62f0bb5c9))
+
+Remove temp_dir and create_test_file legacy fixtures from conftest.py and migrate all
+  test_file_handler.py tests to use pytest's standard tmp_path fixture and MinervaTestHelper. Update
+  corresponding documentation to reflect modern testing patterns. Additionally, strengthen AI
+  development guidelines with mandatory branch naming conventions and clearer workflow requirements
+  to ensure consistent development practices.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Remove sys.path manipulation and optimize editable install
+  ([`7211e89`](https://github.com/kk6/minerva/commit/7211e89b944d35ee5547930ced751794a25a2f0b))
+
+- Remove unnecessary sys.path manipulation code from server.py - Update installation commands to use
+  --with-editable . option - Remove redundant --with python-frontmatter (handled by editable
+  install) - Update documentation to reflect editable mode dependency resolution
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Replace heuristic test detection with explicit environment variable
+  ([`8fffa89`](https://github.com/kk6/minerva/commit/8fffa89fc6d935803548dba837a3340456e2ddcb))
+
+Replace fragile pytest detection logic with simple, reliable control mechanism: - Remove complex
+  heuristic-based test environment detection (magic numbers, env var counting) - Add explicit
+  MINERVA_SKIP_DOTENV environment variable for clean control - Update conftest.py to automatically
+  set skip flag for all tests - Update individual tests to explicitly set flag when using clear=True
+
+Benefits: - More reliable across different test environments and CI/CD pipelines - Simpler, easier
+  to understand logic - Eliminates arbitrary magic numbers and brittle heuristics - Works with any
+  test runner, not just pytest
+
+Addresses CodeRabbit feedback on environment detection fragility.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.9.2 (2025-06-09)
 
 ### Bug Fixes
