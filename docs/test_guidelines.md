@@ -296,31 +296,85 @@ Minervaプロジェクトでは、高いコードカバレッジを目指して�
 
 これらのファイルは主にインフラ層のコードであり、ビジネスロジックを含まないため、単体テストの対象外としています。
 
-## 5. テスト実行
+## 5. テスト環境の自動制御
 
-### 5.1 全テストの実行
+### 5.1 環境変数の自動管理
+
+Minervaのテストは、実際のObsidian保管庫に影響を与えることなく安全に実行されるよう設計されています。この機能は以下の仕組みで実現されています：
+
+#### 自動的なテスト環境検出
+
+`conftest.py`で`MINERVA_SKIP_DOTENV=1`が自動的に設定され、テスト実行時に`.env`ファイルの読み込みが無効化されます：
+
+```python
+@pytest.fixture(scope="session", autouse=True)
+def skip_dotenv_in_tests():
+    """Automatically skip .env loading during all tests."""
+    os.environ["MINERVA_SKIP_DOTENV"] = "1"
+    yield
+    # Cleanup after tests
+    os.environ.pop("MINERVA_SKIP_DOTENV", None)
+```
+
+#### 遅延サービス初期化
+
+`server.py`では遅延初期化パターンを採用し、テスト時の環境変数パッチが確実に反映されるようになっています：
+
+```python
+# テスト用の遅延初期化
+def get_service():
+    global service
+    if service is None:
+        service = create_minerva_service()
+    return service
+```
+
+#### CI/CDでの環境変数制御
+
+CI/CDパイプラインでは、明示的に`MINERVA_SKIP_DOTENV=1`を設定することで、`.env`ファイルに依存しない実行が可能です：
+
+```bash
+# GitHub Actions例
+env:
+  MINERVA_SKIP_DOTENV: "1"
+  OBSIDIAN_VAULT_ROOT: "/tmp/test-vault"
+  DEFAULT_VAULT: "test"
+```
+
+### 5.2 テスト隔離の改善
+
+この改善により、以下の問題が解決されました：
+
+- ✅ テスト実行時に実際のObsidian保管庫にファイルが作成されない
+- ✅ 環境変数のパッチが確実に反映される
+- ✅ 異なるテスト環境（ローカル、CI/CD）での一貫した動作
+- ✅ モジュールキャッシュ問題の大幅な軽減
+
+## 6. テスト実行
+
+### 6.1 全テストの実行
 
 ```bash
 pytest
 ```
 
-### 5.2 特定のテストファイルの実行
+### 6.2 特定のテストファイルの実行
 
 ```bash
 pytest tests/test_file_handler.py
 ```
 
-### 5.3 特定のテストメソッドの実行
+### 6.3 特定のテストメソッドの実行
 
 ```bash
 pytest tests/test_file_handler.py::TestFileHandler::test_write_file_success
 ```
 
-## 6. CI/CD との統合
+## 7. CI/CD との統合
 
 継続的インテグレーションパイプラインでは、すべてのプルリクエストに対して自動的にテストが実行されます。テストが失敗した場合、プルリクエストはマージできません。
 
-## 7. 新しいテスト
+## 8. 新しいテスト
 
 ### 7.1 サーバーテスト (`test_server.py`)
 

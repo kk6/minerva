@@ -191,8 +191,16 @@ Minerva
 
 ### 5.1 環境変数
 
+#### 必須環境変数
+
 - `OBSIDIAN_VAULT_ROOT`: Obsidianのvaultルートディレクトリのパス
 - `DEFAULT_VAULT`: デフォルトで使用するvault名
+
+#### オプション環境変数
+
+- `MINERVA_SKIP_DOTENV`: `.env`ファイルの読み込みをスキップ（テスト環境やCI/CDで使用）
+  - 設定値: `"1"` で有効化
+  - 用途: テスト実行時の環境変数隔離、CI/CDパイプラインでの制御
 
 ### 5.2 セットアップ
 

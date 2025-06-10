@@ -44,9 +44,16 @@ Claude Desktopを通じて、以下の操作が可能です：
 
 `.env.example`をコピーして`.env`ファイルを作成し、以下の環境変数を設定します：
 
+#### 必須環境変数
 ```
 OBSIDIAN_VAULT_ROOT=<Obsidianのvaultルートディレクトリのパス>
 DEFAULT_VAULT=<デフォルトで使用するvault名>
+```
+
+#### オプション環境変数
+```
+# テスト環境やCI/CDで.envファイルの読み込みをスキップする場合
+MINERVA_SKIP_DOTENV=1
 ```
 
 ### pre-commit フックの設定
