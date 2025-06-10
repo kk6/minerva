@@ -191,26 +191,6 @@ Minervaプロジェクトでは、以下の2つの異なる環境での依存関
    - `uv run --with`コマンドによる一時的な実行環境
    - 明示的に必要なパッケージをすべて指定する必要あり
 
-#### 5.3.2 Claude Desktop設定の例
-
-**注意**: 以下の例は古い設定方法です。現在は`uv run mcp install`コマンドを使用してください（上記参照）。
-
-```json
-"minerva": {
-  "command": "uv",
-  "args": [
-    "run",
-    "--with-editable",
-    ".",
-    "--with",
-    "mcp[cli]",
-    "mcp",
-    "run",
-    "/path/to/minerva/src/minerva/server.py:mcp"
-  ]
-}
-```
-
 重要: パッケージの**インストール名**（例: `python-frontmatter`）と**インポート名**（例: `import frontmatter`）が異なる場合があるため、両方の名前を正確に把握する必要があります。
 
 ## 6. テスト戦略
