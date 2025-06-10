@@ -31,6 +31,7 @@ from minerva.file_handler import (
     SearchConfig,
     SearchResult,
     search_keyword_in_files,
+    write_file,
 )
 from minerva.frontmatter_manager import FrontmatterManager
 from minerva.validators import TagValidator
@@ -67,19 +68,6 @@ def _validate_text_content(*args: Any, **kwargs: Any) -> None:
 
     if text is not None and not text.strip():
         raise ValidationError("Text content cannot be empty or whitespace")
-
-
-def _validate_search_query(*args: Any, **kwargs: Any) -> None:
-    """Validate search query parameter is not empty."""
-    # For search_notes: self, query, case_sensitive=True
-    query = None
-    if len(args) >= 2:  # args[0] is self, args[1] is query
-        query = args[1]
-    elif "query" in kwargs:
-        query = kwargs["query"]
-
-    if query is not None and not query.strip():
-        raise ValidationError("Search query cannot be empty or whitespace")
 
 
 class MinervaService:
@@ -908,9 +896,6 @@ class MinervaService:
         Returns:
             Path: Path to the saved file
         """
-        import frontmatter
-        from minerva.file_handler import write_file
-
         # Get current metadata
         current_metadata = dict(post.metadata)
 
@@ -1044,15 +1029,10 @@ class MinervaService:
                 file_path, post, current_aliases
             )
             logger.info("Added alias '%s' to %s", alias, written_path.name)
+            return written_path
         else:
-            # Update file timestamp even if alias already exists
-            post, _ = self._load_note_with_tags(file_path)
-            written_path = self._save_note_with_updated_aliases(
-                file_path, post, current_aliases
-            )
             logger.info("Alias '%s' already exists in %s", alias, file_path.name)
-
-        return written_path
+            return file_path
 
     def remove_alias(
         self,
@@ -1092,18 +1072,17 @@ class MinervaService:
             else:
                 new_aliases.append(existing_alias)
 
-        # Save updated aliases
-        post, _ = self._load_note_with_tags(file_path)
-        written_path = self._save_note_with_updated_aliases(
-            file_path, post, new_aliases
-        )
-
+        # Save updated aliases only if an alias was actually removed
         if alias_was_removed:
+            post, _ = self._load_note_with_tags(file_path)
+            written_path = self._save_note_with_updated_aliases(
+                file_path, post, new_aliases
+            )
             logger.info("Removed alias '%s' from %s", alias, written_path.name)
+            return written_path
         else:
             logger.info("Alias '%s' not found in %s", alias, file_path.name)
-
-        return written_path
+            return file_path
 
     @log_performance(threshold_ms=200)
     @safe_operation(default_return=[], log_errors=True)
