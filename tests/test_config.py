@@ -38,6 +38,7 @@ class TestMinervaConfig(unittest.TestCase):
         {
             "OBSIDIAN_VAULT_ROOT": "/test/vault",
             "DEFAULT_VAULT": "test_vault",
+            "MINERVA_SKIP_DOTENV": "1",
         },
         clear=True,
     )
@@ -53,7 +54,7 @@ class TestMinervaConfig(unittest.TestCase):
 
     def test_config_from_env_missing_required_variables(self):
         """Test that missing required environment variables raise ValueError."""
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch.dict(os.environ, {"MINERVA_SKIP_DOTENV": "1"}, clear=True):
             with self.assertRaises(ValueError) as context:
                 MinervaConfig.from_env()
 
