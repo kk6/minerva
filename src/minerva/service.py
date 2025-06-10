@@ -830,12 +830,15 @@ class MinervaService:
         )
         return matching_files_paths
 
-    def _validate_alias(self, alias: str) -> None:
+    def _validate_alias(self, alias: str) -> str:
         """
         Validate alias format and content.
 
         Args:
             alias: The alias string to validate
+
+        Returns:
+            str: Validated alias string
 
         Raises:
             ValueError: If alias is invalid
@@ -855,6 +858,8 @@ class MinervaService:
         for char in forbidden_chars:
             if char in alias:
                 raise ValueError(f"Alias cannot contain '{char}' character")
+
+        return alias
 
     def _normalize_alias(self, alias: str) -> str:
         """
@@ -1003,8 +1008,7 @@ class MinervaService:
             FileNotFoundError: If the specified note file does not exist
         """
         # Validate alias
-        self._validate_alias(alias)
-        alias = alias.strip()  # Clean up whitespace
+        alias = self._validate_alias(alias)
 
         file_path = self._resolve_note_file(filename, filepath, default_path)
 
