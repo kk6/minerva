@@ -10,13 +10,22 @@ from minerva.file_handler import SearchResult
 # Set up logging
 logger = logging.getLogger(__name__)
 
-# Initialize service layer with dependency injection
-try:
-    service = create_minerva_service()
-    logger.info("MCP server initialized with dependency injection")
-except Exception as e:
-    logger.error("Failed to initialize service layer: %s", e)
-    raise
+# Lazy initialization of service layer to support testing
+service = None
+
+
+def get_service():
+    """Get or create the service instance."""
+    global service
+    if service is None:
+        try:
+            service = create_minerva_service()
+            logger.info("MCP server initialized with dependency injection")
+        except Exception as e:
+            logger.error("Failed to initialize service layer: %s", e)
+            raise
+    return service
+
 
 # Create an MCP server
 mcp = FastMCP("minerva", __version__)
@@ -43,7 +52,7 @@ def read_note(filepath: str) -> str:
     Note:
         If the file doesn't exist, you'll get a FileNotFoundError
     """
-    return service.read_note(filepath)
+    return get_service().read_note(filepath)
 
 
 @mcp.tool()
@@ -68,7 +77,7 @@ def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     Note:
         Binary files are automatically skipped during search
     """
-    return service.search_notes(query, case_sensitive)
+    return get_service().search_notes(query, case_sensitive)
 
 
 @mcp.tool()
@@ -100,7 +109,7 @@ def create_note(
     Note:
         If a file with the same name already exists, you'll get a FileExistsError
     """
-    return service.create_note(text, filename, author, default_path)
+    return get_service().create_note(text, filename, author, default_path)
 
 
 @mcp.tool()
@@ -132,7 +141,7 @@ def edit_note(
     Note:
         If the file doesn't exist, you'll get a FileNotFoundError
     """
-    return service.edit_note(text, filename, author, default_path)
+    return get_service().edit_note(text, filename, author, default_path)
 
 
 @mcp.tool()
@@ -162,7 +171,7 @@ def get_note_delete_confirmation(
     Note:
         You must provide either filename or filepath. Use perform_note_delete() after this.
     """
-    return service.get_note_delete_confirmation(filename, filepath, default_path)
+    return get_service().get_note_delete_confirmation(filename, filepath, default_path)
 
 
 @mcp.tool()
@@ -192,7 +201,7 @@ def perform_note_delete(
     Warning:
         This permanently deletes the file! Use get_note_delete_confirmation() first.
     """
-    return service.perform_note_delete(filename, filepath, default_path)
+    return get_service().perform_note_delete(filename, filepath, default_path)
 
 
 @mcp.tool()
@@ -225,7 +234,7 @@ def add_tag(
         If the tag already exists, the tag list remains unchanged but the note's
         timestamp is still updated
     """
-    return service.add_tag(tag, filename, filepath, default_path)
+    return get_service().add_tag(tag, filename, filepath, default_path)
 
 
 @mcp.tool()
@@ -258,7 +267,7 @@ def remove_tag(
         If the tag doesn't exist, the tag list remains unchanged but the note's
         timestamp is still updated
     """
-    return service.remove_tag(tag, filename, filepath, default_path)
+    return get_service().remove_tag(tag, filename, filepath, default_path)
 
 
 @mcp.tool()
@@ -288,7 +297,7 @@ def rename_tag(
     Note:
         This operation can modify many files at once - use carefully!
     """
-    return service.rename_tag(old_tag, new_tag, directory)
+    return get_service().rename_tag(old_tag, new_tag, directory)
 
 
 @mcp.tool()
@@ -318,7 +327,7 @@ def get_tags(
     Note:
         Returns empty list if the note has no tags or no frontmatter
     """
-    return service.get_tags(filename, filepath, default_path)
+    return get_service().get_tags(filename, filepath, default_path)
 
 
 @mcp.tool()
@@ -342,7 +351,7 @@ def list_all_tags(directory: str | None = None) -> list[str]:
     Note:
         Useful for getting an overview of your tagging system
     """
-    return service.list_all_tags(directory)
+    return get_service().list_all_tags(directory)
 
 
 @mcp.tool()
@@ -367,7 +376,7 @@ def find_notes_with_tag(tag: str, directory: str | None = None) -> list[str]:
     Note:
         Great for finding all notes related to a specific topic or project
     """
-    return service.find_notes_with_tag(tag, directory)
+    return get_service().find_notes_with_tag(tag, directory)
 
 
 @mcp.tool()
@@ -403,7 +412,9 @@ def add_alias(
         By default, prevents adding aliases that conflict with existing filenames
         or other aliases. Set allow_conflicts=True to override this protection.
     """
-    return service.add_alias(alias, filename, filepath, default_path, allow_conflicts)
+    return get_service().add_alias(
+        alias, filename, filepath, default_path, allow_conflicts
+    )
 
 
 @mcp.tool()
@@ -435,7 +446,7 @@ def remove_alias(
     Note:
         If the alias doesn't exist, the note's timestamp is still updated
     """
-    return service.remove_alias(alias, filename, filepath, default_path)
+    return get_service().remove_alias(alias, filename, filepath, default_path)
 
 
 @mcp.tool()
@@ -465,7 +476,7 @@ def get_aliases(
     Note:
         Returns empty list if the note has no aliases or no frontmatter
     """
-    return service.get_aliases(filename, filepath, default_path)
+    return get_service().get_aliases(filename, filepath, default_path)
 
 
 @mcp.tool()
@@ -491,4 +502,4 @@ def search_by_alias(alias: str, directory: str | None = None) -> list[str]:
         Alias matching is case-insensitive. Useful for finding notes by
         their alternative names or natural language references.
     """
-    return service.search_by_alias(alias, directory)
+    return get_service().search_by_alias(alias, directory)

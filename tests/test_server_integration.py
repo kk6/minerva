@@ -37,10 +37,11 @@ class TestMCPServerIntegration:
 
                 # Verify server is created
                 assert hasattr(server, "mcp")
-                assert hasattr(server, "service")
+                assert hasattr(server, "get_service")
 
-                # Verify service is properly initialized
-                assert server.service is not None
+                # Verify service can be created via lazy initialization
+                service_instance = server.get_service()
+                assert service_instance is not None
 
     def test_server_tool_functions_exist(self):
         """Test that server tool functions exist and are callable."""
@@ -71,6 +72,10 @@ class TestMCPServerIntegration:
                     "get_tags",
                     "list_all_tags",
                     "find_notes_with_tag",
+                    "add_alias",
+                    "remove_alias",
+                    "get_aliases",
+                    "search_by_alias",
                 ]
 
                 for func_name in expected_functions:
@@ -130,9 +135,12 @@ class TestMCPServerIntegration:
             for module in modules_to_clear:
                 sys.modules.pop(module, None)
 
+            # Import should succeed (lazy initialization)
+            import minerva.server  # noqa: F401
+
+            # But service creation should fail
             with pytest.raises(ValueError):
-                # This should raise an exception due to missing env vars
-                import minerva.server  # noqa: F401
+                minerva.server.get_service()
 
     def test_server_service_binding(self):
         """Test that server functions are properly bound to service instance."""
@@ -149,12 +157,12 @@ class TestMCPServerIntegration:
             ):
                 from minerva import server
 
-                # Verify that wrapper functions use the same service instance
-                assert server.service is not None
+                # Verify that wrapper functions can get service instance
+                service_instance = server.get_service()
+                assert service_instance is not None
 
                 # The service should be properly configured
-                # Note: Server service is created once at module level from real env vars
-                assert server.service.config.vault_path is not None
+                assert service_instance.config.vault_path is not None
 
                 # Test that multiple calls use the same service
                 import uuid

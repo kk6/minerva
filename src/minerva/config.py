@@ -3,9 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
-
 
 @dataclass
 class MinervaConfig:
@@ -33,6 +30,19 @@ class MinervaConfig:
         Raises:
             ValueError: If required environment variables are not set
         """
+        # Load .env file only when explicitly creating config from environment
+        # This prevents automatic loading during module import in tests
+        # Check if this looks like a test environment (limited environment variables)
+        env_keys = set(os.environ.keys())
+        required_keys = {"OBSIDIAN_VAULT_ROOT", "DEFAULT_VAULT"}
+
+        # If environment only has test keys or pytest-related keys, don't load .env
+        pytest_keys = {
+            k for k in env_keys if k.startswith(("PYTEST_", "_PYTEST", "PY_TEST"))
+        }
+        if not pytest_keys and len(env_keys - required_keys) > 3:  # Normal environment
+            load_dotenv(override=False)  # Don't override existing env vars
+
         vault_root = os.getenv("OBSIDIAN_VAULT_ROOT")
         default_vault = os.getenv("DEFAULT_VAULT")
 
