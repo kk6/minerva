@@ -189,8 +189,10 @@ uv run mcp dev src/minerva/server.py:mcp
 ### Claude Desktopへのインストール
 
 ```bash
-uv run mcp install src/minerva/server.py:mcp -f .env --with python-frontmatter
+uv run mcp install src/minerva/server.py:mcp -f .env --with-editable .
 ```
+
+**重要**: `--with-editable .` オプションにより、プロジェクトをeditable modeでインストールします。これにより、Claude Desktop環境でも`minerva`パッケージとその依存関係が適切に認識されます。
 
 ### ログの確認（MacOS）
 

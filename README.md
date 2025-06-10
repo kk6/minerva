@@ -109,10 +109,10 @@ uv run mcp dev src/minerva/server.py:mcp
 
 `-f .env` フラグは、環境変数を設定するための `.env` ファイルを指定します。このファイルには、プロジェクトの設定に必要な変数が含まれています。
 ```bash
-uv run mcp install src/minerva/server.py:mcp -f .env --with python-frontmatter
+uv run mcp install src/minerva/server.py:mcp -f .env --with-editable .
 ```
 
-`python-frontmatter`パッケージはMarkdownファイルのYAML形式のメタデータ（frontmatter）を処理するために必要です。
+**重要**: `--with-editable .` オプションにより、プロジェクトをeditable modeでインストールします。これにより、Claude Desktop環境でも`minerva`パッケージとその依存関係（`python-frontmatter`など）が適切に認識されます。
 
 ## Claude Desktop での使い方
 

@@ -42,7 +42,7 @@ If you prefer to use uv commands directly:
 - Run formatting: `uv run ruff format`
 - Type checking: `uv run mypy src tests`
 - Run MCP inspector: `uv run mcp dev src/minerva/server.py:mcp`
-- Install to Claude Desktop: `uv run mcp install src/minerva/server.py:mcp -f .env --with python-frontmatter`
+- Install to Claude Desktop: `uv run mcp install src/minerva/server.py:mcp -f .env --with-editable .`
 - Check for trailing whitespace: `python scripts/check_trailing_whitespace.py`
 - Fix trailing whitespace (in-place): `find . -type f \( -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" \) -not -path "*/.git/*" -not -path "*/__pycache__/*" -not -path "*/.venv/*" -not -path "*/venv/*" -not -path "*/.egg-info/*" -exec sed -i 's/[ \t]*$//' {} \;`
 
