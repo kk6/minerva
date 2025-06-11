@@ -205,9 +205,11 @@ class NoteOperations(BaseService):
         )
 
         if not filename and not filepath:
-            error = ValueError("Either filename or filepath must be provided")
-            self._log_operation_error("get_note_delete_confirmation", error)
-            raise error
+            value_error: ValueError = ValueError(
+                "Either filename or filepath must be provided"
+            )
+            self._log_operation_error("get_note_delete_confirmation", value_error)
+            raise value_error
 
         try:
             file_path = resolve_note_file(self.config, filename, filepath, default_path)
@@ -216,9 +218,11 @@ class NoteOperations(BaseService):
             raise
 
         if not file_path.exists():
-            error = FileNotFoundError(f"File {file_path} does not exist")
-            self._log_operation_error("get_note_delete_confirmation", error)
-            raise error
+            file_error: FileNotFoundError = FileNotFoundError(
+                f"File {file_path} does not exist"
+            )
+            self._log_operation_error("get_note_delete_confirmation", file_error)
+            raise file_error
 
         message = f"File found at {file_path}. To delete, call 'perform_note_delete' with the same identification parameters."
         result = {"file_path": str(file_path), "message": message}
@@ -252,9 +256,11 @@ class NoteOperations(BaseService):
         )
 
         if not filename and not filepath:
-            error = ValueError("Either filename or filepath must be provided")
-            self._log_operation_error("perform_note_delete", error)
-            raise error
+            value_error: ValueError = ValueError(
+                "Either filename or filepath must be provided"
+            )
+            self._log_operation_error("perform_note_delete", value_error)
+            raise value_error
 
         try:
             file_path = resolve_note_file(self.config, filename, filepath, default_path)
@@ -263,9 +269,11 @@ class NoteOperations(BaseService):
             raise
 
         if not file_path.exists():
-            error = FileNotFoundError(f"File {file_path} does not exist")
-            self._log_operation_error("perform_note_delete", error)
-            raise error
+            file_error: FileNotFoundError = FileNotFoundError(
+                f"File {file_path} does not exist"
+            )
+            self._log_operation_error("perform_note_delete", file_error)
+            raise file_error
 
         file_delete_request = FileDeleteRequest(
             directory=str(file_path.parent),

@@ -22,7 +22,7 @@ class PathResolver:
     """
 
     @staticmethod
-    def normalize_path(path: Union[str, Path]) -> Path:
+    def normalize_path(path: Union[str, Path, None]) -> Path:
         """
         Normalize a path to a consistent format.
 

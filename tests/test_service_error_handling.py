@@ -121,9 +121,13 @@ class TestServiceErrorHandling:
         assert "File not found" in str(exc_info.value)
         assert exc_info.value.operation is not None
 
+    @patch("pathlib.Path.exists")
     @patch("minerva.services.note_operations.read_file")
-    def test_read_note_permission_error_conversion(self, mock_read_file, service):
+    def test_read_note_permission_error_conversion(
+        self, mock_read_file, mock_exists, service
+    ):
         """Test that PermissionError is converted to VaultError."""
+        mock_exists.return_value = True  # Make the file appear to exist
         mock_read_file.side_effect = PermissionError("Permission denied")
 
         with pytest.raises(VaultError) as exc_info:
@@ -159,7 +163,9 @@ class TestServiceErrorHandling:
     def test_performance_logging_integration(self, service):
         """Test that performance logging decorators are integrated."""
         # Performance logging is now applied to the underlying note_operations methods
-        assert hasattr(service.note_operations.create_note, "__wrapped__")  # Function has decorators
+        assert hasattr(
+            service.note_operations.create_note, "__wrapped__"
+        )  # Function has decorators
 
     def test_error_context_preservation(self, service):
         """Test that error context is preserved in custom exceptions."""
