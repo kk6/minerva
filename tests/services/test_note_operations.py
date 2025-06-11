@@ -124,7 +124,8 @@ class TestNoteOperations:
 
         # Act & Assert
         with pytest.raises(
-            NoteNotFoundError, match="File not found: Cannot edit note. File .* does not exist"
+            NoteNotFoundError,
+            match="File not found: Cannot edit note. File .* does not exist",
         ):
             note_operations.edit_note(text, filename)
 
