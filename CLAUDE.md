@@ -64,10 +64,13 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - **MCP Server**: FastMCP-based server (`server.py`) that provides tool endpoints
   - Uses `@mcp.tool()` decorators for direct service integration
   - Tool functions directly call service methods without wrapper layer
-- **Service Layer**: Core business logic (`service.py`) with dependency injection pattern
-  - `MinervaService`: Main service class containing all note operations
-  - `MinervaConfig`: Configuration dataclass for dependency injection
-  - `create_minerva_service()`: Factory function for service creation
+- **Service Layer**: Modular service architecture (`services/`) with dependency injection pattern
+  - `ServiceManager`: Central facade coordinating all service operations
+  - `NoteOperations`: Note CRUD operations and content management
+  - `TagOperations`: Comprehensive tag management functionality
+  - `AliasOperations`: Alias management and conflict detection
+  - `SearchOperations`: Full-text search across markdown files
+  - `create_minerva_service()`: Factory function for ServiceManager creation
 - **File Handler**: Low-level file operations (`file_handler.py`)
 - **Frontmatter Manager**: Centralized frontmatter processing (`frontmatter_manager.py`)
 - **Config**: Environment and configuration management (`config.py`)
@@ -79,7 +82,8 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - Tag management (add, remove, rename, search by tag)
 - Two-phase deletion process for safety
 - Automatic frontmatter generation with metadata
-- **Dependency injection architecture** for improved testability and extensibility
+- **Modular service architecture** with dependency injection for improved testability and extensibility
+- **ServiceManager facade pattern** providing unified access to specialized service modules
 - **Simplified MCP server architecture** with direct service integration using FastMCP decorators
 
 ## Language Usage Rules
@@ -208,10 +212,10 @@ git checkout -b docs/issue-789-update-test-guidelines
 ## Service-Based Architecture
 
 ### Service Layer Usage
-The service layer provides clean dependency injection:
+The modular service layer provides clean dependency injection through ServiceManager:
 
 ```python
-from minerva.service import create_minerva_service, MinervaService
+from minerva.services.service_manager import ServiceManager, create_minerva_service
 from minerva.config import MinervaConfig
 from minerva.frontmatter_manager import FrontmatterManager
 
@@ -225,7 +229,12 @@ config = MinervaConfig(
     default_author="Custom Author"
 )
 frontmatter_manager = FrontmatterManager("Custom Author")
-service = MinervaService(config, frontmatter_manager)
+service = ServiceManager(config, frontmatter_manager)
+
+# Access specialized services through the manager
+service.note_operations.create_note(text, filename)
+service.tag_operations.add_tag(tag, filename)
+service.search_operations.search_notes(query)
 ```
 
 ### MCP Server Integration
@@ -250,14 +259,14 @@ def create_note(
 ```
 
 ### Testing with Dependency Injection
-For testing, create mock service instances:
+For testing, create mock ServiceManager instances:
 
 ```python
 from unittest.mock import Mock
-from minerva.service import MinervaService
+from minerva.services.service_manager import ServiceManager
 
 # Create mock service for testing
-mock_service = Mock(spec=MinervaService)
+mock_service = Mock(spec=ServiceManager)
 mock_service.create_note.return_value = Path("/fake/path")
 
 # Use mock service in tests (test server functions directly)
@@ -266,9 +275,11 @@ result = server.create_note("test", "filename")
 ```
 
 ### Key Improvements
-- **Simplified architecture**: Direct service calls via `@mcp.tool()` decorators
+- **Modular architecture**: Specialized service modules for different concerns
+- **ServiceManager facade**: Unified access to all service operations
+- **Simplified MCP integration**: Direct service calls via `@mcp.tool()` decorators
 - **Reduced code duplication**: Eliminated redundant wrapper functions
-- **Clean dependency injection**: Service instances for better testability
+- **Clean dependency injection**: ServiceManager instances for better testability
 - **FastMCP integration**: Native decorator-based tool registration
 
 ## Environment Setup

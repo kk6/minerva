@@ -152,7 +152,7 @@ class TestSearchOperations:
         case_sensitive = False
         mock_config = Mock()
         mock_create_config.return_value = mock_config
-        mock_results = []
+        mock_results: list[str] = []
         mock_search_func.return_value = mock_results
 
         # Act
@@ -302,7 +302,7 @@ class TestSearchOperations:
         query = "test query"
         mock_config = Mock()
         mock_create_config.return_value = mock_config
-        mock_results = []
+        mock_results: list[str] = []
         mock_search_func.return_value = mock_results
 
         # Act

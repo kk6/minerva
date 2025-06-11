@@ -12,7 +12,7 @@ from minerva.exceptions import (
     ValidationError,
 )
 from minerva.frontmatter_manager import FrontmatterManager
-from minerva.service import MinervaService
+from minerva.services.service_manager import ServiceManager as MinervaService
 
 
 class TestServiceErrorHandling:

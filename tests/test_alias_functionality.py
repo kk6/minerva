@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 import frontmatter
 
-from minerva.service import MinervaService
+from minerva.services.service_manager import ServiceManager as MinervaService
 from minerva.config import MinervaConfig
 from minerva.frontmatter_manager import FrontmatterManager
 

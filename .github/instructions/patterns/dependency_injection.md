@@ -15,17 +15,23 @@ The Minerva project uses dependency injection patterns to improve testability, m
 The core business logic is encapsulated in service classes that receive their dependencies through constructor injection:
 
 ```python
-class MinervaService:
-    """Main service class for note operations with dependency injection."""
+class ServiceManager:
+    """Main service facade for note operations with dependency injection."""
 
     def __init__(
         self,
         config: MinervaConfig,
         frontmatter_manager: FrontmatterManager,
     ):
-        """Initialize service with injected dependencies."""
+        """Initialize service manager with injected dependencies."""
         self.config = config
         self.frontmatter_manager = frontmatter_manager
+        
+        # Initialize specialized service modules
+        self.note_operations = NoteOperations(config, frontmatter_manager)
+        self.tag_operations = TagOperations(config, frontmatter_manager)
+        self.alias_operations = AliasOperations(config, frontmatter_manager)
+        self.search_operations = SearchOperations(config, frontmatter_manager)
 ```
 
 ### Configuration Injection
@@ -52,17 +58,17 @@ class MinervaConfig:
 Use factory functions to create properly configured service instances:
 
 ```python
-def create_minerva_service() -> MinervaService:
+def create_minerva_service() -> ServiceManager:
     """
-    Create a MinervaService instance with default configuration.
+    Create a ServiceManager instance with default configuration.
 
     This factory function provides a convenient way to create a fully
-    configured MinervaService instance using environment variables.
+    configured ServiceManager instance using environment variables.
     """
     config = MinervaConfig.from_env()
     frontmatter_manager = FrontmatterManager(config.default_author)
 
-    return MinervaService(config, frontmatter_manager)
+    return ServiceManager(config, frontmatter_manager)
 ```
 
 ## Backward Compatibility Pattern
@@ -73,7 +79,7 @@ Maintain existing function-based APIs as wrappers around the service layer:
 # Global service instance for backward compatibility
 _service_instance = None
 
-def _get_service() -> "MinervaService":
+def _get_service() -> "ServiceManager":
     """Get or create the global service instance with lazy initialization."""
     global _service_instance
     if _service_instance is None:
@@ -103,7 +109,7 @@ def create_note(
 Provide mechanisms to inject custom service instances for testing:
 
 ```python
-def set_service_instance(service: "MinervaService") -> None:
+def set_service_instance(service: "ServiceManager") -> None:
     """
     Set a custom service instance for testing.
 
@@ -113,7 +119,7 @@ def set_service_instance(service: "MinervaService") -> None:
     global _service_instance
     _service_instance = service
 
-def get_service_instance() -> "MinervaService":
+def get_service_instance() -> "ServiceManager":
     """Get the current service instance for testing access."""
     return _get_service()
 ```
@@ -141,7 +147,7 @@ class TestNoteOperations:
     @pytest.fixture
     def service(self, config, frontmatter_manager):
         """Create service instance for testing."""
-        return MinervaService(config, frontmatter_manager)
+        return ServiceManager(config, frontmatter_manager)
 
     def test_create_note(self, service):
         """Test note creation using service."""
@@ -168,7 +174,7 @@ class TestServiceIntegration:
         )
 
         self.frontmatter_manager = FrontmatterManager("Test Author")
-        self.service = MinervaService(self.config, self.frontmatter_manager)
+        self.service = ServiceManager(self.config, self.frontmatter_manager)
 ```
 
 ## Best Practices
@@ -221,13 +227,13 @@ class Service:
 Use factory functions for complex dependency setup:
 
 ```python
-def create_production_service() -> MinervaService:
+def create_production_service() -> ServiceManager:
     """Create service with production configuration."""
     config = MinervaConfig.from_env()
     frontmatter_manager = FrontmatterManager(config.default_author)
-    return MinervaService(config, frontmatter_manager)
+    return ServiceManager(config, frontmatter_manager)
 
-def create_test_service(vault_path: Path) -> MinervaService:
+def create_test_service(vault_path: Path) -> ServiceManager:
     """Create service with test configuration."""
     config = MinervaConfig(
         vault_path=vault_path,
@@ -235,7 +241,7 @@ def create_test_service(vault_path: Path) -> MinervaService:
         default_author="Test Author",
     )
     frontmatter_manager = FrontmatterManager("Test Author")
-    return MinervaService(config, frontmatter_manager)
+    return ServiceManager(config, frontmatter_manager)
 ```
 
 ### 5. Lazy Initialization Pattern
@@ -273,7 +279,7 @@ def create_note(text: str, filename: str) -> Path:
     # ... implementation
 
 # After: Service-based with wrapper
-class MinervaService:
+class ServiceManager:
     def __init__(self, config: MinervaConfig):
         self.config = config
 
@@ -294,7 +300,7 @@ def create_note(text: str, filename: str) -> Path:
 Service classes should maintain the same error handling patterns as function-based code:
 
 ```python
-class MinervaService:
+class ServiceManager:
     def create_note(self, text: str, filename: str) -> Path:
         """Create note with proper error handling."""
         try:

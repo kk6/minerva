@@ -240,7 +240,7 @@ class TestAliasOperations:
         mock_post = Mock()
         mock_post.metadata = {"author": "Test Author", "aliases": ["old_alias"]}
         mock_post.content = "Test content"
-        aliases = []
+        aliases: list[str] = []
 
         mock_updated_post = Mock()
         mock_updated_post.metadata = {
