@@ -20,6 +20,7 @@ from minerva.file_handler import (
     write_file,
 )
 from minerva.services.core.base_service import BaseService
+from minerva.services.core.file_operations import resolve_note_file
 
 logger = logging.getLogger(__name__)
 
@@ -74,45 +75,6 @@ class AliasOperations(BaseService):
             str: Normalized alias
         """
         return alias.strip().lower()
-
-    def _resolve_note_file(
-        self, filename: str | None, filepath: str | None, default_path: str | None
-    ) -> Path:
-        """Resolve note file path from filename or filepath."""
-        if filepath:
-            return Path(filepath)
-        elif filename is not None:
-            # Use the build_file_path logic from service
-            if not filename or not filename.strip():
-                raise ValueError("Filename cannot be empty")
-
-            # Add .md extension if missing
-            if not filename.endswith(".md"):
-                filename = f"{filename}.md"
-
-            # Parse path components
-            path_parts = Path(filename)
-            subdirs = path_parts.parent
-            base_filename = path_parts.name
-
-            if not base_filename:
-                raise ValueError("Filename cannot be empty")
-
-            # Create final directory path
-            full_dir_path = self.config.vault_path
-
-            # Add default_path first if it's not empty
-            effective_default = default_path or self.config.default_note_dir
-            if isinstance(effective_default, str) and effective_default.strip() != "":
-                full_dir_path = full_dir_path / effective_default
-
-            # Then add subdirectories if they exist
-            if str(subdirs) != ".":
-                full_dir_path = full_dir_path / subdirs
-
-            return full_dir_path / base_filename
-        else:
-            raise ValueError("Either filename or filepath must be provided")
 
     def _load_note_with_tags(
         self, file_path: Path
@@ -278,7 +240,7 @@ class AliasOperations(BaseService):
         # Validate alias
         alias = self._validate_alias(alias)
 
-        file_path = self._resolve_note_file(filename, filepath, default_path)
+        file_path = resolve_note_file(self.config, filename, filepath, default_path)
 
         # Check for conflicts unless explicitly allowed
         if not allow_conflicts:
@@ -337,7 +299,7 @@ class AliasOperations(BaseService):
         )
 
         normalized_alias = self._normalize_alias(alias)
-        file_path = self._resolve_note_file(filename, filepath, default_path)
+        file_path = resolve_note_file(self.config, filename, filepath, default_path)
 
         # Load current aliases
         current_aliases = self._get_aliases_from_file(file_path)
@@ -387,7 +349,7 @@ class AliasOperations(BaseService):
         """
         self._log_operation_start("get_aliases", filename=filename, filepath=filepath)
 
-        file_path = self._resolve_note_file(filename, filepath, default_path)
+        file_path = resolve_note_file(self.config, filename, filepath, default_path)
 
         if not file_path.exists():
             error = NoteNotFoundError(f"File {file_path} not found")

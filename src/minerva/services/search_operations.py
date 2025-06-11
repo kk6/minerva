@@ -6,6 +6,7 @@ in the Obsidian vault using various search criteria and configurations.
 """
 
 import logging
+from pathlib import Path
 from typing import List
 
 from minerva.error_handler import log_performance
@@ -148,6 +149,13 @@ class SearchOperations(BaseService):
 
         # Validate query
         validated_query = self._validate_search_query(query)
+
+        # Validate directory existence
+        directory_path = Path(directory)
+        if not directory_path.exists():
+            raise ValueError(f"Directory does not exist: {directory}")
+        if not directory_path.is_dir():
+            raise ValueError(f"Path is not a directory: {directory}")
 
         # Create search configuration
         search_config = self._create_search_config(

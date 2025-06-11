@@ -10,13 +10,15 @@ import logging
 from pathlib import Path
 from typing import ParamSpec, TypeVar
 
-import frontmatter
-
 from minerva.config import MinervaConfig
 from minerva.error_handler import MinervaErrorHandler
 from minerva.file_handler import SearchResult
 from minerva.frontmatter_manager import FrontmatterManager
 from minerva.services.alias_operations import AliasOperations
+from minerva.services.core.file_operations import (
+    build_file_path,
+    assemble_complete_note,
+)
 from minerva.services.note_operations import NoteOperations
 from minerva.services.search_operations import SearchOperations
 from minerva.services.tag_operations import TagOperations
@@ -82,51 +84,24 @@ class ServiceManager:
         """Access to search operations service."""
         return self._search_operations
 
-    # Utility methods that remain at the service manager level
+    # Utility methods that wrap imported functions for compatibility
     def _build_file_path(
         self, filename: str, default_path: str | None = None
     ) -> tuple[Path, str]:
         """
-        Resolve and build the complete file path from a filename.
+        Build file path for note operations.
+
+        This is a wrapper around the build_file_path function from file_operations
+        to maintain compatibility with existing code and tests.
 
         Args:
-            filename: The filename (may include subdirectories)
-            default_path: The default path to use if no subdirectory is specified
+            filename: The name of the file to build path for
+            default_path: The default directory to save the file
 
         Returns:
-            tuple: (directory_path, base_filename)
-
-        Raises:
-            ValueError: If the resulting filename is empty
+            tuple: (full_dir_path, base_filename)
         """
-        if not filename:
-            raise ValueError("Filename cannot be empty")
-
-        # Add .md extension if missing
-        if not filename.endswith(".md"):
-            filename = f"{filename}.md"
-
-        # Parse path components
-        path_parts = Path(filename)
-        subdirs = path_parts.parent
-        base_filename = path_parts.name
-
-        if not base_filename:
-            raise ValueError("Filename cannot be empty")
-
-        # Create final directory path
-        full_dir_path = self.config.vault_path
-
-        # Add default_path first if it's not empty
-        effective_default = default_path or self.config.default_note_dir
-        if isinstance(effective_default, str) and effective_default.strip() != "":
-            full_dir_path = full_dir_path / effective_default
-
-        # Then add subdirectories if they exist
-        if str(subdirs) != ".":
-            full_dir_path = full_dir_path / subdirs
-
-        return full_dir_path, base_filename
+        return build_file_path(self.config, filename, default_path)
 
     def _assemble_complete_note(
         self,
@@ -139,6 +114,9 @@ class ServiceManager:
         """
         Assemble a complete note by combining file path resolution and content preparation.
 
+        This is a wrapper around the assemble_complete_note function from file_operations
+        to maintain compatibility with existing code and tests.
+
         Args:
             text: The content to write to the file
             filename: The name of the file to write
@@ -149,26 +127,15 @@ class ServiceManager:
         Returns:
             tuple: (full_dir_path, base_filename, prepared_content)
         """
-        # Build file path
-        full_dir_path, base_filename = self._build_file_path(filename, default_path)
-
-        # Check existing frontmatter
-        file_path = full_dir_path / base_filename
-        existing_frontmatter = self.frontmatter_manager.read_existing_metadata(
-            file_path
+        return assemble_complete_note(
+            self.config,
+            self.frontmatter_manager,
+            text,
+            filename,
+            author,
+            default_path,
+            is_new_note,
         )
-
-        # Generate metadata
-        post = self.frontmatter_manager.generate_metadata(
-            text=text,
-            author=author or self.config.default_author,
-            is_new_note=is_new_note,
-            existing_frontmatter=existing_frontmatter,
-        )
-
-        content = frontmatter.dumps(post)
-
-        return full_dir_path, base_filename, content
 
     # Note operations delegation methods
     def create_note(
@@ -298,40 +265,6 @@ class ServiceManager:
         return self.search_operations.search_notes(query, case_sensitive)
 
     # Tag operations delegation methods
-    def _normalize_tag(self, tag: str) -> str:
-        """Convert a tag to its normalized form."""
-        return self.tag_operations._normalize_tag(tag)
-
-    def _validate_tag(self, tag: str) -> bool:
-        """Check if a tag is valid."""
-        return self.tag_operations._validate_tag(tag)
-
-    def _resolve_note_file(
-        self, filename: str | None, filepath: str | None, default_path: str | None
-    ) -> Path:
-        """Resolve note file path from filename or filepath."""
-        return self.tag_operations._resolve_note_file(filename, filepath, default_path)
-
-    def _load_note_with_tags(
-        self, file_path: Path
-    ) -> tuple["frontmatter.Post", list[str]]:
-        """Load note and extract current tags."""
-        return self.tag_operations._load_note_with_tags(file_path)
-
-    def _rename_tag_in_file(
-        self, file_path: Path, old_tag_normalized: str, new_tag: str
-    ) -> bool:
-        """Rename a tag in a single file."""
-        return self.tag_operations._rename_tag_in_file(
-            file_path, old_tag_normalized, new_tag
-        )
-
-    def _save_note_with_updated_tags(
-        self, file_path: Path, post: "frontmatter.Post", tags: list[str]
-    ) -> Path:
-        """Save note with updated tags."""
-        return self.tag_operations._save_note_with_updated_tags(file_path, post, tags)
-
     def add_tag(
         self,
         tag: str,
@@ -455,32 +388,6 @@ class ServiceManager:
         return self.tag_operations.find_notes_with_tag(tag, directory)
 
     # Alias operations delegation methods
-    def _validate_alias(self, alias: str) -> str:
-        """Validate alias format and content."""
-        return self.alias_operations._validate_alias(alias)
-
-    def _normalize_alias(self, alias: str) -> str:
-        """Normalize alias for comparison (case-insensitive, whitespace-trimmed)."""
-        return self.alias_operations._normalize_alias(alias)
-
-    def _get_aliases_from_file(self, file_path: Path) -> list[str]:
-        """Get current aliases from a note's frontmatter."""
-        return self.alias_operations._get_aliases_from_file(file_path)
-
-    def _save_note_with_updated_aliases(
-        self, file_path: Path, post: "frontmatter.Post", aliases: list[str]
-    ) -> Path:
-        """Save note with updated aliases."""
-        return self.alias_operations._save_note_with_updated_aliases(
-            file_path, post, aliases
-        )
-
-    def _check_alias_conflicts(
-        self, alias: str, exclude_file: Path | None = None
-    ) -> list[str]:
-        """Check if alias conflicts with existing aliases or filenames."""
-        return self.alias_operations._check_alias_conflicts(alias, exclude_file)
-
     def add_alias(
         self,
         alias: str,

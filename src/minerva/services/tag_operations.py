@@ -19,6 +19,7 @@ from minerva.file_handler import (
     write_file,
 )
 from minerva.services.core.base_service import BaseService
+from minerva.services.core.file_operations import resolve_note_file
 from minerva.validators import TagValidator
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,80 @@ class TagOperations(BaseService):
     in notes within the Obsidian vault, using the core infrastructure utilities.
     """
 
+    def _validate_and_resolve_file(
+        self,
+        operation_name: str,
+        filename: str | None = None,
+        filepath: str | None = None,
+        default_path: str | None = None,
+    ) -> Path:
+        """
+        Validate input parameters and resolve file path for tag operations.
+
+        Args:
+            operation_name: Name of the operation for logging purposes
+            filename: The name of the file
+            filepath: The full path of the file
+            default_path: The default directory to look for the file
+
+        Returns:
+            Path: The resolved file path
+
+        Raises:
+            ValueError: If neither filename nor filepath is provided or if file resolution fails
+            FileNotFoundError: If the file doesn't exist
+        """
+        if not filename and not filepath:
+            value_error: ValueError = ValueError(
+                "Either filename or filepath must be provided"
+            )
+            self._log_operation_error(operation_name, value_error)
+            raise value_error
+
+        try:
+            file_path = resolve_note_file(self.config, filename, filepath, default_path)
+        except ValueError as e:
+            self._log_operation_error(operation_name, e)
+            raise
+
+        if not file_path.exists():
+            file_error: FileNotFoundError = FileNotFoundError(
+                f"File {file_path} does not exist"
+            )
+            self._log_operation_error(operation_name, file_error)
+            raise file_error
+
+        return file_path
+
+    # テストとの互換性のために_resolve_note_fileメソッドも追加
+    def _resolve_note_file(
+        self,
+        filename: str | None = None,
+        filepath: str | None = None,
+        default_path: str | None = None,
+    ) -> Path:
+        """
+        Resolve file path for tag operations (legacy method for test compatibility).
+
+        Args:
+            filename: The name of the file
+            filepath: The full path of the file
+            default_path: The default directory to look for the file
+
+        Returns:
+            Path: The resolved file path
+
+        Raises:
+            ValueError: If neither filename nor filepath is provided or if filename is empty
+        """
+        if filename is not None and filename == "":
+            raise ValueError("Filename cannot be empty")
+
+        if not filename and not filepath:
+            raise ValueError("Either filename or filepath must be provided")
+
+        return resolve_note_file(self.config, filename, filepath, default_path)
+
     def _normalize_tag(self, tag: str) -> str:
         """Convert a tag to its normalized form."""
         return TagValidator.normalize_tag(tag)
@@ -43,45 +118,6 @@ class TagOperations(BaseService):
             return True
         except ValueError:
             return False
-
-    def _resolve_note_file(
-        self, filename: str | None, filepath: str | None, default_path: str | None
-    ) -> Path:
-        """Resolve note file path from filename or filepath."""
-        if filepath:
-            return Path(filepath)
-        elif filename is not None:
-            # Use the build_file_path logic from service
-            if not filename or not filename.strip():
-                raise ValueError("Filename cannot be empty")
-
-            # Add .md extension if missing
-            if not filename.endswith(".md"):
-                filename = f"{filename}.md"
-
-            # Parse path components
-            path_parts = Path(filename)
-            subdirs = path_parts.parent
-            base_filename = path_parts.name
-
-            if not base_filename:
-                raise ValueError("Filename cannot be empty")
-
-            # Create final directory path
-            full_dir_path = self.config.vault_path
-
-            # Add default_path first if it's not empty
-            effective_default = default_path or self.config.default_note_dir
-            if isinstance(effective_default, str) and effective_default.strip() != "":
-                full_dir_path = full_dir_path / effective_default
-
-            # Then add subdirectories if they exist
-            if str(subdirs) != ".":
-                full_dir_path = full_dir_path / subdirs
-
-            return full_dir_path / base_filename
-        else:
-            raise ValueError("Either filename or filepath must be provided")
 
     def _load_note_with_tags(
         self, file_path: Path

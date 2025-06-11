@@ -16,45 +16,64 @@ from minerva.frontmatter_manager import FrontmatterManager
 
 
 class TestAliasValidation:
-    """Test alias validation functionality."""
+    """Test alias validation functionality through public API."""
 
-    def test_validate_alias_valid_cases(self, service_with_temp_dir):
-        """Test that valid aliases pass validation."""
-        service, _ = service_with_temp_dir
+    def test_add_alias_valid_cases(self, service_with_temp_dir):
+        """Test that valid aliases can be added successfully."""
+        service, temp_dir = service_with_temp_dir
+
+        # Create a test note
+        test_note = temp_dir / "test.md"
+        test_note.write_text("# Test Note\n\nSome content.")
 
         # These should not raise any exceptions
-        service._validate_alias("simple alias")
-        service._validate_alias("meeting-notes")
-        service._validate_alias("Project Alpha")
-        service._validate_alias("a" * 100)  # Maximum length
+        service.add_alias("simple alias", filename="test")
+        service.add_alias("meeting-notes", filename="test")
+        service.add_alias("Project Alpha", filename="test")
+        service.add_alias("a" * 100, filename="test")  # Maximum length
 
-    def test_validate_alias_invalid_cases(self, service_with_temp_dir):
+    def test_add_alias_invalid_cases(self, service_with_temp_dir):
         """Test that invalid aliases are rejected."""
-        service, _ = service_with_temp_dir
+        service, temp_dir = service_with_temp_dir
+
+        # Create a test note
+        test_note = temp_dir / "test.md"
+        test_note.write_text("# Test Note\n\nSome content.")
 
         # Empty or whitespace
         with pytest.raises(ValueError, match="cannot be empty"):
-            service._validate_alias("")
+            service.add_alias("", filename="test")
         with pytest.raises(ValueError, match="cannot be empty"):
-            service._validate_alias("   ")
+            service.add_alias("   ", filename="test")
 
         # Too long
         with pytest.raises(ValueError, match="cannot exceed 100 characters"):
-            service._validate_alias("a" * 101)
+            service.add_alias("a" * 101, filename="test")
 
         # Forbidden characters
         forbidden_chars = ["|", "#", "^", "[", "]"]
         for char in forbidden_chars:
             with pytest.raises(ValueError, match=f"cannot contain '\\{char}'"):
-                service._validate_alias(f"alias{char}name")
+                service.add_alias(f"alias{char}name", filename="test")
 
-    def test_normalize_alias(self, service_with_temp_dir):
-        """Test alias normalization for comparison."""
-        service, _ = service_with_temp_dir
+    def test_alias_normalization_behavior(self, service_with_temp_dir):
+        """Test alias normalization behavior through public API."""
+        service, temp_dir = service_with_temp_dir
 
-        assert service._normalize_alias("Test Alias") == "test alias"
-        assert service._normalize_alias("  spaced  ") == "spaced"
-        assert service._normalize_alias("UPPER") == "upper"
+        # Create a test note
+        test_note = temp_dir / "test.md"
+        test_note.write_text("# Test Note\n\nSome content.")
+
+        # Add aliases with different cases and whitespace
+        service.add_alias("Test Alias", filename="test")
+        service.add_alias("  spaced  ", filename="test")
+        service.add_alias("UPPER", filename="test")
+
+        # Get aliases and verify they are stored properly
+        aliases = service.get_aliases(filename="test")
+        assert "Test Alias" in aliases
+        assert "spaced" in aliases  # Should be trimmed
+        assert "UPPER" in aliases
 
 
 class TestAliasOperations:
@@ -96,9 +115,13 @@ Content here."""
 
         # Verify alias was added and existing metadata preserved
         post = frontmatter.loads(note_path.read_text())
-        assert "new alias" in post.metadata.get("aliases", [])
+        aliases = post.metadata.get("aliases", [])
+        assert isinstance(aliases, list)
+        assert "new alias" in aliases
         assert post.metadata.get("author") == "Test Author"
-        assert "test" in post.metadata.get("tags", [])
+        tags = post.metadata.get("tags", [])
+        assert isinstance(tags, list)
+        assert "test" in tags
 
     def test_add_multiple_aliases(self, service_with_temp_dir):
         """Test adding multiple aliases to the same note."""

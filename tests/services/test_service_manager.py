@@ -97,7 +97,7 @@ class TestServiceManager:
         with pytest.raises(ValueError, match="Filename cannot be empty"):
             service_manager._build_file_path("")
 
-    @patch("frontmatter.dumps")
+    @patch("minerva.services.core.file_operations.frontmatter.dumps")
     def test_assemble_complete_note(self, mock_dumps, service_manager):
         """Test assembling complete note."""
         # Arrange
@@ -119,10 +119,19 @@ class TestServiceManager:
         expected_dir = Path("/test/vault/notes")
         expected_name = "test_note.md"
         expected_content = "---\nauthor: Test Author\n---\nTest content"
+        expected_file_path = expected_dir / expected_name
 
         assert result_dir == expected_dir
         assert result_name == expected_name
         assert result_content == expected_content
+
+        # Assert FrontmatterManager collaboration
+        service_manager.frontmatter_manager.read_existing_metadata.assert_called_once_with(
+            expected_file_path
+        )
+        service_manager.frontmatter_manager.generate_metadata.assert_called_once_with(
+            text=text, author=author, is_new_note=True, existing_frontmatter={}
+        )
 
     # Note operations delegation tests
     def test_create_note_delegation(self, service_manager):
@@ -325,29 +334,7 @@ class TestServiceManager:
             assert result == ["/path1", "/path2"]
 
     # Helper method delegation tests
-    def test_normalize_tag_delegation(self, service_manager):
-        """Test _normalize_tag delegation to tag_operations."""
-        with patch.object(
-            service_manager.tag_operations, "_normalize_tag"
-        ) as mock_normalize:
-            mock_normalize.return_value = "normalized_tag"
-
-            result = service_manager._normalize_tag("Tag")
-
-            mock_normalize.assert_called_once_with("Tag")
-            assert result == "normalized_tag"
-
-    def test_validate_alias_delegation(self, service_manager):
-        """Test _validate_alias delegation to alias_operations."""
-        with patch.object(
-            service_manager.alias_operations, "_validate_alias"
-        ) as mock_validate:
-            mock_validate.return_value = "valid_alias"
-
-            result = service_manager._validate_alias("alias")
-
-            mock_validate.assert_called_once_with("alias")
-            assert result == "valid_alias"
+    # Note: Internal helper methods are no longer exposed through the facade
 
 
 class TestCreateMinervaService:

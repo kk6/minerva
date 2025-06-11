@@ -87,36 +87,8 @@ class TestAliasOperations:
         result = alias_operations._normalize_alias("  Test Alias  ")
         assert result == "test alias"
 
-    def test_resolve_note_file_with_filepath(self, alias_operations):
-        """Test resolving note file with filepath."""
-        result = alias_operations._resolve_note_file(None, "/test/path/note.md", None)
-        assert result == Path("/test/path/note.md")
-
-    def test_resolve_note_file_with_filename(self, alias_operations, mock_config):
-        """Test resolving note file with filename."""
-        result = alias_operations._resolve_note_file("test_note", None, None)
-        expected = Path("/test/vault/notes/test_note.md")
-        assert result == expected
-
-    def test_resolve_note_file_with_filename_and_default_path(
-        self, alias_operations, mock_config
-    ):
-        """Test resolving note file with filename and custom default path."""
-        result = alias_operations._resolve_note_file("test_note", None, "custom")
-        expected = Path("/test/vault/custom/test_note.md")
-        assert result == expected
-
-    def test_resolve_note_file_no_params(self, alias_operations):
-        """Test resolving note file with no parameters."""
-        with pytest.raises(
-            ValueError, match="Either filename or filepath must be provided"
-        ):
-            alias_operations._resolve_note_file(None, None, None)
-
-    def test_resolve_note_file_empty_filename(self, alias_operations):
-        """Test resolving note file with empty filename."""
-        with pytest.raises(ValueError, match="Filename cannot be empty"):
-            alias_operations._resolve_note_file("", None, None)
+    # Note: _resolve_note_file was removed and replaced with resolve_note_file from core.file_operations
+    # File resolution is now tested in tests/services/core/test_file_operations.py
 
     @patch("minerva.services.note_operations.NoteOperations")
     @patch("frontmatter.loads")
@@ -344,7 +316,7 @@ class TestAliasOperations:
     @patch.object(AliasOperations, "_load_note_with_tags")
     @patch.object(AliasOperations, "_get_aliases_from_file")
     @patch.object(AliasOperations, "_check_alias_conflicts")
-    @patch.object(AliasOperations, "_resolve_note_file")
+    @patch("minerva.services.alias_operations.resolve_note_file")
     @patch.object(AliasOperations, "_validate_alias")
     def test_add_alias_success(
         self,
@@ -376,7 +348,7 @@ class TestAliasOperations:
         # Assert
         assert result == file_path
         mock_validate.assert_called_with(alias)
-        mock_resolve.assert_called_with(filename, None, None)
+        mock_resolve.assert_called_with(alias_operations.config, filename, None, None)
         mock_check_conflicts.assert_called_with("new-alias", exclude_file=file_path)
         mock_save.assert_called_with(
             file_path, mock_post, ["existing-alias", "new-alias"]
@@ -391,7 +363,7 @@ class TestAliasOperations:
             alias_operations.add_alias("invalid,alias", filename="test")
 
     @patch.object(AliasOperations, "_check_alias_conflicts")
-    @patch.object(AliasOperations, "_resolve_note_file")
+    @patch("minerva.services.alias_operations.resolve_note_file")
     @patch.object(AliasOperations, "_validate_alias")
     def test_add_alias_conflicts_not_allowed(
         self, mock_validate, mock_resolve, mock_check_conflicts, alias_operations
@@ -410,7 +382,7 @@ class TestAliasOperations:
     @patch.object(AliasOperations, "_load_note_with_tags")
     @patch.object(AliasOperations, "_get_aliases_from_file")
     @patch.object(AliasOperations, "_check_alias_conflicts")
-    @patch.object(AliasOperations, "_resolve_note_file")
+    @patch("minerva.services.alias_operations.resolve_note_file")
     @patch.object(AliasOperations, "_validate_alias")
     def test_add_alias_already_exists(
         self,
@@ -448,7 +420,7 @@ class TestAliasOperations:
     @patch.object(AliasOperations, "_save_note_with_updated_aliases")
     @patch.object(AliasOperations, "_load_note_with_tags")
     @patch.object(AliasOperations, "_get_aliases_from_file")
-    @patch.object(AliasOperations, "_resolve_note_file")
+    @patch("minerva.services.alias_operations.resolve_note_file")
     @patch.object(AliasOperations, "_normalize_alias")
     def test_remove_alias_success(
         self,
@@ -480,7 +452,7 @@ class TestAliasOperations:
         mock_save.assert_called_with(file_path, mock_post, ["keep-alias"])
 
     @patch.object(AliasOperations, "_get_aliases_from_file")
-    @patch.object(AliasOperations, "_resolve_note_file")
+    @patch("minerva.services.alias_operations.resolve_note_file")
     @patch.object(AliasOperations, "_normalize_alias")
     def test_remove_alias_not_found(
         self, mock_normalize, mock_resolve, mock_get_aliases, alias_operations
@@ -502,7 +474,7 @@ class TestAliasOperations:
         assert result == file_path
 
     @patch.object(AliasOperations, "_get_aliases_from_file")
-    @patch.object(AliasOperations, "_resolve_note_file")
+    @patch("minerva.services.alias_operations.resolve_note_file")
     @patch("pathlib.Path.exists")
     def test_get_aliases_success(
         self, mock_exists, mock_resolve, mock_get_aliases, alias_operations
@@ -521,10 +493,10 @@ class TestAliasOperations:
 
         # Assert
         assert result == ["alias1", "alias2"]
-        mock_resolve.assert_called_with(filename, None, None)
+        mock_resolve.assert_called_with(alias_operations.config, filename, None, None)
         mock_get_aliases.assert_called_with(file_path)
 
-    @patch.object(AliasOperations, "_resolve_note_file")
+    @patch("minerva.services.alias_operations.resolve_note_file")
     @patch("pathlib.Path.exists")
     def test_get_aliases_file_not_found(
         self, mock_exists, mock_resolve, alias_operations
@@ -645,15 +617,17 @@ class TestAliasOperationsIntegration:
         return AliasOperations(config, frontmatter_manager)
 
     def test_resolve_note_file_integration(self, alias_operations):
-        """Test file resolution with actual paths."""
+        """Test file resolution integration using the core function."""
+        from minerva.services.core.file_operations import resolve_note_file
+
         # Test with filename
-        result = alias_operations._resolve_note_file("test_note", None, None)
+        result = resolve_note_file(alias_operations.config, "test_note", None, None)
         expected = alias_operations.config.vault_path / "notes" / "test_note.md"
         assert result == expected
 
         # Test with filepath
         filepath = "/custom/path/note.md"
-        result = alias_operations._resolve_note_file(None, filepath, None)
+        result = resolve_note_file(alias_operations.config, None, filepath, None)
         assert result == Path(filepath)
 
     def test_validate_and_normalize_alias_integration(self, alias_operations):

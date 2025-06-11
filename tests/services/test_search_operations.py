@@ -123,12 +123,12 @@ class TestSearchOperations:
             SearchResult(
                 file_path="/test/vault/note1.md",
                 line_number=1,
-                content="test query here",
+                context="test query here",
             ),
             SearchResult(
                 file_path="/test/vault/note2.md",
                 line_number=5,
-                content="another test query",
+                context="another test query",
             ),
         ]
         mock_search_func.return_value = mock_results
@@ -152,7 +152,7 @@ class TestSearchOperations:
         case_sensitive = False
         mock_config = Mock()
         mock_create_config.return_value = mock_config
-        mock_results: list[str] = []
+        mock_results: list[SearchResult] = []
         mock_search_func.return_value = mock_results
 
         # Act
@@ -192,10 +192,11 @@ class TestSearchOperations:
         assert result == []
         mock_search_func.assert_called_once_with(mock_config)
 
+    @patch("minerva.services.search_operations.Path")
     @patch.object(SearchOperations, "_create_search_config")
     @patch("minerva.services.search_operations.search_keyword_in_files")
     def test_search_notes_in_directory_success(
-        self, mock_search_func, mock_create_config, search_operations
+        self, mock_search_func, mock_create_config, mock_path, search_operations
     ):
         """Test successful search in specific directory."""
         # Arrange
@@ -205,11 +206,18 @@ class TestSearchOperations:
         mock_config.directory = directory
         mock_config.keyword = query
         mock_create_config.return_value = mock_config
+
+        # Mock Path existence check
+        mock_path_instance = Mock()
+        mock_path_instance.exists.return_value = True
+        mock_path_instance.is_dir.return_value = True
+        mock_path.return_value = mock_path_instance
+
         mock_results = [
             SearchResult(
                 file_path="/custom/directory/note1.md",
                 line_number=1,
-                content="test query here",
+                context="test query here",
             ),
         ]
         mock_search_func.return_value = mock_results
@@ -227,10 +235,11 @@ class TestSearchOperations:
             directory=directory,
         )
 
+    @patch("minerva.services.search_operations.Path")
     @patch.object(SearchOperations, "_create_search_config")
     @patch("minerva.services.search_operations.search_keyword_in_files")
     def test_search_notes_in_directory_custom_extensions(
-        self, mock_search_func, mock_create_config, search_operations
+        self, mock_search_func, mock_create_config, mock_path, search_operations
     ):
         """Test search in directory with custom file extensions."""
         # Arrange
@@ -240,6 +249,13 @@ class TestSearchOperations:
         mock_config = Mock()
         mock_config.file_extensions = file_extensions
         mock_create_config.return_value = mock_config
+
+        # Mock Path existence check
+        mock_path_instance = Mock()
+        mock_path_instance.exists.return_value = True
+        mock_path_instance.is_dir.return_value = True
+        mock_path.return_value = mock_path_instance
+
         mock_search_func.return_value = []
 
         # Act
@@ -257,10 +273,11 @@ class TestSearchOperations:
             directory=directory,
         )
 
+    @patch("minerva.services.search_operations.Path")
     @patch.object(SearchOperations, "_create_search_config")
     @patch("minerva.services.search_operations.search_keyword_in_files")
     def test_search_notes_in_directory_case_insensitive(
-        self, mock_search_func, mock_create_config, search_operations
+        self, mock_search_func, mock_create_config, mock_path, search_operations
     ):
         """Test search in directory with case insensitive option."""
         # Arrange
@@ -270,6 +287,13 @@ class TestSearchOperations:
         mock_config = Mock()
         mock_config.case_sensitive = False
         mock_create_config.return_value = mock_config
+
+        # Mock Path existence check
+        mock_path_instance = Mock()
+        mock_path_instance.exists.return_value = True
+        mock_path_instance.is_dir.return_value = True
+        mock_path.return_value = mock_path_instance
+
         mock_search_func.return_value = []
 
         # Act
@@ -292,6 +316,43 @@ class TestSearchOperations:
         with pytest.raises(ValueError, match="Query cannot be empty"):
             search_operations.search_notes_in_directory("", "/test/directory")
 
+    @patch("minerva.services.search_operations.Path")
+    def test_search_notes_in_directory_nonexistent_directory(
+        self, mock_path, search_operations
+    ):
+        """Test search in directory that does not exist."""
+        # Arrange
+        query = "test query"
+        directory = "/nonexistent/directory"
+
+        # Mock Path existence check to return False
+        mock_path_instance = Mock()
+        mock_path_instance.exists.return_value = False
+        mock_path.return_value = mock_path_instance
+
+        # Act & Assert
+        with pytest.raises(ValueError, match=f"Directory does not exist: {directory}"):
+            search_operations.search_notes_in_directory(query, directory)
+
+    @patch("minerva.services.search_operations.Path")
+    def test_search_notes_in_directory_path_is_not_directory(
+        self, mock_path, search_operations
+    ):
+        """Test search when path exists but is not a directory."""
+        # Arrange
+        query = "test query"
+        directory = "/path/to/file.txt"
+
+        # Mock Path to simulate file (not directory)
+        mock_path_instance = Mock()
+        mock_path_instance.exists.return_value = True
+        mock_path_instance.is_dir.return_value = False
+        mock_path.return_value = mock_path_instance
+
+        # Act & Assert
+        with pytest.raises(ValueError, match=f"Path is not a directory: {directory}"):
+            search_operations.search_notes_in_directory(query, directory)
+
     @patch.object(SearchOperations, "_create_search_config")
     @patch("minerva.services.search_operations.search_keyword_in_files")
     def test_search_notes_with_logging(
@@ -302,7 +363,7 @@ class TestSearchOperations:
         query = "test query"
         mock_config = Mock()
         mock_create_config.return_value = mock_config
-        mock_results: list[str] = []
+        mock_results: list[SearchResult] = []
         mock_search_func.return_value = mock_results
 
         # Act

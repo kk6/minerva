@@ -41,6 +41,51 @@ class NoteOperations(BaseService):
     in the Obsidian vault, using the core infrastructure utilities.
     """
 
+    def _validate_and_resolve_file(
+        self,
+        operation_name: str,
+        filename: str | None = None,
+        filepath: str | None = None,
+        default_path: str | None = None,
+    ) -> Path:
+        """
+        Validate input parameters and resolve file path for note operations.
+
+        Args:
+            operation_name: Name of the operation for logging purposes
+            filename: The name of the file
+            filepath: The full path of the file
+            default_path: The default directory to look for the file
+
+        Returns:
+            Path: The resolved file path
+
+        Raises:
+            ValueError: If neither filename nor filepath is provided or if file resolution fails
+            FileNotFoundError: If the file doesn't exist
+        """
+        if not filename and not filepath:
+            value_error: ValueError = ValueError(
+                "Either filename or filepath must be provided"
+            )
+            self._log_operation_error(operation_name, value_error)
+            raise value_error
+
+        try:
+            file_path = resolve_note_file(self.config, filename, filepath, default_path)
+        except ValueError as e:
+            self._log_operation_error(operation_name, e)
+            raise
+
+        if not file_path.exists():
+            file_error: FileNotFoundError = FileNotFoundError(
+                f"File {file_path} does not exist"
+            )
+            self._log_operation_error(operation_name, file_error)
+            raise file_error
+
+        return file_path
+
     @log_performance(threshold_ms=500)
     @validate_inputs(validate_text_content, validate_filename)
     @handle_file_operations()
@@ -204,25 +249,9 @@ class NoteOperations(BaseService):
             "get_note_delete_confirmation", filename=filename, filepath=filepath
         )
 
-        if not filename and not filepath:
-            value_error: ValueError = ValueError(
-                "Either filename or filepath must be provided"
-            )
-            self._log_operation_error("get_note_delete_confirmation", value_error)
-            raise value_error
-
-        try:
-            file_path = resolve_note_file(self.config, filename, filepath, default_path)
-        except ValueError as e:
-            self._log_operation_error("get_note_delete_confirmation", e)
-            raise
-
-        if not file_path.exists():
-            file_error: FileNotFoundError = FileNotFoundError(
-                f"File {file_path} does not exist"
-            )
-            self._log_operation_error("get_note_delete_confirmation", file_error)
-            raise file_error
+        file_path = self._validate_and_resolve_file(
+            "get_note_delete_confirmation", filename, filepath, default_path
+        )
 
         message = f"File found at {file_path}. To delete, call 'perform_note_delete' with the same identification parameters."
         result = {"file_path": str(file_path), "message": message}
@@ -255,25 +284,9 @@ class NoteOperations(BaseService):
             "perform_note_delete", filename=filename, filepath=filepath
         )
 
-        if not filename and not filepath:
-            value_error: ValueError = ValueError(
-                "Either filename or filepath must be provided"
-            )
-            self._log_operation_error("perform_note_delete", value_error)
-            raise value_error
-
-        try:
-            file_path = resolve_note_file(self.config, filename, filepath, default_path)
-        except ValueError as e:
-            self._log_operation_error("perform_note_delete", e)
-            raise
-
-        if not file_path.exists():
-            file_error: FileNotFoundError = FileNotFoundError(
-                f"File {file_path} does not exist"
-            )
-            self._log_operation_error("perform_note_delete", file_error)
-            raise file_error
+        file_path = self._validate_and_resolve_file(
+            "perform_note_delete", filename, filepath, default_path
+        )
 
         file_delete_request = FileDeleteRequest(
             directory=str(file_path.parent),
