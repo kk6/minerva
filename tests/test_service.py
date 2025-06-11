@@ -126,7 +126,7 @@ class TestMinervaService:
         with pytest.raises(ValueError, match="Filename cannot be empty"):
             service._build_file_path("")
 
-    @patch("minerva.file_handler.write_file")
+    @patch("minerva.services.note_operations.write_file")
     @patch("frontmatter.dumps")
     def test_create_note(self, mock_dumps, mock_write_file, service):
         """Test note creation."""
@@ -144,7 +144,7 @@ class TestMinervaService:
         service.frontmatter_manager.generate_metadata.assert_called_once()
         mock_write_file.assert_called_once()
 
-    @patch("minerva.file_handler.write_file")
+    @patch("minerva.services.note_operations.write_file")
     @patch("frontmatter.dumps")
     def test_edit_note_existing(self, mock_dumps, mock_write_file, service):
         """Test editing an existing note."""
@@ -170,7 +170,7 @@ class TestMinervaService:
             with pytest.raises(NoteNotFoundError):
                 service.edit_note("content", "nonexistent")
 
-    @patch("minerva.file_handler.read_file")
+    @patch("minerva.services.note_operations.read_file")
     def test_read_note(self, mock_read_file, service):
         """Test reading a note."""
         # Arrange
@@ -216,7 +216,7 @@ class TestMinervaService:
         ):
             service.get_note_delete_confirmation()
 
-    @patch("minerva.file_handler.delete_file")
+    @patch("minerva.services.note_operations.delete_file")
     def test_perform_note_delete(self, mock_delete_file, service):
         """Test performing note deletion."""
         # Arrange
@@ -512,7 +512,7 @@ class TestMinervaServiceErrorCases:
         service.frontmatter_manager.generate_metadata.return_value = mock_post
 
         with patch("frontmatter.dumps", return_value="content"):
-            with patch("minerva.file_handler.write_file") as mock_write:
+            with patch("minerva.service.write_file") as mock_write:
                 mock_write.return_value = Path("/test/path")
 
                 result = service._save_note_with_updated_tags(

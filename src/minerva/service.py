@@ -8,32 +8,28 @@ coordination point between configuration, file handling, and frontmatter managem
 
 import logging
 from pathlib import Path
-from typing import ParamSpec, TypeVar, Any
+from typing import ParamSpec, TypeVar
 
 import frontmatter
 
 from minerva.config import MinervaConfig
 from minerva.error_handler import (
     MinervaErrorHandler,
-    handle_file_operations,
-    validate_inputs,
     log_performance,
     safe_operation,
 )
 from minerva.exceptions import (
     NoteNotFoundError,
-    ValidationError,
 )
 from minerva.file_handler import (
     FileWriteRequest,
-    FileReadRequest,
-    FileDeleteRequest,
     SearchConfig,
     SearchResult,
     search_keyword_in_files,
     write_file,
 )
 from minerva.frontmatter_manager import FrontmatterManager
+from minerva.services.note_operations import NoteOperations
 from minerva.validators import TagValidator
 
 # Set up logging
@@ -44,30 +40,6 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def _validate_filename(*args: Any, **kwargs: Any) -> None:
-    """Validate filename parameter is not empty."""
-    # For create_note/edit_note: self, text, filename, author=None, default_path=None
-    filename = None
-    if len(args) >= 3:  # args[0] is self, args[1] is text, args[2] is filename
-        filename = args[2]
-    elif "filename" in kwargs:
-        filename = kwargs["filename"]
-
-    if filename is not None and not filename.strip():
-        raise ValidationError("Filename cannot be empty or whitespace")
-
-
-def _validate_text_content(*args: Any, **kwargs: Any) -> None:
-    """Validate text content parameter is not empty."""
-    # For create_note/edit_note: self, text, filename, author=None, default_path=None
-    text = None
-    if len(args) >= 2:  # args[0] is self, args[1] is text
-        text = args[1]
-    elif "text" in kwargs:
-        text = kwargs["text"]
-
-    if text is not None and not text.strip():
-        raise ValidationError("Text content cannot be empty or whitespace")
 
 
 class MinervaService:
@@ -95,6 +67,9 @@ class MinervaService:
         self.config = config
         self.frontmatter_manager = frontmatter_manager
         self.error_handler = MinervaErrorHandler(vault_path=config.vault_path)
+
+        # Initialize specialized service modules
+        self.note_operations = NoteOperations(config, frontmatter_manager)
 
     def _build_file_path(
         self, filename: str, default_path: str | None = None
@@ -183,9 +158,6 @@ class MinervaService:
 
         return full_dir_path, base_filename, content
 
-    @log_performance(threshold_ms=500)
-    @validate_inputs(_validate_text_content, _validate_filename)
-    @handle_file_operations()
     def create_note(
         self,
         text: str,
@@ -208,32 +180,8 @@ class MinervaService:
         Raises:
             FileExistsError: If the file already exists
         """
-        from minerva.file_handler import write_file
+        return self.note_operations.create_note(text, filename, author, default_path)
 
-        # Prepare note for writing
-        full_dir_path, base_filename, content = self._assemble_complete_note(
-            text=text,
-            filename=filename,
-            author=author,
-            default_path=default_path,
-            is_new_note=True,
-        )
-
-        # Create the FileWriteRequest with overwrite=False
-        file_write_request = FileWriteRequest(
-            directory=str(full_dir_path),
-            filename=base_filename,
-            content=content,
-            overwrite=False,
-        )
-
-        file_path = write_file(file_write_request)
-        logger.info("New note created at %s", file_path)
-        return file_path
-
-    @log_performance(threshold_ms=500)
-    @validate_inputs(_validate_text_content, _validate_filename)
-    @handle_file_operations()
     def edit_note(
         self,
         text: str,
@@ -256,38 +204,8 @@ class MinervaService:
         Raises:
             FileNotFoundError: If the file doesn't exist
         """
-        from minerva.file_handler import write_file
+        return self.note_operations.edit_note(text, filename, author, default_path)
 
-        # Prepare note for writing
-        full_dir_path, base_filename, content = self._assemble_complete_note(
-            text=text,
-            filename=filename,
-            author=author,
-            default_path=default_path,
-            is_new_note=False,
-        )
-        file_path_for_logging = full_dir_path / base_filename
-
-        # Check if the file exists before attempting to edit it
-        if not file_path_for_logging.exists():
-            raise FileNotFoundError(
-                f"Cannot edit note. File {file_path_for_logging} does not exist"
-            )
-
-        # Create the FileWriteRequest with overwrite=True
-        file_write_request = FileWriteRequest(
-            directory=str(full_dir_path),
-            filename=base_filename,
-            content=content,
-            overwrite=True,
-        )
-
-        file_path = write_file(file_write_request)
-        logger.info("Note edited at %s", file_path)
-        return file_path
-
-    @log_performance(threshold_ms=200)
-    @handle_file_operations()
     def read_note(self, filepath: str) -> str:
         """
         Read a note from a file in the Obsidian vault.
@@ -298,17 +216,7 @@ class MinervaService:
         Returns:
             str: The content of the file
         """
-        from minerva.file_handler import read_file
-        import os
-
-        directory, filename = os.path.split(filepath)
-        file_read_request = FileReadRequest(
-            directory=directory,
-            filename=filename,
-        )
-        content = read_file(file_read_request)
-        logger.info("File read from %s", filepath)
-        return content
+        return self.note_operations.read_note(filepath)
 
     @log_performance(threshold_ms=1000)
     def search_notes(
@@ -358,24 +266,7 @@ class MinervaService:
             ValueError: If neither filename nor filepath is provided
             FileNotFoundError: If the file doesn't exist
         """
-        if not filename and not filepath:
-            raise ValueError("Either filename or filepath must be provided")
-
-        if filepath:
-            file_path = Path(filepath)
-        else:
-            if not filename:
-                raise ValueError(
-                    "Filename must be provided if filepath is not specified."
-                )
-            full_dir_path, base_filename = self._build_file_path(filename, default_path)
-            file_path = full_dir_path / base_filename
-
-        if not file_path.exists():
-            raise FileNotFoundError(f"File {file_path} does not exist")
-
-        message = f"File found at {file_path}. To delete, call 'perform_note_delete' with the same identification parameters."
-        return {"file_path": str(file_path), "message": message}
+        return self.note_operations.get_note_delete_confirmation(filename, filepath, default_path)
 
     def perform_note_delete(
         self,
@@ -398,32 +289,7 @@ class MinervaService:
             ValueError: If neither filename nor filepath is provided
             FileNotFoundError: If the file doesn't exist
         """
-        from minerva.file_handler import delete_file
-
-        if not filename and not filepath:
-            raise ValueError("Either filename or filepath must be provided")
-
-        if filepath:
-            file_path = Path(filepath)
-        else:
-            if not filename:
-                raise ValueError(
-                    "Filename must be provided if filepath is not specified."
-                )
-            full_dir_path, base_filename = self._build_file_path(filename, default_path)
-            file_path = full_dir_path / base_filename
-
-        if not file_path.exists():
-            raise FileNotFoundError(f"File {file_path} does not exist")
-
-        file_delete_request = FileDeleteRequest(
-            directory=str(file_path.parent),
-            filename=file_path.name,
-        )
-
-        deleted_path = delete_file(file_delete_request)
-        logger.info("Note deleted successfully at %s", deleted_path)
-        return deleted_path
+        return self.note_operations.perform_note_delete(filename, filepath, default_path)
 
     def _normalize_tag(self, tag: str) -> str:
         """Convert a tag to its normalized form."""
