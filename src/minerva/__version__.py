@@ -6,4 +6,4 @@ It is used to keep track of the version of the package and can be
 imported by other modules to check the version.
 """
 
-__version__ = "0.10.0"
+__version__ = "0.11.0"

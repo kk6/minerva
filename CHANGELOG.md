@@ -1,6 +1,162 @@
 # CHANGELOG
 
 
+## v0.11.0 (2025-06-11)
+
+### Bug Fixes
+
+- Update error handling test after service refactoring
+  ([`63401a8`](https://github.com/kk6/minerva/commit/63401a87ff2d6237a738e459ea3bafe87d49398d))
+
+Remove unused VaultError import and fix test expectations to align with the new ServiceManager
+  architecture where error conversion happens at the individual service level.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Build System
+
+- Update semantic release configuration and error handling
+  ([`25289d6`](https://github.com/kk6/minerva/commit/25289d61ce650fd8784f2925317bf764fc324547))
+
+### Continuous Integration
+
+- Improve error handling in release workflow
+  ([`0374654`](https://github.com/kk6/minerva/commit/03746540eb8e390a6f251afabdba4b22b3bcbc55))
+
+- Add robust error handling for semantic-release publish command - Handle exit code 2 (no release
+  necessary) gracefully - Prevent workflow failure when no changes require a release - Follow best
+  practices from official semantic-release GitHub Action
+
+### Features
+
+- Complete service layer modularization (Phase 7 - issue #84)
+  ([`1d7690d`](https://github.com/kk6/minerva/commit/1d7690dec9acd0b90fef5cfb941e25e593291501))
+
+Remove old monolithic service.py implementation and complete migration to modular ServiceManager
+  architecture. All functionality preserved while improving maintainability and testability.
+
+Changes: - Remove src/minerva/service.py and tests/test_service.py - Update server.py to use
+  ServiceManager directly - Fix type annotations in test files - Update comprehensive documentation
+  across docs/ and .github/instructions/ - Maintain all existing functionality with 410 passing
+  tests
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Create ServiceManager facade (Phase 6 - issue #83)
+  ([`75b08e0`](https://github.com/kk6/minerva/commit/75b08e01f473cb1798d70ccd42ca2f16f08f3649))
+
+- Create ServiceManager class in service_manager.py - Provide unified interface for all service
+  operations - Replace monolithic MinervaService with modular facade - Maintain 100% backward
+  compatibility via delegation - Update factory function create_minerva_service() - Create
+  comprehensive tests with 31 test cases - Update service.py to import and expose ServiceManager -
+  Fix test patches to use correct module paths
+
+Benefits: - Clean separation of concerns - Property-based access to specialized services - Modular
+  architecture with facade pattern - Zero breaking changes to external interface - Reduced
+  service.py from 567 lines to 14 lines
+
+- Extract SearchOperations from service layer (Phase 5)
+  ([`0891dc3`](https://github.com/kk6/minerva/commit/0891dc3f4c4081d64f0a0c95331ef51fc6277e07))
+
+- Create SearchOperations class extending BaseService - Extract search_notes and
+  search_notes_in_directory methods - Add validation and configuration creation methods - Create
+  comprehensive unit tests with 20 test cases - Update service.py to use delegation pattern - Fix
+  test import path for write_file function - Maintain 100% backward compatibility - Apply
+  performance logging and error handling
+
+Reduces service.py complexity while maintaining all functionality.
+
+### Refactoring
+
+- Extract note operations to dedicated service module (Phase 2)
+  ([`c21cfcc`](https://github.com/kk6/minerva/commit/c21cfcc4ea77390ed9edba0845b0877290a9cc68))
+
+- Create NoteOperations class extending BaseService - Extract CRUD operations: create_note,
+  edit_note, read_note - Extract deletion operations: get_note_delete_confirmation,
+  perform_note_delete - Implement delegation wrappers in MinervaService for backward compatibility -
+  Add comprehensive unit tests with 100% coverage for new module - Update existing tests to work
+  with new architecture - Maintain all decorators (performance logging, error handling, validation)
+
+All existing functionality preserved while enabling modular architecture. Note operations now follow
+  dependency injection pattern with clean separation.
+
+Closes #79
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Implement Phase 1 core infrastructure for service modularization
+  ([`069a133`](https://github.com/kk6/minerva/commit/069a1337b9686ec1451a35d63a9b3a388b59cc7e))
+
+- Create service package structure (src/minerva/services/) - Implement BaseService class with shared
+  dependencies and logging utilities - Extract file operations utilities (path building, note
+  assembly, file resolution) - Add PathResolver class with path validation and security features -
+  Create comprehensive unit tests with 97% coverage - Maintain 100% backward compatibility with
+  existing functionality
+
+This establishes the foundation for breaking down the monolithic service.py into focused,
+  maintainable modules following the Single Responsibility Principle.
+
+Closes #78
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Improve service layer code quality based on CodeRabbit feedback
+  ([`a3a75b2`](https://github.com/kk6/minerva/commit/a3a75b227d21dcb9303d1f382e319b9621d9bb58))
+
+- Extract file resolution logic to core.file_operations module - Add directory validation in
+  SearchOperations.search_notes_in_directory - Implement _validate_and_resolve_file helper methods
+  for consistent error handling - Fix type annotations in test files for empty list declarations -
+  Update imports to use centralized file operation functions - Maintain backward compatibility with
+  legacy method wrappers for tests - Reduce code duplication across service modules
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Phase 3 - Extract tag operations into modular service
+  ([`3326be8`](https://github.com/kk6/minerva/commit/3326be86f08d87d5310a36115d7a2559410ea013))
+
+- Create TagOperations class extending BaseService - Extract all tag-related methods from
+  service.py: - add_tag, remove_tag, get_tags - rename_tag, list_all_tags, find_notes_with_tag -
+  Internal helper methods for tag validation and file operations - Implement delegation pattern in
+  MinervaService for backward compatibility - Add comprehensive unit tests with 34 test cases
+  covering all scenarios - Fix type annotations and import issues across service modules - Update
+  path resolver to handle None values for test compatibility - Preserve performance logging and
+  error handling decorators
+
+All TagOperations functionality verified with passing tests. Integration test failures are expected
+  during phase development.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Phase 4 - Extract alias operations into modular service
+  ([`d2d52a0`](https://github.com/kk6/minerva/commit/d2d52a06ffe15c0337131c2a7c4ace598d590632))
+
+- Create AliasOperations class extending BaseService - Extract all alias-related methods from
+  service.py: - add_alias, remove_alias, get_aliases, search_by_alias - _validate_alias,
+  _normalize_alias, _get_aliases_from_file - _save_note_with_updated_aliases, _check_alias_conflicts
+  - Implement delegation pattern in MinervaService for backward compatibility - Add comprehensive
+  unit tests with 37 test cases covering all scenarios - Preserve performance logging and error
+  handling decorators - Maintain 100% backward compatibility
+
+service.py reduced from 811 to 582 lines (229 lines extracted). All AliasOperations functionality
+  verified with passing tests.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.10.0 (2025-06-11)
 
 ### Bug Fixes
