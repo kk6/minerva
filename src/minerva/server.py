@@ -4,17 +4,17 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from minerva.__version__ import __version__
-from minerva.service import create_minerva_service, MinervaService
+from minerva.services.service_manager import ServiceManager, create_minerva_service
 from minerva.file_handler import SearchResult
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 # Lazy initialization of service layer to support testing
-service: MinervaService | None = None
+service: ServiceManager | None = None
 
 
-def get_service() -> MinervaService:
+def get_service() -> ServiceManager:
     """Get or create the service instance."""
     global service
     if service is None:

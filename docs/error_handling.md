@@ -133,7 +133,7 @@ def get_tags(self, filepath):
 
 ## サービス層での統合
 
-エラーハンドリングシステムは `MinervaService` メソッドに統合されています：
+エラーハンドリングシステムは `ServiceManager` とその配下のサービスモジュールに統合されています：
 
 ### 適用されているメソッド
 
@@ -172,7 +172,7 @@ def read_note(self, filepath: str) -> str:
 各サービスインスタンスはエラーハンドラーを持ちます：
 
 ```python
-service = MinervaService(config, frontmatter_manager)
+service = ServiceManager(config, frontmatter_manager)
 # service.error_handler は vault_path で自動的に初期化される
 ```
 

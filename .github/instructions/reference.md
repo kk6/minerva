@@ -22,10 +22,11 @@ The Minerva project adopts a "Document-First" approach. Always update relevant d
   - Direct service integration without wrapper functions
   - Tool functions: create_note, edit_note, read_note, search_notes, etc.
   - Simplified architecture with ~5% code reduction
-- Service layer architecture (service.py)
-  - MinervaService class encapsulating all business logic
-  - Dependency injection pattern for improved testability and extensibility
-  - Factory function `create_minerva_service()` for default configuration
+- Modular service layer architecture (services/)
+  - ServiceManager facade providing unified interface
+  - Specialized service modules (NoteOperations, TagOperations, AliasOperations, SearchOperations)
+  - Dependency injection pattern maintained across all service modules
+  - Factory function `create_minerva_service()` for default ServiceManager configuration
 - Configuration management (config.py)
   - MinervaConfig dataclass for dependency injection
   - Legacy global variables for backward compatibility

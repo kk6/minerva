@@ -6,10 +6,15 @@
 
 Minervaは依存性注入パターンを採用した階層化アーキテクチャです：
 
-1. **サービス層** (`service.py`) - **新規追加**
-   - **MinervaService**: 全ビジネスロジックを統合したメインサービスクラス
+1. **サービス層** (`services/`) - **モジュール化済み**
+   - **ServiceManager**: 全サービス操作の統一インターフェース（ファサードパターン）
+   - **専門化されたサービスモジュール**: 機能別に分離されたサービスクラス群
+     - **NoteOperations**: ノート作成・編集・削除・読み込み操作
+     - **TagOperations**: タグ追加・削除・一括変更・検索機能
+     - **AliasOperations**: エイリアス管理と競合検出
+     - **SearchOperations**: 全文検索とフィルタリング機能
    - **MinervaConfig**: 依存性注入用の設定データクラス
-   - **create_minerva_service()**: デフォルト設定でのサービスファクトリー関数
+   - **create_minerva_service()**: デフォルト設定でのServiceManagerファクトリー関数
 
 2. **MCPサーバー層** (`server.py`) - **簡素化済み**
    - **FastMCPサーバー**: `@mcp.tool()` デコレータを使用した直接的なツール登録

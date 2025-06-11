@@ -143,7 +143,12 @@ Minerva
 │   ├── remove_alias
 │   ├── get_aliases
 │   └── search_by_alias
-├── サービス層 (service.py) - ビジネスロジック
+├── サービス層 (services/) - モジュール化されたビジネスロジック
+│   ├── ServiceManager - 統一インターフェース（ファサード）
+│   ├── NoteOperations - ノート操作サービス
+│   ├── TagOperations - タグ管理サービス
+│   ├── AliasOperations - エイリアス管理サービス
+│   └── SearchOperations - 検索サービス
 ├── ファイル操作モジュール (file_handler.py)
 └── 設定管理 (config.py)
 ```
