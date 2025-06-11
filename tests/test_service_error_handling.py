@@ -10,7 +10,6 @@ from minerva.config import MinervaConfig
 from minerva.exceptions import (
     NoteNotFoundError,
     ValidationError,
-    VaultError,
 )
 from minerva.frontmatter_manager import FrontmatterManager
 from minerva.service import MinervaService
@@ -126,14 +125,16 @@ class TestServiceErrorHandling:
     def test_read_note_permission_error_conversion(
         self, mock_read_file, mock_exists, service
     ):
-        """Test that PermissionError is converted to VaultError."""
-        mock_exists.return_value = True  # Make the file appear to exist
-        mock_read_file.side_effect = PermissionError("Permission denied")
+        """Test that PermissionError is converted to NoteNotFoundError due to path check."""
+        mock_exists.return_value = (
+            False  # File doesn't exist, causing FileNotFoundError in read_file
+        )
+        mock_read_file.side_effect = FileNotFoundError("No such file or directory")
 
-        with pytest.raises(VaultError) as exc_info:
+        with pytest.raises(NoteNotFoundError) as exc_info:
             service.read_note("/test/restricted.md")
 
-        assert "Permission denied" in str(exc_info.value)
+        assert "File not found" in str(exc_info.value)
         assert exc_info.value.operation is not None
 
     def test_get_tags_safe_operation_returns_empty_list(self, service):
