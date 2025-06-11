@@ -15,16 +15,12 @@ import frontmatter
 from minerva.config import MinervaConfig
 from minerva.error_handler import (
     MinervaErrorHandler,
-    log_performance,
 )
-from minerva.file_handler import (
-    SearchConfig,
-    SearchResult,
-    search_keyword_in_files,
-)
+from minerva.file_handler import SearchResult
 from minerva.frontmatter_manager import FrontmatterManager
 from minerva.services.alias_operations import AliasOperations
 from minerva.services.note_operations import NoteOperations
+from minerva.services.search_operations import SearchOperations
 from minerva.services.tag_operations import TagOperations
 
 # Set up logging
@@ -65,6 +61,7 @@ class MinervaService:
         self.note_operations = NoteOperations(config, frontmatter_manager)
         self.tag_operations = TagOperations(config, frontmatter_manager)
         self.alias_operations = AliasOperations(config, frontmatter_manager)
+        self.search_operations = SearchOperations(config, frontmatter_manager)
 
     def _build_file_path(
         self, filename: str, default_path: str | None = None
@@ -213,7 +210,6 @@ class MinervaService:
         """
         return self.note_operations.read_note(filepath)
 
-    @log_performance(threshold_ms=1000)
     def search_notes(
         self, query: str, case_sensitive: bool = True
     ) -> list[SearchResult]:
@@ -227,18 +223,7 @@ class MinervaService:
         Returns:
             list[SearchResult]: A list of search results
         """
-        if not query or not query.strip():
-            raise ValueError("Query cannot be empty")
-
-        search_config = SearchConfig(
-            directory=str(self.config.vault_path),
-            keyword=query,
-            file_extensions=[".md"],
-            case_sensitive=case_sensitive,
-        )
-        matching_files = search_keyword_in_files(search_config)
-        logger.info("Found %s files matching the query: %s", len(matching_files), query)
-        return matching_files
+        return self.search_operations.search_notes(query, case_sensitive)
 
     def get_note_delete_confirmation(
         self,

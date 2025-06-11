@@ -512,7 +512,7 @@ class TestMinervaServiceErrorCases:
         service.frontmatter_manager.generate_metadata.return_value = mock_post
 
         with patch("frontmatter.dumps", return_value="content"):
-            with patch("minerva.service.write_file") as mock_write:
+            with patch("minerva.services.tag_operations.write_file") as mock_write:
                 mock_write.return_value = Path("/test/path")
 
                 result = service._save_note_with_updated_tags(
