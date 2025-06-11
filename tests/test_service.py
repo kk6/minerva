@@ -274,8 +274,8 @@ class TestMinervaService:
 class TestCreateMinervaService:
     """Test the factory function for creating MinervaService."""
 
-    @patch("minerva.service.MinervaConfig.from_env")
-    @patch("minerva.service.FrontmatterManager")
+    @patch("minerva.services.service_manager.MinervaConfig.from_env")
+    @patch("minerva.services.service_manager.FrontmatterManager")
     def test_create_minerva_service(self, mock_fm_class, mock_config_from_env):
         """Test creating MinervaService with factory function."""
         # Arrange
@@ -576,8 +576,8 @@ class TestMinervaServiceValidation:
 class TestServiceFactoryFunction:
     """Test the service factory function edge cases."""
 
-    @patch("minerva.service.MinervaConfig.from_env")
-    @patch("minerva.service.FrontmatterManager")
+    @patch("minerva.services.service_manager.MinervaConfig.from_env")
+    @patch("minerva.services.service_manager.FrontmatterManager")
     def test_create_minerva_service_config_error(
         self, mock_fm_class, mock_config_from_env
     ):
@@ -589,8 +589,8 @@ class TestServiceFactoryFunction:
 
             create_minerva_service()
 
-    @patch("minerva.service.MinervaConfig.from_env")
-    @patch("minerva.service.FrontmatterManager")
+    @patch("minerva.services.service_manager.MinervaConfig.from_env")
+    @patch("minerva.services.service_manager.FrontmatterManager")
     def test_create_minerva_service_fm_error(self, mock_fm_class, mock_config_from_env):
         """Test factory function when FrontmatterManager creation fails."""
         mock_config = Mock()
