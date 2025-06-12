@@ -1,6 +1,88 @@
 # CHANGELOG
 
 
+## v0.13.0 (2025-06-12)
+
+### Bug Fixes
+
+- Address Gemini Code Assist review feedback
+  ([`469a9f8`](https://github.com/kk6/minerva/commit/469a9f8a13b5c1594f590884743e2b2187fe37cc))
+
+Based on code review feedback, made the following improvements: - Improve regex special character
+  test to use Hypothesis strategy for better coverage - Fix empty final component test with specific
+  assertions for actual behavior - Add missing import statements to documentation examples for
+  clarity - Remove monkeypatch fixture from property-based test to avoid Hypothesis health check
+  issues
+
+These changes address the high and medium priority feedback items while maintaining test quality and
+  improving Hypothesis usage patterns.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Features
+
+- Implement property-based testing with Hypothesis
+  ([`7be6c75`](https://github.com/kk6/minerva/commit/7be6c75dffe68d2f3007583eba3b0cda2938e2f0))
+
+Add comprehensive property-based tests to discover edge cases in critical validation functions using
+  the Hypothesis library.
+
+Key Features: - PathResolver property tests for path validation and security - FilenameValidator and
+  TagValidator edge case discovery - FrontmatterManager tag operations and metadata handling -
+  SearchOperations query validation and configuration testing - Comprehensive documentation and
+  usage guidelines
+
+Benefits: - Discovered Unicode handling edge cases - Found regex escaping issues in validation
+  messages - Identified validation order dependencies - Improved confidence in refactoring
+  validation logic - 5-6x broader input coverage than manual unit tests
+
+Implementation: - Added hypothesis>=6.100.0 dependency to pyproject.toml - Created 4 new
+  property-based test files (*_properties.py) - Updated CLAUDE.md and README.md with testing
+  guidelines - Added detailed documentation at docs/property_based_testing.md - All 465 tests pass
+  including new property-based tests
+
+Closes #40
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Refactoring
+
+- Improve regex special character test based on review feedback
+  ([`cb3cf32`](https://github.com/kk6/minerva/commit/cb3cf32c018e70ac1f92ed30df141368c4ec4b31))
+
+Enhanced the property-based test for regex special characters with: - Add re module import for
+  proper regex error handling - Expand filename sanitization to handle all OS-reserved characters
+  (Windows: < > : " | ? * / \) - Add comprehensive handling for regex special characters ([ ] ( ) {
+  } ^ $ + .) - Improve exception handling to explicitly catch re.error for regex compilation issues
+  - Add detailed comments explaining the character replacement strategy
+
+This addresses potential file system compatibility issues and provides more robust handling of regex
+  compilation errors in search functionality testing.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Improve testing guidelines and property-based test implementation
+  ([`80134d9`](https://github.com/kk6/minerva/commit/80134d9b69fb008234f9ef1f72ef759d6f62666b))
+
+Based on feedback, made the following improvements: - Use monkeypatch fixture instead of manual
+  MonkeyPatch context in property-based tests - Add comprehensive testing strategy documentation in
+  CLAUDE.md - Update README.md with version information - Enhance test guidelines with
+  property-based testing best practices - Improve documentation for monkeypatch usage patterns
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Re-import re module for regex operations in test_path_resolver_properties.py
+  ([`916bb03`](https://github.com/kk6/minerva/commit/916bb039913208c7d7a6325a6945126c4bd6f1dc))
+
+
 ## v0.12.0 (2025-06-12)
 
 ### Bug Fixes
