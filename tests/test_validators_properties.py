@@ -97,28 +97,21 @@ class TestFilenameValidatorProperties:
         with pytest.raises(ValueError, match="Filename contains forbidden characters"):
             FilenameValidator.validate_filename_with_subdirs(filename_with_forbidden)
 
-    def test_validate_filename_with_subdirs_handles_empty_final_component(self):
-        """Property: paths with empty final components should be invalid."""
-        # Arrange - create a path that actually results in empty final component
-        # This is tricky with Path normalization, so we test a known problematic case
-        test_cases = [
-            "dir/",  # This actually becomes just "dir" after Path normalization
-            ".",  # Current directory reference
-        ]
+    def test_validate_filename_with_subdirs_handles_edge_cases(self):
+        """Property: test specific edge cases in path validation."""
+        # Arrange - test specific cases with known behavior
 
-        for path_input in test_cases:
-            # Only test cases that aren't absolute paths
-            if not os.path.isabs(path_input):
-                try:
-                    # Act - this should either succeed or fail consistently
-                    result = FilenameValidator.validate_filename_with_subdirs(
-                        path_input
-                    )
-                    # If it succeeds, that's also acceptable behavior
-                    assert isinstance(result, str)
-                except ValueError:
-                    # If it fails, that's also acceptable
-                    pass
+        # Case 1: "dir/" - Actually valid (Path normalizes to "dir")
+        result = FilenameValidator.validate_filename_with_subdirs("dir/")
+        assert result == "dir/"
+
+        # Case 2: "." - Path(".").name is "" which should be invalid
+        with pytest.raises(ValueError, match="Filename cannot be empty"):
+            FilenameValidator.validate_filename_with_subdirs(".")
+
+        # Case 3: "some/path/" - Actually valid (Path normalizes final component to "path")
+        result = FilenameValidator.validate_filename_with_subdirs("some/path/")
+        assert result == "some/path/"
 
 
 class TestTagValidatorProperties:

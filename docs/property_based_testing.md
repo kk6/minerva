@@ -60,6 +60,7 @@ Property-based tests provide confidence that our validation functions work corre
 ### Test Structure
 
 ```python
+import string
 from hypothesis import given, assume, strategies as st
 
 @given(st.text(min_size=1, max_size=100, alphabet=string.ascii_letters))
@@ -79,6 +80,12 @@ def test_property_example(self, input_text: str):
 
 #### 1. Input Validation Properties
 ```python
+import string
+from hypothesis import given, strategies as st
+
+# Define safe characters
+safe_characters = string.ascii_letters + string.digits + ".-_"
+
 @given(st.text(min_size=1, max_size=50, alphabet=safe_characters))
 def test_valid_input_always_succeeds(self, valid_input: str):
     """Property: valid inputs should never raise exceptions."""
@@ -88,6 +95,11 @@ def test_valid_input_always_succeeds(self, valid_input: str):
 
 #### 2. Error Condition Properties
 ```python
+from hypothesis import given, strategies as st
+
+# Define forbidden characters
+forbidden_characters = ["<", ">", ":", '"', "|", "?", "*"]
+
 @given(st.sampled_from(forbidden_characters))
 def test_invalid_input_always_fails(self, forbidden_char: str):
     """Property: inputs with forbidden characters should always fail."""
@@ -98,6 +110,8 @@ def test_invalid_input_always_fails(self, forbidden_char: str):
 
 #### 3. Consistency Properties
 ```python
+from hypothesis import given, strategies as st
+
 @given(st.text(min_size=1, max_size=30))
 def test_normalization_is_idempotent(self, input_text: str):
     """Property: normalizing twice should give same result as normalizing once."""
@@ -112,6 +126,9 @@ def test_normalization_is_idempotent(self, input_text: str):
 **Problem**: Hypothesis generates many inputs that are filtered out, causing slow tests.
 
 ```python
+import string
+from hypothesis import given, assume, strategies as st
+
 # ❌ Bad: Filters out too many examples
 @given(st.text(min_size=0, max_size=100))
 def test_non_empty_strings(self, text: str):

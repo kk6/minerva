@@ -105,7 +105,7 @@ class TestSearchOperationsProperties:
         st.booleans(),
     )
     def test_search_notes_query_validation_integration(
-        self, query: str, case_sensitive: bool, monkeypatch
+        self, query: str, case_sensitive: bool
     ):
         """Property: search_notes should validate queries before processing."""
         # Arrange
@@ -114,15 +114,14 @@ class TestSearchOperationsProperties:
 
             if query.strip():
                 # Valid query - should not raise during validation
-                # We mock the actual search to avoid file system operations
-                monkeypatch.setattr(
-                    "minerva.services.search_operations.search_keyword_in_files",
-                    lambda *_args, **_kwargs: [],
-                )
+                # For this test, we just test the validation without mocking
+                # The search will work on an empty directory and return empty results
 
                 # Act & Assert - should not raise
                 result = service.search_notes(query, case_sensitive)
                 assert isinstance(result, list)
+                # Should be empty since temp directory has no files
+                assert result == []
             else:
                 # Invalid query - should raise ValueError
                 with pytest.raises(ValueError, match="Query cannot be empty"):
@@ -209,36 +208,40 @@ class TestSearchOperationsProperties:
                 assert count >= 1
 
     @given(
-        st.text(min_size=1, max_size=20, alphabet=string.ascii_letters + string.digits)
+        st.text(min_size=1, max_size=20, alphabet=string.ascii_letters + string.digits),
+        st.sampled_from(".*+?^${}()|[]"),  # Generate one special character per test run
     )
-    def test_search_with_special_regex_characters(self, base_term: str):
+    def test_search_with_special_regex_characters(
+        self, base_term: str, special_char: str
+    ):
         """Property: search should handle terms that could be interpreted as regex."""
         # Arrange
         with TemporaryDirectory() as temp_dir:
             vault_path = Path(temp_dir)
             service = self._create_search_service(vault_path)
 
-            # Add regex special characters to the search term
-            regex_special_chars = ".*+?^${}()|[]"
-            for char in regex_special_chars[:3]:  # Test a few special chars
-                search_term = f"{base_term}{char}"
+            search_term = f"{base_term}{special_char}"
 
-                # Create file with the exact term
-                test_file = (
-                    vault_path
-                    / f"test_{char.replace('[', 'bracket').replace(']', 'bracket')}.md"
-                )
-                test_file.write_text(
-                    f"Content with {search_term} inside.", encoding="utf-8"
-                )
+            # Create file with the exact term
+            # Use safe filename by replacing problematic characters
+            safe_filename = (
+                special_char.replace("[", "bracket")
+                .replace("]", "bracket")
+                .replace("*", "star")
+                .replace("?", "question")
+            )
+            test_file = vault_path / f"test_{safe_filename}.md"
+            test_file.write_text(
+                f"Content with {search_term} inside.", encoding="utf-8"
+            )
 
-                # Act & Assert - should not raise regex compilation errors
-                try:
-                    results = service.search_notes(search_term, case_sensitive=True)
-                    assert isinstance(results, list)
-                except Exception as e:
-                    # If it fails, should be a controlled failure, not a regex error
-                    assert "regex" not in str(e).lower()
+            # Act & Assert - should not raise regex compilation errors
+            try:
+                results = service.search_notes(search_term, case_sensitive=True)
+                assert isinstance(results, list)
+            except Exception as e:
+                # If it fails, should be a controlled failure, not a regex error
+                assert "regex" not in str(e).lower()
 
 
 class TestSearchConfigProperties:
