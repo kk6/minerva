@@ -184,6 +184,41 @@ def mock_write_setup(self, tmp_path):
         yield {"mock_write_file": mock_write_file, "tmp_path": tmp_path}
 ```
 
+#### 3.3.1 モンキーパッチングのベストプラクティス ⭐ **推奨**
+
+テスト内で関数やメソッドをモックする際は、pytestの `monkeypatch` フィクスチャを使用してください：
+
+```python
+# ❌ 避けるべき: 手動でMonkeyPatchインスタンスを作成
+def test_with_manual_monkeypatch(self):
+    with pytest.MonkeyPatch().context() as m:
+        m.setattr("module.function", mock_function)
+        # テスト実装
+
+# ✅ 推奨: monkeypatchフィクスチャを使用
+def test_with_monkeypatch_fixture(self, monkeypatch):
+    monkeypatch.setattr("module.function", mock_function)
+    # テスト実装
+```
+
+**メリット**:
+- **自動スコープ管理**: テスト終了時に自動的にパッチが元に戻される
+- **コードの簡素化**: ネストしたコンテキストマネージャーが不要
+- **pytestベストプラクティス**: 標準的なpytestパターンに準拠
+- **可読性の向上**: より明確で読みやすいテストコード
+
+**Property-based testingでの使用例**:
+```python
+@given(st.text(min_size=1, max_size=50))
+def test_with_hypothesis_and_monkeypatch(self, query: str, monkeypatch):
+    """Hypothesisとmonkeypatchフィクスチャの組み合わせ例"""
+    monkeypatch.setattr(
+        "minerva.services.search_operations.search_keyword_in_files",
+        lambda *args, **kwargs: []
+    )
+    # テスト実装
+```
+
 ### 3.4 パラメータ化テスト
 
 複数のテストケースを効率的にテストするには、パラメータ化テストを使用しましょう：

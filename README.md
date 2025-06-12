@@ -102,6 +102,9 @@ make test
 # カバレッジ付きテスト
 make test-cov
 
+# Property-basedテストのみ実行
+uv run pytest tests/*_properties.py
+
 # コードの品質チェック（lint、type-check、testを一括実行）
 make check-all
 ```
@@ -192,7 +195,7 @@ uv run pytest
 
 ## 現在のバージョン
 
-Minervaの現在のバージョンは `v0.9.2` です。詳細な変更履歴については[CHANGELOG.md](CHANGELOG.md)を参照してください。
+Minervaの現在のバージョンは `v0.12.0` です。詳細な変更履歴については[CHANGELOG.md](CHANGELOG.md)を参照してください。
 
 ## 将来の開発方針
 
@@ -240,6 +243,7 @@ Minervaの目標は、Claude Desktopと連携してObsidianの操作を自然言
 - [ノート操作機能仕様書](docs/note_operations.md) - ノートの作成、読み取り、検索、タグ管理機能の詳細仕様
 - [技術仕様書](docs/technical_spec.md) - 内部実装の詳細と設計思想
 - [テストガイドライン](docs/test_guidelines.md) - テスト作成のガイドラインとAAA（Arrange-Act-Assert）パターンの解説
+- [Property-basedテストガイド](docs/property_based_testing.md) - Hypothesisを使用したProperty-basedテストの実装と運用ガイド
 - [開発ワークフロー](docs/development_workflow.md) - 開発プロセス、ブランチ戦略、コードレビュー、リリースフロー
 - [GitHub開発プロセス](docs/github_workflow.md) - GitHubを使用した開発プロセスの詳細
 - [ラベル管理ガイド](docs/label_management.md) - GitHubラベルの体系的な管理と使用方法
