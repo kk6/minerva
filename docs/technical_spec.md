@@ -16,11 +16,12 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
    - **MinervaConfig**: 依存性注入用の設定データクラス
    - **create_minerva_service()**: デフォルト設定でのServiceManagerファクトリー関数
 
-2. **MCPサーバー層** (`server.py`) - **簡素化済み**
-   - **FastMCPサーバー**: `@mcp.tool()` デコレータを使用した直接的なツール登録
+2. **MCPサーバー層** (`server.py`) - **MCP 1.9対応済み**
+   - **FastMCPサーバー**: MCP 1.9.3準拠、`@mcp.tool()` デコレータを使用した直接的なツール登録
    - **ダイレクトサービス統合**: ラッパー関数を排除し、サービスメソッドを直接呼び出し
-   - **ツール機能**:
-     - `read_note()`, `create_note()`, `edit_note()`, `search_notes()` 関数
+   - **ツール機能** (`@mcp.tool`):
+     - `read_note()`, `search_notes()` 関数（読み取り操作）
+     - `create_note()`, `edit_note()` 関数（状態変更操作）
      - `get_note_delete_confirmation()`, `perform_note_delete()` 関数（2段階削除プロセス）
      - `add_tag()`, `remove_tag()`, `rename_tag()`, `get_tags()`, `list_all_tags()`, `find_notes_with_tag()` 関数
 
@@ -92,9 +93,9 @@ def read_note(filepath: str) -> str:
 
 **基本ノート操作**:
 - `read_note(filepath: str) -> str`: ノートの読み取り
+- `search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]`: ノート内容検索
 - `create_note(text: str, filename: str, author: str | None = None, default_path: str | None = None) -> Path`: 新規ノート作成
 - `edit_note(text: str, filename: str, author: str | None = None, default_path: str | None = None) -> Path`: 既存ノート編集
-- `search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]`: ノート内容検索
 
 **削除操作（2段階プロセス）**:
 - `get_note_delete_confirmation(filename: str | None = None, filepath: str | None = None, default_path: str | None = None) -> dict[str, str]`: 削除確認情報の取得
