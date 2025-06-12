@@ -105,7 +105,7 @@ class TestSearchOperationsProperties:
         st.booleans(),
     )
     def test_search_notes_query_validation_integration(
-        self, query: str, case_sensitive: bool
+        self, query: str, case_sensitive: bool, monkeypatch
     ):
         """Property: search_notes should validate queries before processing."""
         # Arrange
@@ -115,15 +115,14 @@ class TestSearchOperationsProperties:
             if query.strip():
                 # Valid query - should not raise during validation
                 # We mock the actual search to avoid file system operations
-                with pytest.MonkeyPatch().context() as m:
-                    m.setattr(
-                        "minerva.services.search_operations.search_keyword_in_files",
-                        lambda *_args, **_kwargs: [],
-                    )
+                monkeypatch.setattr(
+                    "minerva.services.search_operations.search_keyword_in_files",
+                    lambda *_args, **_kwargs: [],
+                )
 
-                    # Act & Assert - should not raise
-                    result = service.search_notes(query, case_sensitive)
-                    assert isinstance(result, list)
+                # Act & Assert - should not raise
+                result = service.search_notes(query, case_sensitive)
+                assert isinstance(result, list)
             else:
                 # Invalid query - should raise ValueError
                 with pytest.raises(ValueError, match="Query cannot be empty"):
