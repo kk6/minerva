@@ -1,6 +1,52 @@
 # CHANGELOG
 
 
+## v0.12.0 (2025-06-12)
+
+### Bug Fixes
+
+- Revert read_note and search_notes to @mcp.tool()
+  ([`cd7054a`](https://github.com/kk6/minerva/commit/cd7054a7a961926789008f245bcf7361f65019b3))
+
+- Claude Desktop requires these functions to be tools, not resources - Resources are not exposed in
+  Claude Desktop's tool interface - Maintain MCP 1.9.3 compatibility while ensuring tool visibility
+  - Update examples in docstrings to reflect tool usage
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Documentation
+
+- Update technical spec to reflect tool-only architecture
+  ([`ec73279`](https://github.com/kk6/minerva/commit/ec7327921c39e42e2568270921ad15c93e06bf0a))
+
+- Remove references to @mcp.resource migration - Consolidate all functions under @mcp.tool section -
+  Update architecture description to reflect current implementation - Maintain MCP 1.9.3
+  compatibility notes
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Features
+
+- Upgrade to MCP 1.9.3 with resource migration
+  ([`dfa1da9`](https://github.com/kk6/minerva/commit/dfa1da938061dcb9f59a56e8a302ec9e9214d979))
+
+- Update dependencies: mcp[cli] from 1.6.0 to 1.9.3 - Migrate read_note to
+  @mcp.resource("note://{filepath}") - Migrate search_notes to
+  @mcp.resource("search://{query}/{case_sensitive}") - Update documentation to reflect MCP 1.9
+  compliance - Maintain backward compatibility for all existing functionality - Successfully pass
+  MCP 1.9 handshake with inspector - All tests pass with new MCP version
+
+Closes #21
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.11.0 (2025-06-11)
 
 ### Bug Fixes
