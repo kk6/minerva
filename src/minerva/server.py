@@ -31,7 +31,7 @@ def get_service() -> ServiceManager:
 mcp = FastMCP("minerva", __version__)
 
 
-@mcp.resource("note://{filepath}")
+@mcp.tool()
 def read_note(filepath: str) -> str:
     """
     Read the content of a markdown note from your Obsidian vault.
@@ -40,8 +40,8 @@ def read_note(filepath: str) -> str:
     relative to your vault root or an absolute path.
 
     Example:
-        note://daily/2023-06-08.md
-        note:///full/path/to/note.md
+        read_note("daily/2023-06-08.md")
+        read_note("/full/path/to/note.md")
 
     Args:
         filepath: Path to the note file you want to read
@@ -55,7 +55,7 @@ def read_note(filepath: str) -> str:
     return get_service().read_note(filepath)
 
 
-@mcp.resource("search://{query}/{case_sensitive}")
+@mcp.tool()
 def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     """
     Search for text across all markdown files in your Obsidian vault.
@@ -64,8 +64,8 @@ def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
     context lines around each result.
 
     Example:
-        search://machine learning/true
-        search://TODO/false
+        search_notes("machine learning")
+        search_notes("TODO", case_sensitive=False)
 
     Args:
         query: The text you want to search for
