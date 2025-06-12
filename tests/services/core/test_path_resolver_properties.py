@@ -6,6 +6,7 @@ validation, normalization, and security functions that might not be caught
 by traditional unit tests.
 """
 
+import re
 import os
 import string
 from pathlib import Path
@@ -72,7 +73,6 @@ class TestPathResolverProperties:
         """Property: filenames containing forbidden characters should raise ValueError."""
         # Arrange
         filename = f"test{forbidden_char}file.md"
-        import re
 
         escaped_char = re.escape(forbidden_char)
 
