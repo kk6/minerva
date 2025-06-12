@@ -158,7 +158,7 @@ Minerva
 - **言語**: Python 3.12以上
 - **フレームワーク**: MCP (Claude Desktop連携用)
 - **依存ライブラリ**:
-  - mcp[cli] >= 1.6.0: Claude Desktopとの連携
+  - mcp[cli] >= 1.9.3: Claude Desktopとの連携（MCP 1.9対応）
   - pydantic >= 2.11.3: データバリデーションと型チェック
   - python-dotenv >= 1.1.0: 環境変数の管理
 - **開発・テスト用**:
