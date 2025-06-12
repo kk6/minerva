@@ -19,6 +19,7 @@ For a unified development experience, use the Makefile commands:
   - Run all tests: `make test`
   - Run tests with coverage: `make test-cov`
   - Run comprehensive quality checks: `make check-all`
+  - Run only property-based tests: `uv run pytest tests/*_properties.py`
 
 - **Code Quality**:
   - Run linting: `make lint`
@@ -37,6 +38,8 @@ If you prefer to use uv commands directly:
 - Install dependencies: `uv pip install -e ".[dev]"`
 - Run all tests: `uv run pytest`
 - Run single test: `uv run pytest tests/path/to/test.py::TestClass::test_method`
+- Run property-based tests: `uv run pytest tests/*_properties.py`
+- Reduce property test examples (for faster CI): `uv run pytest --hypothesis-max-examples=20`
 - Test with coverage: `uv run pytest --cov=minerva --cov-report=html`
 - Run linting: `uv run ruff check`
 - Run formatting: `uv run ruff format`
@@ -197,6 +200,7 @@ git checkout -b docs/issue-789-update-test-guidelines
 ## Testing Strategy
 - Unit tests for individual functions and service methods
 - Integration tests for end-to-end workflows
+- **Property-based tests** using Hypothesis for edge case discovery
 - Service layer tests with dependency injection
 - Mock external dependencies (file system, environment variables)
 - Use pytest fixtures for common setup
@@ -204,9 +208,24 @@ git checkout -b docs/issue-789-update-test-guidelines
 - **Test coverage target**: Maintain 92%+ code coverage
 - **Service testing**: Test both service layer and wrapper functions
 
+### Property-Based Testing with Hypothesis
+Minerva uses property-based testing to discover edge cases automatically:
+
+- **Target areas**: Path validation, filename validation, tag operations, search functionality
+- **Test files**: `tests/*_properties.py` (separate from traditional unit tests)
+- **Performance**: ~5-6x slower than unit tests but provides much broader input coverage
+- **Edge cases discovered**: Unicode handling, regex escaping, validation order dependencies
+- **Documentation**: See `docs/property_based_testing.md` for comprehensive guidelines
+
+**Commands**:
+- Run property-based tests: `uv run pytest tests/*_properties.py`
+- Reduce examples for CI: `uv run pytest --hypothesis-max-examples=20`
+- Debug with seed: `uv run pytest --hypothesis-seed=12345`
+
 ### Testing Gotchas ⚠️
 - **Module caching issues**: Tests that patch environment variables may need to clear `sys.modules` to ensure fresh imports
 - **Exception testing**: `pytest.raises` may fail with custom exceptions; use explicit `try/except` with `isinstance` checks
+- **Hypothesis filtering**: Avoid over-filtering strategies; use specific alphabets instead of `assume()` calls
 - **See `docs/test_guidelines.md` for detailed solutions and best practices**
 
 ## Service-Based Architecture
