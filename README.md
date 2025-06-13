@@ -195,7 +195,7 @@ uv run pytest
 
 ## 現在のバージョン
 
-Minervaの現在のバージョンは `v0.12.0` です。詳細な変更履歴については[CHANGELOG.md](CHANGELOG.md)を参照してください。
+Minervaの現在のバージョンは `v0.14.0` です。詳細な変更履歴については[CHANGELOG.md](CHANGELOG.md)を参照してください。
 
 ## 将来の開発方針
 

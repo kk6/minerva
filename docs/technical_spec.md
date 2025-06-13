@@ -49,7 +49,9 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
 ### 2.2 責務の分離
 
 - `server.py`モジュールはFastMCPサーバーとツール関数を提供します
-- `service.py`モジュールはObsidianノート固有のビジネスロジックを提供します
+- `services/`ディレクトリのモジュール群がObsidianノート固有のビジネスロジックを提供します
+  - `ServiceManager`: 全サービスの統一インターフェース
+  - `NoteOperations`, `TagOperations`, `AliasOperations`, `SearchOperations`: 専門化されたサービスクラス
 - `file_handler.py`モジュールは汎用的なファイル操作関数を提供します
 - この分離により、将来的に異なるタイプのノートやドキュメントシステムをサポートすることが容易になります
 
@@ -370,7 +372,8 @@ class FrontmatterManager:
 #### 6.1.3 責務の分離
 
 - **FrontmatterManager**: フロントマター処理に特化
-- **service.py**: ビジネスロジックとコアサービス
+- **ServiceManager**: 全サービス操作の統一ファサード
+- **専門化サービス群**: NoteOperations, TagOperations, AliasOperations, SearchOperations
 - **server.py**: MCPツール実装と@mcp.tool()デコレータ
 - **file_handler.py**: 低レベルファイル操作
 
