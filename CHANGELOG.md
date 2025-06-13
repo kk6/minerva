@@ -1,6 +1,34 @@
 # CHANGELOG
 
 
+## v0.15.0 (2025-06-13)
+
+### Documentation
+
+- Update installation instructions and version number in CLAUDE.md and README.md; enhance service
+  description in technical_spec.md
+  ([`d68b514`](https://github.com/kk6/minerva/commit/d68b5143ecb9b371b41c5ab9c19c549a84d32f22))
+
+### Features
+
+- **docs**: Enhance GitHub label management with implementation-first approach
+  ([`8530613`](https://github.com/kk6/minerva/commit/853061353f6b69ac8bc20e0a800ff96e051550a0))
+
+- Add custom /sync-labels command for automated label synchronization - Update
+  docs/github_workflow.md with comprehensive label definitions based on actual implementation - Add
+  missing feature labels: aliases, frontmatter, validation, error-handling, performance, logging,
+  path-resolution, two-phase-deletion - Add area labels: validation, infrastructure, performance -
+  Add scope labels: mcp, service-architecture - Implement 3-phase synchronization: Implementation →
+  Documentation → GitHub Labels
+
+The new sync-labels command follows implementation-first principle where actual codebase drives
+  label definitions, ensuring labels remain relevant for development work.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.14.0 (2025-06-13)
 
 ### Features
