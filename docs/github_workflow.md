@@ -44,13 +44,24 @@ Issueとプルリクエストを整理するために、以下のラベルを使
 - `feature:read`: read_note機能関連のIssue/PR
 - `feature:search`: search_notes機能関連のIssue/PR
 - `feature:tags`: タグ管理機能関連のIssue/PR
+- `feature:aliases`: エイリアス管理機能関連のIssue/PR
 - `feature:delete`: ノート削除機能関連のIssue/PR
+- `feature:frontmatter`: YAMLフロントマター処理関連のIssue/PR
+- `feature:validation`: 入力検証とセキュリティ関連のIssue/PR
+- `feature:error-handling`: エラーハンドリング機能関連のIssue/PR
+- `feature:performance`: パフォーマンス監視・最適化関連のIssue/PR
+- `feature:logging`: ログ機能関連のIssue/PR
+- `feature:path-resolution`: パス解決処理関連のIssue/PR
+- `feature:two-phase-deletion`: 安全削除確認プロセス関連のIssue/PR
 - `feature:config`: 設定関連のIssue/PR
 
 ### エリア別ラベル
 - `area:backend`: バックエンド関連のIssue/PR
 - `area:ci`: CI/CD関連のIssue/PR
 - `area:docs`: ドキュメント関連（エリア）のIssue/PR
+- `area:validation`: 入力検証とセキュリティインフラ関連のIssue/PR
+- `area:infrastructure`: コアインフラストラクチャ・ユーティリティ関連のIssue/PR
+- `area:performance`: パフォーマンス監視・最適化関連のIssue/PR
 
 ### 優先度ラベル
 - `priority:high`: 高優先度のIssue/PR
@@ -68,6 +79,8 @@ Issueとプルリクエストを整理するために、以下のラベルを使
 - `scope:ui`: ユーザーインターフェースへの影響があるIssue/PR
 - `scope:performance`: パフォーマンスへの影響があるIssue/PR
 - `scope:security`: セキュリティへの影響があるIssue/PR
+- `scope:mcp`: MCP（Model Context Protocol）統合への影響があるIssue/PR
+- `scope:service-architecture`: サービス層・依存性注入アーキテクチャへの影響があるIssue/PR
 
 ### PRラベル
 - `pr:ready`: レビュー準備完了のPR
