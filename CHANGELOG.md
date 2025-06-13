@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.14.0 (2025-06-13)
+
+### Features
+
+- **docs**: Add guidelines for custom slash commands in Claude Code
+  ([`f019e76`](https://github.com/kk6/minerva/commit/f019e76065f31472a4ef75d116efe862debf630f))
+
+
 ## v0.13.0 (2025-06-12)
 
 ### Bug Fixes
