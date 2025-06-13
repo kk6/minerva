@@ -249,6 +249,7 @@ Minervaの目標は、Claude Desktopと連携してObsidianの操作を自然言
 - [ラベル管理ガイド](docs/label_management.md) - GitHubラベルの体系的な管理と使用方法
 - [Issueと PR の効果的な活用ガイド](docs/issue_pr_guide.md) - IssueとPRの効果的な活用方法
 - [GitHub Copilot カスタム指示ガイドライン](docs/copilot_guidelines.md) - GitHub Copilotのカスタム指示を使用した開発ガイドライン
+- [Claude Code カスタムスラッシュコマンドガイドライン](docs/claude_code_commands.md) - Claude Codeのカスタムスラッシュコマンドの使用方法
 - [リリースプロセス](docs/release_process.md) - リリースプロセスと自動化の詳細
 
 ## 開発ガイド
