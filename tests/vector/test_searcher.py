@@ -61,7 +61,7 @@ class TestVectorSearcher:
 
         searcher = VectorSearcher(Path("/test/path.db"))
         mock_connection = Mock()
-        searcher._connection = mock_connection
+        searcher._connection = mock_connection  # type: ignore[assignment]
 
         # Act
         searcher.close()
