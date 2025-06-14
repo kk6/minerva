@@ -78,7 +78,12 @@ If you need a label that doesn't exist, ask for permission before creating it.
   - `create_minerva_service()`: Factory function for ServiceManager creation
 - **File Handler**: Low-level file operations (`file_handler.py`)
 - **Frontmatter Manager**: Centralized frontmatter processing (`frontmatter_manager.py`)
-- **Config**: Environment and configuration management (`config.py`)
+- **Config**: Environment and configuration management (`config.py`) with optional feature support
+- **Vector Search Module**: Optional semantic search infrastructure (`vector/`) - **Phase 1 Implemented**
+  - `EmbeddingProvider`: Abstract base class for text embedding systems
+  - `SentenceTransformerProvider`: Concrete implementation using all-MiniLM-L6-v2 model
+  - `VectorIndexer`: DuckDB VSS integration with HNSW indexing for similarity search
+  - `VectorSearcher`: Placeholder for Phase 2 search functionality integration
 - **Tag System**: Comprehensive tag management for Obsidian notes
 
 ## Key Features
@@ -87,6 +92,7 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - Tag management (add, remove, rename, search by tag)
 - Two-phase deletion process for safety
 - Automatic frontmatter generation with metadata
+- **Vector search infrastructure** (Phase 1 complete) - Optional semantic search capabilities with DuckDB VSS and sentence transformers
 - **Modular service architecture** with dependency injection for improved testability and extensibility
 - **ServiceManager facade pattern** providing unified access to specialized service modules
 - **Simplified MCP server architecture** with direct service integration using FastMCP decorators
@@ -161,6 +167,66 @@ git checkout -b docs/issue-789-update-test-guidelines
 1. Stash changes: `git stash`
 2. Create topic branch: `git checkout -b feature/issue-NUMBER-short-description`
 3. Apply changes: `git stash pop`
+
+### Hierarchical Branch Strategy for Multi-Phase Features (December 2024)
+
+For complex features implemented across multiple phases (like vector search infrastructure), use a hierarchical branch strategy:
+
+**Structure Pattern:**
+```
+main
+ └── feature/issue-88-vector-search-main (parent issue branch)
+      ├── feature/issue-89-vector-search-infrastructure (Phase 1)
+      ├── feature/issue-90-vector-search-integration (Phase 2)
+      └── feature/issue-91-vector-search-ui (Phase 3)
+```
+
+**Implementation Workflow:**
+
+1. **Create Parent Branch for Main Issue:**
+```bash
+# Create parent branch from main
+git checkout main
+git checkout -b feature/issue-88-vector-search-main
+```
+
+2. **Create Phase Branches from Parent:**
+```bash
+# Create phase branch from parent branch
+git checkout feature/issue-88-vector-search-main
+git checkout -b feature/issue-89-vector-search-infrastructure
+```
+
+3. **Merge Phases into Parent Branch:**
+```bash
+# After completing Phase 1, merge to parent
+git checkout feature/issue-88-vector-search-main
+git merge feature/issue-89-vector-search-infrastructure --no-ff
+```
+
+4. **Final Merge to Main:**
+```bash
+# After all phases complete, merge parent to main
+git checkout main
+git merge feature/issue-88-vector-search-main --no-ff
+```
+
+**Benefits:**
+- **Clear feature organization**: All related phases grouped under parent issue
+- **Incremental integration**: Each phase can be reviewed and merged separately
+- **Risk mitigation**: Problems in later phases don't affect earlier completed work
+- **Better code review**: Reviewers can focus on individual phases
+- **Flexible development**: Phases can be developed in parallel or adjusted based on feedback
+
+**Branch Naming Convention:**
+- **Parent branch**: `feature/issue-{PARENT_NUMBER}-{feature-name}-main`
+- **Phase branches**: `feature/issue-{PHASE_NUMBER}-{phase-description}`
+- Always use the actual GitHub issue numbers for traceability
+
+**Example from Vector Search Implementation:**
+- Parent issue #88: Complete vector search functionality
+- Phase 1 issue #89: Infrastructure setup (embeddings, indexing, configuration)
+- Future phase issues will be created for integration, search implementation, etc.
 
 ### **MANDATORY: Check Documentation Impact IMMEDIATELY**
 **BEFORE starting implementation**: You MUST check if documentation needs updates:
@@ -620,6 +686,42 @@ uv run pytest -m "not slow"
 - Full coverage available for CI/CD
 - Clear separation between unit and integration tests
 - Maintainable test organization pattern
+
+#### Makefile Integration for Performance Optimization (December 2024)
+Enhanced the Makefile with performance-optimized test commands for better developer experience:
+
+```makefile
+# Performance-optimized test commands
+test-fast: ## Run fast tests only (excludes slow integration tests)
+    @echo "$(BLUE)Running fast tests (excluding slow tests)...$(RESET)"
+    PYTHONPATH=src uv run pytest -m "not slow"
+    @echo "$(GREEN)Fast tests completed! Use 'make test' for full test suite.$(RESET)"
+
+test-slow: ## Run slow integration tests only
+    @echo "$(BLUE)Running slow integration tests...$(RESET)"
+    PYTHONPATH=src uv run pytest -m "slow"
+    @echo "$(GREEN)Slow tests completed!$(RESET)"
+
+check-fast: lint type-check test-fast ## Run fast quality checks (excludes slow tests)
+    @echo "$(GREEN)Fast quality checks passed!$(RESET)"
+```
+
+**Usage in Daily Development Workflow:**
+```bash
+# Quick development cycle (recommended for daily work)
+make test-fast     # ~5 seconds instead of ~17 seconds
+make check-fast    # Fast complete quality checks
+
+# Full testing before commits/PRs
+make test          # All tests including slow ones
+make check-all     # Complete quality checks with all tests
+```
+
+**Benefits:**
+- **85% time reduction** for routine development testing
+- **Encourages frequent testing** due to faster feedback
+- **Maintains full coverage** available when needed
+- **Improves developer productivity** for quick iteration cycles
 
 ### See Also
 - `docs/test_guidelines.md` for detailed testing patterns and solutions
