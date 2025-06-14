@@ -323,7 +323,8 @@ class SearchOperations(BaseService):
             metadata = dict(post.metadata) if post.metadata else {}
 
             # Extract title from frontmatter or filename
-            title = metadata.get("title")
+            title_value = metadata.get("title")
+            title = title_value if isinstance(title_value, str) else None
             if not title:
                 title = path.stem.replace("_", " ").replace("-", " ").title()
 

@@ -221,7 +221,7 @@ class VectorIndexer:
 
         Args:
             file_path: Path to the source file
-            content_hash: Hash of the file conten
+            content_hash: Hash of the file content
             embeddings: Array of embeddings to add
 
         Returns:
