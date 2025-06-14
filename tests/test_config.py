@@ -20,6 +20,8 @@ class TestMinervaConfig(unittest.TestCase):
             "DEFAULT_VAULT": "test_vault",
             "DEFAULT_NOTE_DIR": "test_notes",
             "DEFAULT_NOTE_AUTHOR": "Test Author",
+            "VECTOR_SEARCH_ENABLED": "false",
+            "MINERVA_SKIP_DOTENV": "1",
         },
         clear=True,
     )

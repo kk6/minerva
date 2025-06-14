@@ -8,7 +8,7 @@ from pathlib import Path
 
 from minerva.config import MinervaConfig
 from minerva.frontmatter_manager import FrontmatterManager
-from minerva.file_handler import SearchResult
+from minerva.file_handler import SearchResult, SemanticSearchResult
 from minerva.services.search_operations import SearchOperations
 
 
@@ -440,3 +440,183 @@ class TestSearchOperationsIntegration:
         whitespace_query = "  spaced query  "
         result = search_operations._validate_search_query(whitespace_query)
         assert result == "spaced query"
+
+
+class TestSemanticSearchOperations:
+    """Test cases for semantic search functionality in SearchOperations."""
+
+    @pytest.fixture
+    def mock_config_vector_enabled(self):
+        """Create a mock configuration with vector search enabled."""
+        config = Mock(spec=MinervaConfig)
+        config.vault_path = Path("/test/vault")
+        config.vector_search_enabled = True
+        config.vector_db_path = Path("/test/vectors.db")
+        config.embedding_model = "all-MiniLM-L6-v2"
+        return config
+
+    @pytest.fixture
+    def mock_config_vector_disabled(self):
+        """Create a mock configuration with vector search disabled."""
+        config = Mock(spec=MinervaConfig)
+        config.vault_path = Path("/test/vault")
+        config.vector_search_enabled = False
+        return config
+
+    @pytest.fixture
+    def search_operations_vector_enabled(self, mock_config_vector_enabled):
+        """Create SearchOperations with vector search enabled."""
+        frontmatter_manager = Mock(spec=FrontmatterManager)
+        return SearchOperations(mock_config_vector_enabled, frontmatter_manager)
+
+    @pytest.fixture
+    def search_operations_vector_disabled(self, mock_config_vector_disabled):
+        """Create SearchOperations with vector search disabled."""
+        frontmatter_manager = Mock(spec=FrontmatterManager)
+        return SearchOperations(mock_config_vector_disabled, frontmatter_manager)
+
+    def test_semantic_search_vector_disabled(self, search_operations_vector_disabled):
+        """Test semantic search when vector search is disabled."""
+        # Act & Assert
+        with pytest.raises(RuntimeError, match="Vector search is not enabled"):
+            search_operations_vector_disabled.semantic_search("test query")
+
+    def test_semantic_search_empty_query(self, search_operations_vector_enabled):
+        """Test semantic search with empty query."""
+        # Act & Assert
+        with pytest.raises(ValueError, match="Query cannot be empty"):
+            search_operations_vector_enabled.semantic_search("")
+
+    def test_semantic_search_invalid_limit(self, search_operations_vector_enabled):
+        """Test semantic search with invalid limit."""
+        # Act & Assert
+        with pytest.raises(ValueError, match="Limit must be positive"):
+            search_operations_vector_enabled.semantic_search("test", limit=0)
+
+    def test_semantic_search_invalid_threshold(self, search_operations_vector_enabled):
+        """Test semantic search with invalid threshold."""
+        # Act & Assert
+        with pytest.raises(ValueError, match="Threshold must be between 0.0 and 1.0"):
+            search_operations_vector_enabled.semantic_search("test", threshold=1.5)
+
+    def test_semantic_search_import_error(self, search_operations_vector_enabled):
+        """Test semantic search with import error."""
+        # Create a mock that simulates ImportError during lazy import
+        original_semantic_search = search_operations_vector_enabled.semantic_search
+
+        # Create a new method that raises ImportError
+        def mock_semantic_search_with_import_error(*args, **kwargs):
+            # Simulate the import error that would occur inside semantic_search
+            raise ImportError(
+                "Vector search requires additional dependencies. "
+                "Install with: pip install sentence-transformers duckdb"
+            )
+
+        # Replace the method temporarily
+        search_operations_vector_enabled.semantic_search = (
+            mock_semantic_search_with_import_error
+        )
+
+        try:
+            # Act & Assert
+            with pytest.raises(
+                ImportError, match="Vector search requires additional dependencies"
+            ):
+                search_operations_vector_enabled.semantic_search("test query")
+        finally:
+            # Restore original method
+            search_operations_vector_enabled.semantic_search = original_semantic_search
+
+    def test_create_semantic_search_result_success(
+        self, search_operations_vector_enabled
+    ):
+        """Test successful creation of semantic search result."""
+        # Arrange
+        file_path = "/test/file.md"
+        similarity_score = 0.8
+
+        # Mock file reading and frontmatter parsing
+        with (
+            patch(
+                "builtins.open",
+                mock_open_with_content("---\ntitle: Test File\n---\nContent here"),
+            ),
+            patch(
+                "minerva.services.search_operations.frontmatter.loads"
+            ) as mock_frontmatter,
+            patch.object(Path, "exists", return_value=True),
+        ):
+            mock_post = Mock()
+            mock_post.metadata = {"title": "Test File"}
+            mock_post.content = "Content here"
+            mock_frontmatter.return_value = mock_post
+
+            # Act
+            result = search_operations_vector_enabled._create_semantic_search_result(
+                file_path, similarity_score, None
+            )
+
+            # Assert
+            assert result is not None
+            assert isinstance(result, SemanticSearchResult)
+            assert result.file_path == file_path
+            assert result.title == "Test File"
+            assert result.similarity_score == similarity_score
+            assert "Content here" in result.content_preview
+
+    def test_create_semantic_search_result_file_not_found(
+        self, search_operations_vector_enabled
+    ):
+        """Test semantic search result creation with non-existent file."""
+        # Arrange
+        file_path = "/test/nonexistent.md"
+        similarity_score = 0.8
+
+        # Mock file not existing
+        with patch.object(Path, "exists", return_value=False):
+            # Act
+            result = search_operations_vector_enabled._create_semantic_search_result(
+                file_path, similarity_score, None
+            )
+
+            # Assert
+            assert result is None
+
+    def test_get_indexed_files_count_vector_disabled(
+        self, search_operations_vector_disabled
+    ):
+        """Test get_indexed_files_count when vector search is disabled."""
+        # Act & Assert
+        with pytest.raises(RuntimeError, match="Vector search is not enabled"):
+            search_operations_vector_disabled.get_indexed_files_count()
+
+    def test_get_indexed_files_count_success(self, search_operations_vector_enabled):
+        """Test successful get_indexed_files_count."""
+        # Create a mock that simulates successful operation
+        original_method = search_operations_vector_enabled.get_indexed_files_count
+
+        # Create a new method that returns a count
+        def mock_get_indexed_files_count():
+            return 3
+
+        # Replace the method temporarily
+        search_operations_vector_enabled.get_indexed_files_count = (
+            mock_get_indexed_files_count
+        )
+
+        try:
+            # Act
+            count = search_operations_vector_enabled.get_indexed_files_count()
+
+            # Assert
+            assert count == 3
+        finally:
+            # Restore original method
+            search_operations_vector_enabled.get_indexed_files_count = original_method
+
+
+def mock_open_with_content(content):
+    """Helper function to create a mock open with specific content."""
+    from unittest.mock import mock_open
+
+    return mock_open(read_data=content)

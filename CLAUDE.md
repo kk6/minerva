@@ -79,11 +79,11 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - **File Handler**: Low-level file operations (`file_handler.py`)
 - **Frontmatter Manager**: Centralized frontmatter processing (`frontmatter_manager.py`)
 - **Config**: Environment and configuration management (`config.py`) with optional feature support
-- **Vector Search Module**: Optional semantic search infrastructure (`vector/`) - **Phase 1 Implemented**
+- **Vector Search Module**: Complete semantic search functionality (`vector/`) - **Phase 2 Implemented**
   - `EmbeddingProvider`: Abstract base class for text embedding systems
-  - `SentenceTransformerProvider`: Concrete implementation using all-MiniLM-L6-v2 model
+  - `SentenceTransformerProvider`: Concrete implementation using all-MiniLM-L6-v2 model (384-dimensional embeddings)
   - `VectorIndexer`: DuckDB VSS integration with HNSW indexing for similarity search
-  - `VectorSearcher`: Placeholder for Phase 2 search functionality integration
+  - `VectorSearcher`: Full vector similarity search with cosine similarity and threshold filtering
 - **Tag System**: Comprehensive tag management for Obsidian notes
 
 ## Key Features
@@ -92,7 +92,7 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - Tag management (add, remove, rename, search by tag)
 - Two-phase deletion process for safety
 - Automatic frontmatter generation with metadata
-- **Vector search infrastructure** (Phase 1 complete) - Optional semantic search capabilities with DuckDB VSS and sentence transformers
+- **Semantic search functionality** (Phase 2 complete) - Full vector search implementation with DuckDB VSS and sentence transformers
 - **Modular service architecture** with dependency injection for improved testability and extensibility
 - **ServiceManager facade pattern** providing unified access to specialized service modules
 - **Simplified MCP server architecture** with direct service integration using FastMCP decorators
@@ -1023,6 +1023,139 @@ embeddings = np.array([[0.1, 0.2, 0.3]])  # 3 dimensions
 indexer.initialize_schema(3)  # Match the schema to test data
 ```
 
+#### Critical Debugging Insights: Embedding Dimension Mismatch (December 2024)
+
+**Problem**: "Cannot cast list with length 384 to array with length 1" errors during vector indexing.
+
+**Root Cause**: Using `len(embedding_array)` instead of `embedding_array.shape[1]` for 2D arrays.
+- `embedding_provider.embed()` returns 2D numpy arrays with shape `(1, 384)`
+- `len(2d_array)` returns the number of rows (1), not the embedding dimension (384)
+- Database schema initialized with wrong dimension causes all subsequent operations to fail
+
+**Critical Fix Pattern**:
+```python
+# WRONG - causes dimension mismatch
+sample_embedding = embedding_provider.embed("test")
+dimension = len(sample_embedding)  # Returns 1 for shape (1, 384)
+
+# CORRECT - gets actual embedding dimension
+sample_embedding = embedding_provider.embed("test")
+dimension = sample_embedding.shape[1] if sample_embedding.ndim == 2 else len(sample_embedding)
+```
+
+**Affected Code Locations**:
+1. `ServiceManager._prepare_vector_indexing()` - Schema initialization
+2. `server.py:build_vector_index_batch()` - Batch processing
+3. `SearchOperations.semantic_search()` - Query embedding handling
+
+**Prevention Strategy**:
+- Always check `ndim` before using `len()` on numpy arrays
+- Test with actual embedding providers, not mock data
+- Use `debug_vector_schema()` tool to verify embedding dimensions during troubleshooting
+- Clear database state when changing embedding dimensions
+
+**MCP Inspector Debugging Workflow**:
+```bash
+# 1. Check current vector state
+debug_vector_schema()
+
+# 2. Reset if dimension mismatch detected
+reset_vector_database()
+
+# 3. Test with single file first
+build_vector_index_batch({"max_files": 1, "force_rebuild": true})
+
+# 4. Verify semantic search works
+semantic_search({"query": "test query", "limit": 3})
+```
+
+#### DuckDB Home Directory Configuration (December 2024)
+
+**Problem**: "IO Error: Can't find the home directory" when using DuckDB on systems with iCloud synchronization.
+
+**Root Cause**: DuckDB VSS extension requires a valid home directory for downloading/caching extensions, but some environments (especially macOS with iCloud) may have restricted or unusual home directory configurations.
+
+**Solution Pattern**:
+```python
+def _setup_home_directory(self) -> None:
+    """Set up home directory for DuckDB extensions."""
+    import os
+    conn = self._connection
+    try:
+        # Get home directory, fallback to current user's home
+        home_dir = os.path.expanduser("~")
+        if not home_dir or home_dir == "~":
+            # Fallback to a safe directory
+            home_dir = str(self.db_path.parent)
+
+        # Set home directory for DuckDB
+        conn.execute(f"SET home_directory='{home_dir}'")
+        logger.debug("DuckDB home directory set to: %s", home_dir)
+    except Exception as e:
+        logger.warning("Failed to set DuckDB home directory: %s", e)
+        # Continue anyway as this might not be critical
+```
+
+**Key Points**:
+- Call `_setup_home_directory()` immediately after connection creation
+- Fallback to database directory if standard home detection fails
+- Log warnings but don't fail completely (extensions might still work)
+- Apply to both `VectorIndexer` and `VectorSearcher` classes
+
+#### Vector Dimension Mismatch Recovery Strategies (December 2024)
+
+**Problem**: "Binder Error: array_cosine_similarity: Array arguments must be of the same size" in production.
+
+**Root Cause**: Mixed-dimension vectors in database from partial indexing followed by full indexing operations.
+
+**Common Scenario**:
+```bash
+# Problem sequence that can cause dimension mismatch
+1. build_vector_index_batch(10 files) → 384-dim schema created
+2. build_vector_index(all files) → some files generate different dimensions
+3. semantic_search() → dimension mismatch error
+```
+
+**Recovery Options** (in order of preference):
+
+1. **Quick Reset** (small vaults <100 files):
+```bash
+reset_vector_database()
+build_vector_index()
+```
+
+2. **Selective Cleanup** (medium vaults 100-1000 files):
+```bash
+# Identify problematic files
+debug_vector_schema()
+# Remove only problematic vectors (preserves most data)
+# Future tool: remove_problematic_vectors(check_only=false)
+build_vector_index(force_rebuild=false)  # Re-index only removed files
+```
+
+3. **Schema Migration** (large vaults >1000 files):
+```bash
+# Future tool: fix_vector_dimension_mismatch(target_dimension=384)
+# Preserves all data while fixing dimensions
+```
+
+**Prevention Strategy**:
+```bash
+# Safe large-scale indexing workflow
+1. reset_vector_database()  # Clean slate
+2. build_vector_index_batch(max_files=5, force_rebuild=true)  # Small test
+3. semantic_search(query="test", limit=1)  # Verify consistency
+4. build_vector_index(force_rebuild=false)  # Scale up safely
+```
+
+**Diagnostic Commands**:
+```bash
+debug_vector_schema()  # Check embedding dimensions and consistency
+get_vector_index_status()  # Verify index state
+```
+
+**Key Insight**: Partial indexing + full indexing can create dimension inconsistencies. Always test small batches before scaling to full vault indexing.
+
 **Auto-increment ID Handling**:
 DuckDB requires explicit sequence setup for auto-incrementing primary keys:
 
@@ -1215,3 +1348,166 @@ When creating PRs, ensure:
 2. Follow the established naming conventions
 3. Include proper documentation updates if needed
 4. Reference related issues using "Closes #123" syntax
+
+## MCP Development and Debugging Patterns (December 2024)
+
+### MCP Inspector Debugging Workflow
+
+When implementing new MCP tools, especially complex features like vector search, use this systematic debugging approach:
+
+#### 1. Start MCP Inspector
+```bash
+make dev  # or uv run mcp dev src/minerva/server.py:mcp
+```
+
+**Common Issues**:
+- **Port conflicts**: Use `lsof -ti:6277 | xargs kill` to free ports
+- **Process hanging**: Kill processes with specific port numbers
+
+#### 2. Test Individual Components First
+Start with the most basic functionality and work up to complex operations:
+
+```json
+// 1. Check configuration and status
+{"name": "get_vector_index_status", "arguments": {}}
+
+// 2. Debug internal state
+{"name": "debug_vector_schema", "arguments": {}}
+
+// 3. Test minimal operations
+{"name": "build_vector_index_batch", "arguments": {"max_files": 1, "force_rebuild": true}}
+
+// 4. Test full functionality
+{"name": "semantic_search", "arguments": {"query": "test", "limit": 3}}
+```
+
+#### 3. Systematic Error Resolution
+
+**Dimension Mismatch Errors**:
+1. Use `debug_vector_schema()` to check actual vs expected dimensions
+2. Identify root cause: mixed partial/full indexing vs implementation bug
+3. For production dimension mismatch: Use selective cleanup (preserves data) vs full reset
+4. Clear database state with `reset_vector_database()` if needed
+5. Always test with small batch first: `build_vector_index_batch(max_files=5)`
+6. Verify embedding provider returns correct dimensions
+
+**Timeout Issues**:
+1. Start with smallest possible batch sizes (`max_files: 1`)
+2. Use batch processing tools for large operations
+3. Implement progress logging in long-running operations
+4. Add yield control in processing loops (`time.sleep(0.1)`)
+
+**Import/Dependency Errors**:
+1. Test dependency availability in isolation
+2. Verify error messages guide users to installation commands
+3. Test both enabled and disabled states of optional features
+
+#### 4. MCP Tool Design Patterns
+
+**Debugging Tools Pattern**:
+```python
+@mcp.tool()
+def debug_feature_state() -> dict:
+    """Debug tool that returns comprehensive state information."""
+    return {
+        "feature_enabled": config.feature_enabled,
+        "dependencies_available": check_dependencies(),
+        "current_state": get_current_state(),
+        "configuration": get_sanitized_config(),
+    }
+
+@mcp.tool()
+def reset_feature_state() -> dict[str, str]:
+    """Reset tool for clean state during debugging."""
+    try:
+        clear_state()
+        return {"status": "Success"}
+    except Exception as e:
+        return {"status": f"Failed: {e}"}
+```
+
+**Batch Processing Pattern for Timeouts**:
+```python
+@mcp.tool()
+def process_batch(
+    max_items: int = 5,
+    force_rebuild: bool = False,
+) -> dict[str, int | list[str]]:
+    """Process items in small batches to avoid MCP timeouts."""
+    processed = 0
+    errors = []
+
+    for item in get_items()[:max_items]:
+        try:
+            process_item(item)
+            processed += 1
+
+            # Yield control periodically
+            if processed % 3 == 0:
+                time.sleep(0.1)
+
+        except Exception as e:
+            errors.append(f"Failed to process {item}: {e}")
+
+    return {
+        "processed": processed,
+        "errors": errors,
+        "total_found": len(get_items()),
+    }
+```
+
+### Vector Search Usage Patterns
+
+#### Configuration Setup
+```env
+# Enable vector search
+VECTOR_SEARCH_ENABLED=true
+
+# Optional: Custom database path (defaults to vault/.minerva/vectors.db)
+VECTOR_DB_PATH=/custom/path/vectors.db
+
+# Optional: Custom embedding model (defaults to all-MiniLM-L6-v2)
+EMBEDDING_MODEL=all-MiniLM-L6-v2
+```
+
+#### Typical Workflow in Claude Desktop
+1. **Initial Setup**: `build_vector_index()` - Index all markdown files
+2. **Check Status**: `get_vector_index_status()` - Verify indexing progress
+3. **Semantic Search**: `semantic_search("concept query", limit=10)` - Find related content
+4. **Incremental Updates**: `build_vector_index(force_rebuild=false)` - Add new files only
+
+#### Common Semantic Search Patterns
+```python
+# Find conceptually similar content
+semantic_search("machine learning techniques", limit=5)
+
+# Search with similarity threshold
+semantic_search("project planning", limit=10, threshold=0.7)
+
+# Search within specific directory
+semantic_search("meeting notes", directory="work/meetings")
+```
+
+#### Troubleshooting Vector Search Issues
+
+**Performance Issues**:
+- Use `build_vector_index_batch()` for testing with small file counts
+- Check `get_vector_index_status()` to see current indexing progress
+- Consider using `threshold` parameter in searches to reduce result processing
+
+**Accuracy Issues**:
+- Verify file content is appropriate for semantic search (avoid code-only files)
+- Check that embedding model is appropriate for content language
+- Use longer, more descriptive queries for better results
+
+**Database Issues**:
+- Use `reset_vector_database()` for complete fresh start
+- Verify vault path configuration points to correct location
+- Check that `.minerva` directory has write permissions
+
+**Production Dimension Mismatch Issues**:
+- **Symptom**: "array_cosine_similarity: Array arguments must be of the same size" in Claude Desktop
+- **Cause**: Mixed indexing operations creating vectors with different dimensions
+- **Quick Fix**: `reset_vector_database()` → `build_vector_index()` (loses existing index)
+- **Data-Preserving Fix**: Use selective cleanup tools (future implementation)
+- **Prevention**: Always use clean indexing workflow (reset → small batch test → full index)

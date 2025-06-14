@@ -30,6 +30,13 @@ Claude Desktopを通じて、以下の操作が可能です：
 - エイリアスの取得（get_aliases）
 - エイリアスによるノート検索（search_by_alias）
 
+### セマンティック検索機能（v0.15.0以降）
+- ベクターインデックスの構築（build_vector_index）
+- セマンティック検索によるノート発見（semantic_search）
+- インデックス状況確認（get_vector_index_status）
+- 小規模バッチ処理（build_vector_index_batch）
+- ベクターデータベースのリセット（reset_vector_database）
+
 ## 必要なもの
 
 - Python 3.12 以上
@@ -37,12 +44,12 @@ Claude Desktopを通じて、以下の操作が可能です：
 - Claude Desktop（MCP対応版）
 
 ### オプション依存関係
-ベクター検索機能を使用する場合の追加要件：
-- DuckDB 1.1.3以上（ベクターデータベース）
-- sentence-transformers 3.3.1以上（テキスト埋め込み）
-- numpy 1.24.0以上（数値計算）
+セマンティック検索機能を使用する場合の追加要件：
+- DuckDB 1.1.3以上（ベクターデータベース、VSS拡張機能付き）
+- sentence-transformers 3.3.1以上（テキスト埋め込み生成）
+- numpy 1.24.0以上（数値計算とベクター操作）
 
-注意：これらの依存関係は`VECTOR_SEARCH_ENABLED=true`に設定した場合のみ必要です。
+注意：これらの依存関係は`VECTOR_SEARCH_ENABLED=true`に設定した場合のみ必要です。セマンティック検索を使用しない場合、標準的なキーワード検索は引き続き利用可能です。
 
 ## 設定方法
 
@@ -63,10 +70,10 @@ DEFAULT_VAULT=<デフォルトで使用するvault名>
 # テスト環境やCI/CDで.envファイルの読み込みをスキップする場合
 MINERVA_SKIP_DOTENV=1
 
-# ベクター検索機能（オプション）
+# セマンティック検索機能（オプション）
 VECTOR_SEARCH_ENABLED=false  # "true"でセマンティック検索機能を有効化
-VECTOR_DB_PATH=/custom/path/to/vectors.db  # カスタムベクターDB保存場所（オプション）
-EMBEDDING_MODEL=all-MiniLM-L6-v2  # テキスト埋め込みモデル（オプション）
+VECTOR_DB_PATH=/custom/path/to/vectors.db  # カスタムベクターDB保存場所（省略時: {vault}/.minerva/vectors.db）
+EMBEDDING_MODEL=all-MiniLM-L6-v2  # テキスト埋め込みモデル（384次元、省略時: all-MiniLM-L6-v2）
 ```
 
 ### pre-commit フックの設定
@@ -192,6 +199,15 @@ add_alias 関数を使って「project_notes」ファイルに「プロジェク
 search_by_alias 関数を使って「会議メモ」というエイリアスでノートを検索してください。
 ```
 
+#### セマンティック検索（v0.15.0以降）
+```
+ベクターインデックスを構築してセマンティック検索を有効にしてください。まず build_vector_index を実行してからsemantic_search で「機械学習」に関連するノートを探してください。
+```
+
+```
+semantic_search 関数を使って「プロジェクト管理」に関連するノートを類似度0.7以上で5件まで検索してください。
+```
+
 ## Claude Desktop のログの確認
 
 MacOSの場合、以下のコマンドでログを確認できます。
@@ -230,7 +246,7 @@ Minervaは現在、基本的なノート操作（作成、読取、検索）と�
 ### 優先度：高（Must）
 - [x] **タグ管理機能** - タグの追加・削除・リネーム・検索など（v0.2.0で実装済み）
 - [x] **スマートエイリアス機能** - 複数のエイリアス（別名）でノートを参照（v0.9.2で実装済み）
-- [🚧] **ベクター検索機能** - セマンティック検索によるノート発見支援（Phase 1実装完了：埋め込み生成・ベクターインデックス・DuckDB VSS統合、Phase 2開発予定：検索統合・UI）
+- [✅] **セマンティック検索機能** - ベクター埋め込みによる意味的類似度検索でノート発見支援（v0.15.0で実装完了：埋め込み生成・ベクターインデックス・DuckDB VSS統合・セマンティック検索・MCP統合）
 - [ ] **Front Matter 編集支援** - YAMLメタデータの構造を保った属性追加／変更
 - [x] **変更プレビュー／承認フロー** - ファイル変更前に差分を表示し確認する機能
 - [ ] **バージョン履歴統合** - Git連携による変更履歴管理
@@ -277,6 +293,7 @@ Minervaの目標は、Claude Desktopと連携してObsidianの操作を自然言
 - [Issueと PR の効果的な活用ガイド](docs/issue_pr_guide.md) - IssueとPRの効果的な活用方法
 - [GitHub Copilot カスタム指示ガイドライン](docs/copilot_guidelines.md) - GitHub Copilotのカスタム指示を使用した開発ガイドライン
 - [Claude Code カスタムスラッシュコマンドガイドライン](docs/claude_code_commands.md) - Claude Codeのカスタムスラッシュコマンドの使用方法
+- [ベクター検索トラブルシューティング](docs/vector_search_troubleshooting.md) - セマンティック検索機能の問題解決ガイド
 - [リリースプロセス](docs/release_process.md) - リリースプロセスと自動化の詳細
 
 ## 開発ガイド

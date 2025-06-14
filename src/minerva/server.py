@@ -5,7 +5,7 @@ from mcp.server.fastmcp import FastMCP
 
 from minerva.__version__ import __version__
 from minerva.services.service_manager import ServiceManager, create_minerva_service
-from minerva.file_handler import SearchResult
+from minerva.file_handler import SearchResult, SemanticSearchResult
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -78,6 +78,43 @@ def search_notes(query: str, case_sensitive: bool = True) -> list[SearchResult]:
         Binary files are automatically skipped during search
     """
     return get_service().search_notes(query, case_sensitive)
+
+
+@mcp.tool()
+def semantic_search(
+    query: str,
+    limit: int = 10,
+    threshold: float | None = None,
+    directory: str | None = None,
+) -> list[SemanticSearchResult]:
+    """
+    Perform semantic search using AI embeddings to find conceptually similar notes.
+
+    This uses vector similarity to find notes that are semantically related to your
+    query, even if they don't contain the exact keywords. Great for discovering
+    connections and related content.
+
+    Example:
+        semantic_search("machine learning concepts")
+        semantic_search("project planning", limit=5, threshold=0.7)
+        semantic_search("data analysis", directory="research")
+
+    Args:
+        query: Natural language description of what you're looking for
+        limit: Maximum number of results to return (default: 10)
+        threshold: Minimum similarity score 0.0-1.0 (optional, filters weak matches)
+        directory: Specific folder to search in (optional, searches entire vault)
+
+    Returns:
+        List of semantic search results with similarity scores and content previews
+
+    Note:
+        Requires vector search to be enabled (VECTOR_SEARCH_ENABLED=true) and
+        notes to be indexed first. Install dependencies: sentence-transformers, duckdb
+    """
+    return get_service().search_operations.semantic_search(
+        query, limit, threshold, directory
+    )
 
 
 @mcp.tool()
@@ -503,3 +540,302 @@ def search_by_alias(alias: str, directory: str | None = None) -> list[str]:
         their alternative names or natural language references.
     """
     return get_service().search_by_alias(alias, directory)
+
+
+@mcp.tool()
+def debug_vector_schema() -> dict:
+    """
+    Debug vector schema and embedding information.
+
+    Returns detailed information about the current database state and embeddings.
+    """
+
+    service = get_service()
+    if not service.config.vector_search_enabled:
+        raise RuntimeError("Vector search is not enabled in configuration")
+
+    if not service.config.vector_db_path:
+        raise RuntimeError("Vector database path is not configured")
+
+    try:
+        from minerva.vector.embeddings import SentenceTransformerProvider
+        from minerva.vector.indexer import VectorIndexer
+
+        # Test embedding generation
+        embedding_provider = SentenceTransformerProvider(service.config.embedding_model)
+        test_text = "This is a test sentence for embedding."
+        test_embedding = embedding_provider.embed(test_text)
+
+        # Ensure we get the first embedding if it's a batch
+        if test_embedding.ndim == 2:
+            test_embedding = test_embedding[0]
+
+        # Check database state
+        indexer = VectorIndexer(service.config.vector_db_path)
+        db_exists = service.config.vector_db_path.exists()
+
+        result = {
+            "embedding_model": service.config.embedding_model,
+            "test_embedding_dimension": len(test_embedding),
+            "test_embedding_type": str(type(test_embedding)),
+            "database_path": str(service.config.vector_db_path),
+            "database_exists": db_exists,
+        }
+
+        if db_exists:
+            try:
+                conn = indexer._get_connection()
+                # Check if tables exist
+                tables_result = conn.execute("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name IN ('vectors', 'indexed_files')
+                """).fetchall()
+                result["existing_tables"] = [row[0] for row in tables_result]
+
+                # If vectors table exists, check its schema
+                if any(table[0] == "vectors" for table in tables_result):
+                    schema_result = conn.execute("""
+                        SELECT column_name, data_type
+                        FROM information_schema.columns
+                        WHERE table_name = 'vectors'
+                    """).fetchall()
+                    result["vectors_table_schema"] = {
+                        row[0]: row[1] for row in schema_result
+                    }
+
+                indexer.close()
+            except Exception as e:
+                result["database_error"] = str(e)
+
+        return result
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@mcp.tool()
+def reset_vector_database() -> dict[str, str]:
+    """
+    Completely reset the vector database by deleting the database file.
+
+    This is useful when encountering dimension mismatch errors that cannot
+    be resolved by force_rebuild alone.
+
+    Returns:
+        Dict with status message
+    """
+    import os
+
+    service = get_service()
+    if not service.config.vector_search_enabled:
+        raise RuntimeError("Vector search is not enabled in configuration")
+
+    if not service.config.vector_db_path:
+        raise RuntimeError("Vector database path is not configured")
+
+    try:
+        db_path = service.config.vector_db_path
+        if db_path.exists():
+            os.remove(str(db_path))
+            return {"status": f"Successfully deleted vector database at {db_path}"}
+        else:
+            return {"status": f"Vector database file does not exist at {db_path}"}
+    except Exception as e:
+        return {"status": f"Failed to delete vector database: {e}"}
+
+
+def _initialize_batch_schema(
+    indexer, embedding_provider, all_files, force_rebuild
+) -> None:
+    """Helper function to initialize schema for batch processing."""
+    from minerva.vector.indexer import VectorIndexer
+
+    if not all_files:
+        return
+
+    with open(all_files[0], "r", encoding="utf-8") as f:
+        sample_content = f.read()[:500]
+    sample_embedding = embedding_provider.embed(sample_content)
+
+    if force_rebuild:
+        try:
+            conn = indexer._get_connection()
+            conn.execute("DROP TABLE IF EXISTS vectors")
+            conn.execute("DROP TABLE IF EXISTS indexed_files")
+            conn.execute("DROP SEQUENCE IF EXISTS vectors_id_seq")
+            # Also close and recreate the connection to ensure clean state
+            indexer.close()
+            indexer = VectorIndexer(indexer.db_path)
+        except Exception:
+            pass  # Ignore errors if tables don't exist
+
+    # Get the actual embedding dimension (shape[1] for 2D array)
+    embedding_dim = (
+        sample_embedding.shape[1]
+        if sample_embedding.ndim == 2
+        else len(sample_embedding)
+    )
+    indexer.initialize_schema(embedding_dim)
+
+
+def _process_batch_files(indexer, embedding_provider, all_files, force_rebuild):
+    """Helper function to process files in batch."""
+    processed = 0
+    skipped = 0
+    errors = []
+
+    for file_path in all_files:
+        try:
+            # Skip if already indexed and not forcing rebuild
+            if not force_rebuild and indexer.is_file_indexed(file_path):
+                skipped += 1
+                continue
+
+            # Read file content
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            # Generate embedding
+            embedding = embedding_provider.embed(content)
+
+            # Store in index
+            indexer.store_embedding(file_path, embedding, content)
+            processed += 1
+
+        except Exception as e:
+            error_msg = f"Failed to process {file_path}: {e}"
+            errors.append(error_msg)
+
+    return processed, skipped, errors
+
+
+@mcp.tool()
+def build_vector_index_batch(
+    directory: str | None = None,
+    file_pattern: str = "*.md",
+    max_files: int = 5,
+    force_rebuild: bool = False,
+) -> dict[str, int | list[str]]:
+    """
+    Build vector index for a small batch of files to avoid timeouts.
+
+    This processes only a limited number of files at once for MCP Inspector testing.
+
+    Args:
+        directory: Specific folder to index (if None, indexes entire vault)
+        file_pattern: File pattern to match (default: "*.md")
+        max_files: Maximum number of files to process in this batch (default: 5)
+        force_rebuild: Whether to rebuild existing embeddings (default: False)
+
+    Returns:
+        Dict with 'processed' (count), 'skipped' (count), and 'errors' (list) keys
+    """
+    import glob
+    import os
+
+    service = get_service()
+    if not service.config.vector_search_enabled:
+        raise RuntimeError("Vector search is not enabled in configuration")
+
+    if not service.config.vector_db_path:
+        raise RuntimeError("Vector database path is not configured")
+
+    try:
+        from minerva.vector.embeddings import SentenceTransformerProvider
+        from minerva.vector.indexer import VectorIndexer
+
+        # Initialize components
+        embedding_provider = SentenceTransformerProvider(service.config.embedding_model)
+        indexer = VectorIndexer(service.config.vector_db_path)
+
+        # Determine directory to process
+        target_dir = directory or str(service.config.vault_path)
+
+        # Find files to process (limit to max_files)
+        search_pattern = os.path.join(target_dir, "**", file_pattern)
+        all_files = glob.glob(search_pattern, recursive=True)[:max_files]
+
+        # Initialize schema if needed
+        try:
+            _initialize_batch_schema(
+                indexer, embedding_provider, all_files, force_rebuild
+            )
+        except Exception as e:
+            return {
+                "processed": 0,
+                "skipped": 0,
+                "errors": [f"Schema initialization failed: {e}"],
+            }
+
+        # Process files
+        processed, skipped, errors = _process_batch_files(
+            indexer, embedding_provider, all_files, force_rebuild
+        )
+
+        # Close connections
+        indexer.close()
+
+        return {
+            "processed": processed,
+            "skipped": skipped,
+            "errors": errors,
+            "total_files_found": len(all_files),
+        }
+
+    except ImportError as e:
+        raise ImportError(
+            "Vector search requires additional dependencies. "
+            "Install with: pip install sentence-transformers duckdb"
+        ) from e
+
+
+@mcp.tool()
+def build_vector_index(
+    directory: str | None = None,
+    file_pattern: str = "*.md",
+    force_rebuild: bool = False,
+) -> dict[str, int | list[str]]:
+    """
+    Build or update the vector search index for semantic search.
+
+    This processes markdown files and creates vector embeddings for semantic search.
+    Existing embeddings are preserved unless force_rebuild is True.
+
+    Example:
+        build_vector_index()
+        build_vector_index(directory="research", force_rebuild=True)
+        build_vector_index(file_pattern="*.txt")
+
+    Args:
+        directory: Specific folder to index (if None, indexes entire vault)
+        file_pattern: File pattern to match (default: "*.md")
+        force_rebuild: Whether to rebuild existing embeddings (default: False)
+
+    Returns:
+        Dict with 'processed' (count), 'skipped' (count), and 'errors' (list) keys
+
+    Note:
+        Requires vector search to be enabled (VECTOR_SEARCH_ENABLED=true).
+        This can take time for large vaults. Progress is logged.
+    """
+    return get_service().build_vector_index(directory, file_pattern, force_rebuild)
+
+
+@mcp.tool()
+def get_vector_index_status() -> dict[str, int | bool | str]:
+    """
+    Get information about the current vector search index status.
+
+    This shows how many files are indexed and whether vector search is available.
+    Useful for checking if semantic search is ready to use.
+
+    Example:
+        get_vector_index_status()
+
+    Returns:
+        Dict with index statistics and availability status
+
+    Note:
+        Returns meaningful data only if vector search is enabled
+    """
+    return get_service().get_vector_index_status()
