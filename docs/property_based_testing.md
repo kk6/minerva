@@ -27,10 +27,32 @@ Property-based tests provide confidence that our validation functions work corre
 - **Property-based tests**: ~13 tests in 0.40s
 - **Performance impact**: ~5-6x slower execution
 
+### Pytest Marker Integration
+Property-based tests are now integrated with Minerva's performance optimization strategy:
+
+```python
+# Most property-based tests are marked as unit tests (fast)
+@given(st.text(min_size=1, max_size=50))
+def test_filename_validation(filename):
+    # Fast property-based test
+
+# Exceptionally slow property tests marked appropriately
+@pytest.mark.slow
+@given(st.text(min_size=1000, max_size=5000))  # Large inputs
+def test_large_content_processing(content):
+    # Slow property-based test
+```
+
+### Test Execution Strategy
+- **Daily development**: Property-based tests run with `make test-fast` (included in 487 tests, ~5 seconds)
+- **Complete testing**: All property tests run with `make test` (492 tests, ~22 seconds)
+- **Performance optimized**: Most property tests are fast enough for daily development cycles
+
 ### Best Practices for Performance
 1. **Use property-based tests selectively** - Focus on critical validation and edge-case-prone functions
 2. **Limit test scope** - Use `min_size` and `max_size` parameters to constrain input generation
-3. **Run in CI selectively** - Consider running property-based tests only on specific branches or schedules
+3. **Integrate with pytest markers** - Mark genuinely slow tests with `@pytest.mark.slow`
+4. **Design for speed** - Keep most property tests under 1 second execution time
 
 ## Writing Property-Based Tests
 
@@ -48,6 +70,14 @@ Property-based tests provide confidence that our validation functions work corre
    - Duplicate handling
 
 3. **Search functionality** (`SearchOperations`)
+   - Text pattern matching and escaping
+   - Unicode content handling
+   - Query normalization
+
+4. **Vector search functionality** (`vector/` module) - **Phase 1 Complete**
+   - Embedding generation validation
+   - Vector dimension consistency
+   - DuckDB integration error handling
    - Query validation and escaping
    - Configuration parameter handling
    - Case sensitivity behaviors

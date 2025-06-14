@@ -32,6 +32,10 @@ class TestMinervaConfig(unittest.TestCase):
         self.assertEqual(config.default_note_dir, "test_notes")
         self.assertEqual(config.default_author, "Test Author")
         self.assertEqual(config.encoding, "utf-8")
+        # Vector search defaults
+        self.assertEqual(config.vector_search_enabled, False)
+        self.assertEqual(config.vector_db_path, None)
+        self.assertEqual(config.embedding_model, "all-MiniLM-L6-v2")
 
     @mock.patch.dict(
         os.environ,
@@ -74,6 +78,61 @@ class TestMinervaConfig(unittest.TestCase):
         self.assertEqual(config.default_note_dir, "custom_notes")
         self.assertEqual(config.default_author, "Custom Author")
         self.assertEqual(config.encoding, "utf-8")  # default value
+
+    @mock.patch.dict(
+        os.environ,
+        {
+            "OBSIDIAN_VAULT_ROOT": "/test/vault",
+            "DEFAULT_VAULT": "test_vault",
+            "VECTOR_SEARCH_ENABLED": "true",
+            "VECTOR_DB_PATH": "/custom/vector.db",
+            "EMBEDDING_MODEL": "custom-model",
+            "MINERVA_SKIP_DOTENV": "1",
+        },
+        clear=True,
+    )
+    def test_config_vector_search_enabled(self):
+        """Test configuration with vector search enabled and custom settings."""
+        config = MinervaConfig.from_env()
+
+        # Verify vector search configuration
+        self.assertEqual(config.vector_search_enabled, True)
+        self.assertEqual(config.vector_db_path, Path("/custom/vector.db"))
+        self.assertEqual(config.embedding_model, "custom-model")
+
+    @mock.patch.dict(
+        os.environ,
+        {
+            "OBSIDIAN_VAULT_ROOT": "/test/vault",
+            "DEFAULT_VAULT": "test_vault",
+            "VECTOR_SEARCH_ENABLED": "true",
+            "MINERVA_SKIP_DOTENV": "1",
+        },
+        clear=True,
+    )
+    def test_config_vector_search_default_db_path(self):
+        """Test that default vector DB path is set when enabled but not specified."""
+        config = MinervaConfig.from_env()
+
+        # Verify default vector DB path
+        self.assertEqual(config.vector_search_enabled, True)
+        expected_path = Path("/test/vault/test_vault/.minerva/vectors.db")
+        self.assertEqual(config.vector_db_path, expected_path)
+
+    def test_config_direct_initialization_with_vector_search(self):
+        """Test direct initialization with vector search parameters."""
+        config = MinervaConfig(
+            vault_path=Path("/custom/vault"),
+            default_note_dir="custom_notes",
+            default_author="Custom Author",
+            vector_search_enabled=True,
+            vector_db_path=Path("/custom/vectors.db"),
+            embedding_model="custom-embedding-model",
+        )
+
+        self.assertEqual(config.vector_search_enabled, True)
+        self.assertEqual(config.vector_db_path, Path("/custom/vectors.db"))
+        self.assertEqual(config.embedding_model, "custom-embedding-model")
 
 
 if __name__ == "__main__":

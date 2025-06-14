@@ -1,7 +1,7 @@
 # Minerva Development Makefile
 # Provides unified interface for common development commands
 
-.PHONY: help install setup-dev test test-cov lint type-check format dev clean check-all fix-whitespace
+.PHONY: help install setup-dev test test-fast test-slow test-cov lint type-check format dev clean check-all check-fast fix-whitespace
 
 # Default target
 .DEFAULT_GOAL := help
@@ -29,12 +29,12 @@ help: ## Display this help message
 	@echo ""
 	@echo "$(GREEN)Testing:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		grep -E "(test)" | \
+		grep -E "^test" | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-15s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
-	@echo "$(GREEN)Code Quality:$(RESET)"
+	@echo "$(GREEN)Quality Checks:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		grep -E "(lint|type-check|format|check-all|fix-whitespace|pre-commit)" | \
+		grep -E "(lint|type-check|format|check-fast|check-all|fix-whitespace|pre-commit)" | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-15s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(GREEN)Development Tools:$(RESET)"
@@ -59,6 +59,16 @@ setup-dev: install ## Set up complete development environment
 test: ## Run all tests
 	@echo "$(BLUE)Running tests...$(RESET)"
 	PYTHONPATH=src uv run pytest
+
+test-fast: ## Run fast tests only (excludes slow integration tests)
+	@echo "$(BLUE)Running fast tests (excluding slow tests)...$(RESET)"
+	PYTHONPATH=src uv run pytest -m "not slow"
+	@echo "$(GREEN)Fast tests completed! Use 'make test' for full test suite.$(RESET)"
+
+test-slow: ## Run slow integration tests only
+	@echo "$(BLUE)Running slow integration tests...$(RESET)"
+	PYTHONPATH=src uv run pytest -m "slow"
+	@echo "$(GREEN)Slow tests completed!$(RESET)"
 
 test-cov: ## Run tests with coverage report
 	@echo "$(BLUE)Running tests with coverage...$(RESET)"
@@ -103,6 +113,9 @@ pre-commit: ## Run pre-commit hooks on all files
 	@echo "$(BLUE)Running pre-commit hooks...$(RESET)"
 	PYTHONPATH=src uv run pre-commit run --all-files
 	@echo "$(GREEN)Pre-commit checks passed!$(RESET)"
+
+check-fast: lint type-check test-fast ## Run fast quality checks (excludes slow tests)
+	@echo "$(GREEN)Fast quality checks passed!$(RESET)"
 
 check-all: lint type-check test ## Run comprehensive quality checks
 	@echo "$(GREEN)All quality checks passed!$(RESET)"

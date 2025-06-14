@@ -18,6 +18,10 @@ class MinervaConfig:
     default_note_dir: str
     default_author: str
     encoding: str = "utf-8"
+    # Vector search configuration
+    vector_search_enabled: bool = False
+    vector_db_path: Path | None = None
+    embedding_model: str = "all-MiniLM-L6-v2"
 
     @classmethod
     def from_env(cls) -> "MinervaConfig":
@@ -52,8 +56,26 @@ class MinervaConfig:
         assert vault_root is not None
         assert default_vault is not None
 
+        # Vector search configuration from environment
+        vector_search_enabled = (
+            os.getenv("VECTOR_SEARCH_ENABLED", "false").lower() == "true"
+        )
+        vector_db_path = None
+        if vector_search_enabled:
+            db_path_str = os.getenv("VECTOR_DB_PATH")
+            if db_path_str:
+                vector_db_path = Path(db_path_str)
+            else:
+                # Default to vault directory if not specified
+                vector_db_path = (
+                    Path(vault_root) / default_vault / ".minerva" / "vectors.db"
+                )
+
         return cls(
             vault_path=Path(vault_root) / default_vault,
             default_note_dir=os.getenv("DEFAULT_NOTE_DIR", "default_notes"),
             default_author=os.getenv("DEFAULT_NOTE_AUTHOR", "Minerva"),
+            vector_search_enabled=vector_search_enabled,
+            vector_db_path=vector_db_path,
+            embedding_model=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
         )

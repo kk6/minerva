@@ -17,8 +17,9 @@ For a unified development experience, use the Makefile commands:
 
 - **Testing**:
   - Run all tests: `make test`
+  - Run fast tests only (excludes slow integration tests): `make test-fast`
+  - Run slow integration tests only: `make test-slow`
   - Run tests with coverage: `make test-cov`
-  - Run comprehensive quality checks: `make check-all`
   - Run only property-based tests: `uv run pytest tests/*_properties.py`
 
 - **Code Quality**:
@@ -47,7 +48,8 @@ If you prefer to use uv commands directly:
 - Run MCP inspector: `uv run mcp dev src/minerva/server.py:mcp`
 - Install to Claude Desktop: `uv run mcp install src/minerva/server.py:mcp -f .env --with-editable .`
 - Check for trailing whitespace: Use the find command below or run pre-commit hooks
-- Fix trailing whitespace (in-place): `find . -type f \( -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" \) -not -path "*/.git/*" -not -path "*/__pycache__/*" -not -path "*/.venv/*" -not -path "*/venv/*" -not -path "*/.egg-info/*" -exec sed -i 's/[ \t]*$//' {} \;`
+- Fix trailing whitespace (in-place): `uv run ruff format src/ tests/` (RECOMMENDED - safest method)
+- Alternative manual fix: `find . -type f \( -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" \) -not -path "*/.git/*" -not -path "*/__pycache__/*" -not -path "*/.venv/*" -not -path "*/venv/*" -not -path "*/.egg-info/*" -exec sed -i 's/[[:space:]]*$//' {} \;`
 
 
 ## GitHub Labels
@@ -196,6 +198,49 @@ git checkout -b docs/issue-789-update-test-guidelines
 - Avoid trailing whitespace in all files (Python, Markdown, YAML) as it will fail CI checks
 - Use proper line endings (LF, not CRLF) for all files
 - **CRITICAL**: Never delete or modify files in the `.venv` directory, as this can break the virtual environment
+
+### sed Command Pitfalls ⚠️
+**CRITICAL WARNING**: The `sed` command with certain regex patterns can corrupt files by unintentionally deleting characters:
+
+**Problematic patterns**:
+```bash
+# DANGEROUS - can delete 't' characters from words like "pytest" → "pytes"
+sed -i '' 's/[ \t]*$//' file.py
+
+# DANGEROUS - inconsistent behavior across different sed implementations
+rg -l ".*" src/ tests/ | xargs sed -i '' 's/[ \t]*$//'
+```
+
+**Root causes**:
+1. **Character class interpretation**: `[ \t]` may not parse `\t` correctly in all sed versions
+2. **Greedy matching**: Pattern can match more than intended
+3. **Encoding issues**: Unicode/UTF-8 handling differences between macOS sed and GNU sed
+4. **Implementation differences**: macOS BSD sed vs GNU sed behavioral differences
+
+**Safe alternatives** (December 2024):
+```bash
+# RECOMMENDED: Use ruff for Python files (safest)
+uv run ruff format src/ tests/
+
+# Alternative: More explicit regex patterns
+sed -i '' 's/[[:space:]]*$//' file.py
+sed -i '' 's/[[:blank:]]*$//' file.py  # spaces and tabs only
+
+# For broader file types, use Python script:
+python -c "
+import os, glob
+for file in glob.glob('**/*.py', recursive=True):
+    with open(file, 'r', encoding='utf-8') as f:
+        content = f.read()
+    with open(file, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(line.rstrip() for line in content.splitlines()) + '\n')
+"
+```
+
+**Always verify** after using sed:
+- Check `git diff` for unintended changes
+- Run tests to ensure functionality wasn't broken
+- Use `ruff check` to verify Python syntax is still valid
 
 ## Testing Strategy
 
@@ -392,6 +437,50 @@ except Exception as e:
 - **Async testing**: Use `pytest-asyncio` with proper event loop isolation
 - **Temporary files**: Use `tempfile.TemporaryDirectory()` for automatic cleanup
 
+### Optional Dependency Testing Patterns
+When implementing optional features with external dependencies (like vector search with DuckDB), use these testing patterns:
+
+#### Module-Level Import Mocking
+```python
+# Import at module level for proper testing/mocking
+try:
+    import duckdb
+except ImportError:
+    duckdb = None
+
+class VectorIndexer:
+    def _get_connection(self):
+        if duckdb is None:
+            raise ImportError("duckdb is required for VectorIndexer")
+        return duckdb.connect(self.db_path)
+```
+
+#### Test Import Error Handling
+```python
+def test_import_error_handling(self):
+    indexer = VectorIndexer(Path("/test/path.db"))
+
+    # Mock the global variable, not the import
+    with patch('minerva.vector.indexer.duckdb', None):
+        with pytest.raises(ImportError, match="duckdb is required"):
+            indexer._get_connection()
+```
+
+#### Lazy Loading with Dependency Injection
+```python
+def _ensure_model_loaded(self):
+    if self._model is None:
+        if SentenceTransformer is None:
+            raise ImportError("sentence-transformers is required")
+        self._model = SentenceTransformer(self._model_name)
+```
+
+**Key Benefits:**
+- Tests can mock dependencies without complex import patching
+- Clear error messages for missing dependencies
+- Proper separation between availability and usage of optional dependencies
+- Module caching doesn't interfere with test isolation
+
 ### Performance Optimization
 
 #### Identifying Slow Tests
@@ -468,6 +557,69 @@ def test_note_creation_with_mock():
 3. **Parallel execution**: Use `pytest-xdist` in CI for faster runs
 4. **Coverage gates**: Enforce minimum coverage thresholds
 5. **Marker-based stages**: Run different test types in different CI stages
+
+### Test Performance Optimization Strategies (December 2024)
+
+#### Problem: Slow Tests with Real Dependencies
+When implementing features with heavy external dependencies (like ML models), tests can become significantly slow:
+
+**Example issue**: `test_embeddings.py` took 14+ seconds due to:
+- Real sentence-transformers model loading (~2-3 seconds per test)
+- Actual AI inference processing for embeddings
+- Model initialization happening in multiple tests
+
+**Solution: Test Categorization with Pytest Markers**
+
+1. **Add markers to pyproject.toml**:
+```toml
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "unit: fast unit tests",
+    "integration: integration tests",
+]
+```
+
+2. **Categorize tests by speed**:
+```python
+# Fast tests (mocked dependencies)
+def test_initialization_with_default_model(self):
+    provider = SentenceTransformerProvider()
+    assert provider.model_name == "all-MiniLM-L6-v2"
+
+# Slow tests (real dependencies)
+@pytest.mark.slow
+def test_embed_single_text_real(self):
+    provider = SentenceTransformerProvider()
+    result = provider.embed("single text")
+    assert isinstance(result, np.ndarray)
+```
+
+3. **Usage commands for different scenarios**:
+```bash
+# Development: Fast tests only (85% time reduction)
+uv run pytest tests/vector/test_embeddings.py -m "not slow"  # 2.19s vs 14.32s
+
+# CI/Integration: All tests
+uv run pytest tests/vector/test_embeddings.py
+
+# Troubleshooting: Slow tests only
+uv run pytest tests/vector/test_embeddings.py -m "slow"
+
+# Project-wide: Exclude slow tests from regular development
+uv run pytest -m "not slow"
+```
+
+**Performance Results:**
+- **Before**: 14.32 seconds for all 9 tests
+- **After**: 2.19 seconds for 4 fast tests (85% improvement for daily development)
+- **Slow tests**: Still available when needed for integration testing
+
+**Key Benefits:**
+- Fast feedback loop during development
+- Full coverage available for CI/CD
+- Clear separation between unit and integration tests
+- Maintainable test organization pattern
 
 ### See Also
 - `docs/test_guidelines.md` for detailed testing patterns and solutions
@@ -547,10 +699,380 @@ result = server.create_note("test", "filename")
 - **Clean dependency injection**: ServiceManager instances for better testability
 - **FastMCP integration**: Native decorator-based tool registration
 
+## MyPy Type Checking Solutions (December 2024)
+
+### Common MyPy Issues and Resolutions
+
+#### Issue 1: Module-Level Import Type Assignments
+**Problem**: MyPy errors when assigning `None` to module-level imports for optional dependencies:
+```python
+try:
+    import duckdb
+except ImportError:
+    duckdb = None  # error: Incompatible types in assignment
+```
+
+**Solution**: Use type ignore comments:
+```python
+try:
+    import duckdb
+except ImportError:
+    duckdb = None  # type: ignore[assignment]
+
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None  # type: ignore[assignment,misc]
+```
+
+#### Issue 2: Return Type Annotations for External Dependencies
+**Problem**: MyPy cannot infer return types for external library objects.
+
+**Solution**: Use `Any` type for dynamic objects:
+```python
+from typing import Any
+
+def _get_connection(self) -> Any:
+    """Get DuckDB connection - type varies by library version."""
+    return duckdb.connect(str(self.db_path))
+```
+
+#### Issue 3: "Statement is unreachable" False Positives
+**Problem**: MyPy thinks code is unreachable due to aggressive type inference:
+```python
+result = provider.embed("test text")  # Returns np.ndarray per annotation
+assert isinstance(result, np.ndarray)  # MyPy: "Statement is unreachable"
+```
+
+**Root cause**: Function return type annotation tells MyPy the result will always be `np.ndarray`, making the isinstance check redundant.
+
+**Solutions**:
+1. **Remove redundant assertions** that conflict with return type annotations
+2. **Test the actual behavior** rather than the type:
+```python
+# Instead of testing type (redundant with annotation)
+assert isinstance(result, np.ndarray)
+
+# Test actual behavior/properties
+assert len(result) > 0
+assert result.shape[0] == 1
+```
+
+3. **Simplify test logic** to avoid complex type inference paths:
+```python
+# Problematic: MyPy gets confused about control flow
+provider.embed("test text")
+result = get_some_result()
+assert result.shape[0] == 1  # MyPy: unreachable
+
+# Better: Direct testing
+provider.embed("test text")
+assert provider._model is not None  # Test the side effect
+```
+
+#### Issue 4: Auto-increment Database Schema
+**Problem**: DuckDB schema with `INTEGER PRIMARY KEY` requires explicit ID values, causing constraint violations.
+
+**Solution**: Use sequence-based auto-increment:
+```sql
+-- Instead of:
+CREATE TABLE vectors (
+    id INTEGER PRIMARY KEY,  -- Requires manual ID assignment
+    ...
+)
+
+-- Use:
+CREATE SEQUENCE IF NOT EXISTS vectors_id_seq;
+CREATE TABLE vectors (
+    id INTEGER PRIMARY KEY DEFAULT nextval('vectors_id_seq'),
+    ...
+)
+```
+
+**Alternative for DuckDB**:
+```sql
+CREATE TABLE vectors (
+    id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    ...
+)
+```
+
+#### MyPy Best Practices for Optional Dependencies
+1. **Separate import checks from usage**: Define helper methods that check availability
+2. **Use `Any` for external library types**: Avoid complex type inference issues
+3. **Prefer behavior testing over type testing**: Test what the code does, not what type it returns
+4. **Handle module-level imports explicitly**: Use type ignore comments for unavoidable import patterns
+5. **Validate type annotations match implementation**: Ensure return types accurately reflect what the function can return
+
+**Example Pattern**:
+```python
+from typing import Any, Union
+
+# Safe import pattern
+try:
+    from external_lib import ExternalClass
+except ImportError:
+    ExternalClass = None  # type: ignore[assignment]
+
+class MyClass:
+    def __init__(self):
+        self._external_obj: Any = None
+
+    def _ensure_dependency_available(self) -> None:
+        """Check if optional dependency is available."""
+        if ExternalClass is None:
+            raise ImportError("external_lib is required")
+
+    def use_external_feature(self) -> Any:
+        """Use external feature with proper error handling."""
+        self._ensure_dependency_available()
+        if self._external_obj is None:
+            self._external_obj = ExternalClass()
+        return self._external_obj.do_something()
+```
+
+## Optional Feature Implementation Patterns
+
+### Architecture for Optional Dependencies
+When adding features with external dependencies (implemented December 2024 for vector search):
+
+#### 1. Module Structure Pattern
+```
+src/minerva/
+├── vector/                    # Optional feature module
+│   ├── __init__.py           # Clean public API exports
+│   ├── embeddings.py         # Abstract + concrete implementations
+│   ├── indexer.py            # Core functionality with dependency checks
+│   └── searcher.py           # Stub implementation for future phases
+```
+
+#### 2. Safe Import Pattern
+```python
+# At module level - allows mocking in tests
+try:
+    import duckdb
+except ImportError:
+    duckdb = None
+
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None
+```
+
+#### 3. Lazy Loading with Clear Error Messages
+```python
+def _ensure_dependencies_loaded(self):
+    if SentenceTransformer is None:
+        raise ImportError(
+            "sentence-transformers is required for this feature. "
+            "Install it with: pip install sentence-transformers"
+        )
+```
+
+#### 4. Configuration Integration
+- Add optional fields to existing config dataclass with sensible defaults
+- Use environment variables with feature-specific prefixes
+- Implement smart defaults that activate only when feature is enabled
+- Maintain backward compatibility by defaulting to disabled state
+
+#### 5. Phased Implementation Strategy
+- **Phase 1**: Infrastructure and configuration
+- **Phase 2**: Basic functionality implementation
+- **Phase 3**: Integration with existing features
+- **Phase 4**: Advanced features and optimizations
+
+**Benefits of this approach:**
+- No impact on core functionality when feature is disabled
+- Clear separation of concerns
+- Easy to test both enabled and disabled states
+- Gradual rollout reduces implementation risk
+- Dependencies only loaded when feature is actively used
+
+### Vector Search Implementation Insights (December 2024)
+
+#### DuckDB VSS Extension Considerations
+
+**HNSW Index Requirements**:
+- HNSW indexes only work in **in-memory databases** by default
+- For persistent databases, requires setting `hnsw_enable_experimental_persistence = true`
+- Solution for testing: Use `:memory:` databases for HNSW index tests
+
+```python
+# For persistent database tests
+indexer = VectorIndexer(Path("/path/to/file.db"))
+
+# For HNSW index tests (in-memory required)
+indexer = VectorIndexer(Path(":memory:"))
+```
+
+**Vector Dimension Matching**:
+- Database schema must exactly match embedding dimensions
+- Mismatched dimensions cause `ConversionException` at insert time
+- Example: Schema with `FLOAT[384]` but inserting `FLOAT[3]` arrays
+
+```python
+# Ensure dimension consistency
+embedding_dim = 384  # or get from actual embeddings
+indexer.initialize_schema(embedding_dim)
+
+# Match test data to schema
+embeddings = np.array([[0.1, 0.2, 0.3]])  # 3 dimensions
+indexer.initialize_schema(3)  # Match the schema to test data
+```
+
+**Auto-increment ID Handling**:
+DuckDB requires explicit sequence setup for auto-incrementing primary keys:
+
+```sql
+-- Working pattern for DuckDB
+CREATE SEQUENCE IF NOT EXISTS vectors_id_seq;
+CREATE TABLE vectors (
+    id INTEGER PRIMARY KEY DEFAULT nextval('vectors_id_seq'),
+    file_path TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    embedding FLOAT[{embedding_dim}] NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### Testing Patterns for External Database Dependencies
+
+**File-based Database Testing**:
+```python
+# Avoid NamedTemporaryFile - creates invalid DB files
+# Use TemporaryDirectory instead
+def test_with_real_database():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        db_path = Path(tmp_dir) / "test.db"
+        indexer = VectorIndexer(db_path)
+        # Database will be created fresh
+        indexer.initialize_schema(3)
+        # ... test operations
+        indexer.close()
+    # Automatic cleanup when context exits
+```
+
+**Mixed Testing Strategy**:
+- **Fast tests**: Mock the database operations for unit testing
+- **Integration tests**: Use real in-memory databases (`:memory:`)
+- **E2E tests**: Use temporary file databases for full workflow testing
+
+**VSS Extension Loading**:
+- Extension loading happens automatically on connection
+- No explicit testing needed - connection failure indicates extension issues
+- Log level can be adjusted to see extension loading messages
+
+#### Embedding Provider Patterns
+
+**Lazy Loading with Model Caching**:
+```python
+class SentenceTransformerProvider:
+    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
+        self._model_name = model_name
+        self._model: Any = None  # Lazy loaded
+        self._embedding_dim: int | None = None
+
+    def _ensure_model_loaded(self) -> None:
+        if self._model is None:
+            # Check dependency availability
+            if SentenceTransformer is None:
+                raise ImportError("sentence-transformers is required")
+
+            # Load model once
+            self._model = SentenceTransformer(self._model_name)
+
+            # Cache dimension from sample embedding
+            dummy_embedding = self._model.encode("test")
+            self._embedding_dim = len(dummy_embedding)
+```
+
+**Benefits of this pattern**:
+- Model only loaded when actually needed
+- Dimension determined dynamically from model
+- Clear error messages for missing dependencies
+- Model reused across multiple embed() calls
+- Memory efficient for testing scenarios
+
+#### Configuration Patterns for Optional Features
+
+**Smart Defaults with Environment Integration**:
+```python
+@classmethod
+def from_env(cls) -> "MinervaConfig":
+    # Feature toggle
+    vector_search_enabled = os.getenv("VECTOR_SEARCH_ENABLED", "false").lower() == "true"
+
+    # Conditional configuration loading
+    vector_db_path = None
+    if vector_search_enabled:
+        db_path_str = os.getenv("VECTOR_DB_PATH")
+        if db_path_str:
+            vector_db_path = Path(db_path_str)
+        else:
+            # Smart default: inside vault directory
+            vector_db_path = Path(vault_root) / default_vault / ".minerva" / "vectors.db"
+
+    return cls(
+        # ... core config
+        vector_search_enabled=vector_search_enabled,
+        vector_db_path=vector_db_path,
+        embedding_model=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
+    )
+```
+
+**Key principles**:
+- Feature disabled by default (safe rollout)
+- Smart defaults only activate when feature is enabled
+- Environment variables provide customization points
+- Configuration validates dependencies are available when enabled
+
 ## Environment Setup
 Required environment variables in `.env`:
 - `OBSIDIAN_VAULT_ROOT`: Path to Obsidian vault root directory
 - `DEFAULT_VAULT`: Default vault name to use
+
+### Optional Feature Configuration
+For features with optional dependencies (e.g., vector search):
+- `VECTOR_SEARCH_ENABLED`: Set to "true" to enable vector search functionality
+- `VECTOR_DB_PATH`: Custom path for vector database (defaults to `{vault}/.minerva/vectors.db`)
+- `EMBEDDING_MODEL`: Model name for text embeddings (defaults to `all-MiniLM-L6-v2`)
+
+**Configuration Pattern for Optional Features:**
+```python
+@dataclass
+class MinervaConfig:
+    # Core required fields
+    vault_path: Path
+    default_note_dir: str
+    default_author: str
+
+    # Optional feature fields with defaults
+    vector_search_enabled: bool = False
+    vector_db_path: Path | None = None
+    embedding_model: str = "all-MiniLM-L6-v2"
+
+    @classmethod
+    def from_env(cls) -> "MinervaConfig":
+        # Load optional feature configuration
+        vector_search_enabled = os.getenv("VECTOR_SEARCH_ENABLED", "false").lower() == "true"
+
+        # Set smart defaults for dependent configuration
+        vector_db_path = None
+        if vector_search_enabled:
+            db_path_str = os.getenv("VECTOR_DB_PATH")
+            if db_path_str:
+                vector_db_path = Path(db_path_str)
+            else:
+                # Default to vault directory if not specified
+                vector_db_path = Path(vault_root) / default_vault / ".minerva" / "vectors.db"
+```
+
+**Testing Optional Configuration:**
+- Test default values when feature is disabled
+- Test custom configuration when feature is enabled
+- Test smart defaults for dependent configuration values
+- Verify backward compatibility when optional features are added
 
 ## Known Issues
 - Import path handling for Claude Desktop vs command line execution
