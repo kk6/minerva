@@ -16,6 +16,13 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
    - **MinervaConfig**: 依存性注入用の設定データクラス
    - **create_minerva_service()**: デフォルト設定でのServiceManagerファクトリー関数
 
+1.1. **ベクター検索層** (`vector/`) - **Phase 1実装完了**
+   - **EmbeddingProvider**: テキスト埋め込み抽象基底クラス（実装済み）
+   - **SentenceTransformerProvider**: sentence-transformers実装（all-MiniLM-L6-v2モデル、実装済み）
+   - **VectorIndexer**: DuckDB VSS拡張を使用したベクトルインデックス管理（HNSWインデックス対応、実装済み）
+   - **VectorSearcher**: ベクター類似検索操作（スタブ実装、Phase 2で本格実装予定）
+   - **オプショナル依存関係管理**: 適切なエラーメッセージとlazy loading実装
+
 2. **MCPサーバー層** (`server.py`) - **MCP 1.9対応済み**
    - **FastMCPサーバー**: MCP 1.9.3準拠、`@mcp.tool()` デコレータを使用した直接的なツール登録
    - **ダイレクトサービス統合**: ラッパー関数を排除し、サービスメソッドを直接呼び出し
@@ -25,8 +32,12 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
      - `get_note_delete_confirmation()`, `perform_note_delete()` 関数（2段階削除プロセス）
      - `add_tag()`, `remove_tag()`, `rename_tag()`, `get_tags()`, `list_all_tags()`, `find_notes_with_tag()` 関数
 
-3. **設定管理層** (`config.py`) - **拡張済み**
+3. **設定管理層** (`config.py`) - **ベクター検索対応済み**
    - **MinervaConfig**: 新しい設定データクラス
+   - **ベクター検索設定**: 実装済みオプション機能設定
+     - `vector_search_enabled`: 機能の有効/無効切り替え（デフォルト: false）
+     - `vector_db_path`: ベクターデータベースファイルパス（カスタマイズ可能）
+     - `embedding_model`: 使用する埋め込みモデル名（デフォルト: all-MiniLM-L6-v2）
    - **レガシーグローバル変数**: 既存の設定（後方互換性維持）
 
 4. **フロントマター管理層** (`frontmatter_manager.py`)

@@ -36,6 +36,14 @@ Claude Desktopを通じて、以下の操作が可能です：
 - [uv](https://github.com/astral-sh/uv)
 - Claude Desktop（MCP対応版）
 
+### オプション依存関係
+ベクター検索機能を使用する場合の追加要件：
+- DuckDB 1.1.3以上（ベクターデータベース）
+- sentence-transformers 3.3.1以上（テキスト埋め込み）
+- numpy 1.24.0以上（数値計算）
+
+注意：これらの依存関係は`VECTOR_SEARCH_ENABLED=true`に設定した場合のみ必要です。
+
 ## 設定方法
 
 保存パッケージがある場合は、事前にインストールしてください。
@@ -54,6 +62,11 @@ DEFAULT_VAULT=<デフォルトで使用するvault名>
 ```
 # テスト環境やCI/CDで.envファイルの読み込みをスキップする場合
 MINERVA_SKIP_DOTENV=1
+
+# ベクター検索機能（オプション）
+VECTOR_SEARCH_ENABLED=false  # "true"でセマンティック検索機能を有効化
+VECTOR_DB_PATH=/custom/path/to/vectors.db  # カスタムベクターDB保存場所（オプション）
+EMBEDDING_MODEL=all-MiniLM-L6-v2  # テキスト埋め込みモデル（オプション）
 ```
 
 ### pre-commit フックの設定
@@ -99,6 +112,12 @@ make clean
 # テストの実行
 make test
 
+# 高速テストのみ実行（遅いテストを除外、日常開発用）
+make test-fast
+
+# 遅いテストのみ実行（ML処理など、CI/リリース前用）
+make test-slow
+
 # カバレッジ付きテスト
 make test-cov
 
@@ -107,6 +126,9 @@ uv run pytest tests/*_properties.py
 
 # コードの品質チェック（lint、type-check、testを一括実行）
 make check-all
+
+# 高速品質チェック（遅いテストを除外、日常開発用）
+make check-fast
 ```
 
 ### MCP Inspector を起動する
@@ -184,18 +206,22 @@ pytestを使用して、テストを実行することができます。
 
 ```bash
 # Makefileを使用（推奨）
-make test
+make test          # 全テスト実行
+make test-fast     # 高速テスト（日常開発用、約5秒）
+make test-slow     # 遅いテスト（MLモデル読み込みなど、約17秒）
 
 # カバレッジ付きテスト
 make test-cov
 
 # または直接uvコマンドを使用
-uv run pytest
+uv run pytest                    # 全テスト実行
+uv run pytest -m "not slow"      # 高速テストのみ
+uv run pytest -m "slow"          # 遅いテストのみ
 ```
 
 ## 現在のバージョン
 
-Minervaの現在のバージョンは `v0.14.0` です。詳細な変更履歴については[CHANGELOG.md](CHANGELOG.md)を参照してください。
+Minervaの現在のバージョンは `v0.15.0` です。詳細な変更履歴については[CHANGELOG.md](CHANGELOG.md)を参照してください。
 
 ## 将来の開発方針
 
@@ -204,6 +230,7 @@ Minervaは現在、基本的なノート操作（作成、読取、検索）と�
 ### 優先度：高（Must）
 - [x] **タグ管理機能** - タグの追加・削除・リネーム・検索など（v0.2.0で実装済み）
 - [x] **スマートエイリアス機能** - 複数のエイリアス（別名）でノートを参照（v0.9.2で実装済み）
+- [🚧] **ベクター検索機能** - セマンティック検索によるノート発見支援（Phase 1実装完了：埋め込み生成・ベクターインデックス・DuckDB VSS統合、Phase 2開発予定：検索統合・UI）
 - [ ] **Front Matter 編集支援** - YAMLメタデータの構造を保った属性追加／変更
 - [x] **変更プレビュー／承認フロー** - ファイル変更前に差分を表示し確認する機能
 - [ ] **バージョン履歴統合** - Git連携による変更履歴管理

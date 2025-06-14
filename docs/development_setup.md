@@ -57,9 +57,16 @@ DEFAULT_VAULT=<デフォルトで使用するvault名>
 # テスト実行時は自動的に設定されるため、通常は設定不要
 # CI/CDや特殊なテスト環境で.envファイルの読み込みを無効化する場合のみ設定
 MINERVA_SKIP_DOTENV=1
+
+# ベクター検索機能（オプション、Phase 1実装済み）
+VECTOR_SEARCH_ENABLED=false  # "true"でセマンティック検索機能を有効化
+VECTOR_DB_PATH=/custom/path/to/vectors.db  # カスタムベクターDB保存場所（オプション）
+EMBEDDING_MODEL=all-MiniLM-L6-v2  # テキスト埋め込みモデル（オプション）
 ```
 
-**注意**: `MINERVA_SKIP_DOTENV`は通常の開発では設定する必要はありません。pytestは自動的にテスト環境を検出し、`.env`ファイルの読み込みを適切に制御します。
+**注意**:
+- `MINERVA_SKIP_DOTENV`は通常の開発では設定不要。pytestが自動的にテスト環境を検出し制御します。
+- **ベクター検索機能**はPhase 1が完成しており、オプションで有効化可能です。
 
 ### 4. pre-commit フックのセットアップ
 
@@ -104,25 +111,77 @@ git checkout -b fix/your-fix-name
 
 ### 2. テストの実行
 
-開発中は、定期的にテストを実行して、コードが正常に動作することを確認します：
+開発中は、定期的にテストを実行して、コードが正常に動作することを確認します。
 
+#### 日常開発用（推奨）
 ```bash
-uv run pytest
+# Makefileを使用（推奨）
+make test-fast          # 高速テスト（約5秒、487テスト）
+
+# または直接pytestを使用
+pytest -m "not slow"    # 遅いテストを除外
 ```
 
-特定のテストを実行する場合：
+**メリット**: 遅いMLモデルテストを除外して、85%の速度向上を実現。コード変更後の迅速なフィードバックに最適。
 
+#### 完全テスト（プルリクエスト前）
 ```bash
-uv run pytest tests/path/to/test.py::TestClass::test_method
+# Makefileを使用（推奨）
+make test               # 全テスト（約22秒、492テスト）
+
+# または直接pytestを使用
+uv run pytest           # 全テスト実行
 ```
 
-カバレッジレポートを生成する場合：
-
+#### 特定テストの実行
 ```bash
-uv run pytest --cov=minerva --cov-report=html
+# 特定のテストファイル
+pytest tests/test_specific.py
+
+# 特定のテストメソッド
+pytest tests/path/to/test.py::TestClass::test_method
+
+# 遅いテストのみ実行（MLモデルテストなど）
+make test-slow          # または pytest -m "slow"
 ```
 
-### 3. コードスタイルとリント
+#### カバレッジレポート
+```bash
+make test-cov                                                    # Makefileを使用
+pytest --cov=minerva --cov-report=html --cov-report=term        # 直接実行
+```
+
+#### テストパフォーマンスガイド
+- **日常開発**: `make test-fast` を使用して迅速なフィードバックを得る
+- **プルリクエスト前**: `make test` で完全なテストを実行
+- **CI/CD**: 段階実行で早期エラー検出とリソース効率化を実現
+
+### 3. コード品質チェック
+
+#### 日常開発用（高速）
+```bash
+make check-fast         # リント + 型チェック + 高速テスト（約6秒）
+```
+
+#### 完全チェック（プルリクエスト前）
+```bash
+make check-all          # リント + 型チェック + 全テスト（約23秒）
+```
+
+#### 個別チェック
+```bash
+# リントチェック
+make lint               # または uv run ruff check
+
+# 型チェック
+make type-check         # または uv run mypy src tests
+
+# コードフォーマット
+make format             # または uv run ruff format
+
+# トレイリングスペース修正
+make fix-whitespace     # pre-commitフックを使用した安全な修正
+```
 
 コードスタイルとリントを確認するには：
 
