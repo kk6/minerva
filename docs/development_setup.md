@@ -30,8 +30,16 @@ make setup-dev
 
 #### 直接uvコマンドを使用
 
+基本的な開発環境：
 ```bash
-uv pip install -e ".[dev]"
+uv pip install -e .
+uv sync --group dev
+```
+
+セマンティック検索機能込みの開発環境（推奨）：
+```bash
+uv pip install -e ".[vector]"
+uv sync --group dev --extra vector
 ```
 
 これにより、プロジェクトとその開発用依存関係がインストールされます。
@@ -57,9 +65,20 @@ DEFAULT_VAULT=<デフォルトで使用するvault名>
 # テスト実行時は自動的に設定されるため、通常は設定不要
 # CI/CDや特殊なテスト環境で.envファイルの読み込みを無効化する場合のみ設定
 MINERVA_SKIP_DOTENV=1
+
+# セマンティック検索機能（オプション、v0.15.0実装完了）
+VECTOR_SEARCH_ENABLED=false  # "true"でセマンティック検索機能を有効化
+VECTOR_DB_PATH=/custom/path/to/vectors.db  # カスタムベクターDB保存場所（省略時: {vault}/.minerva/vectors.db）
+EMBEDDING_MODEL=all-MiniLM-L6-v2  # テキスト埋め込みモデル（384次元、省略時: all-MiniLM-L6-v2）
 ```
 
-**注意**: `MINERVA_SKIP_DOTENV`は通常の開発では設定する必要はありません。pytestは自動的にテスト環境を検出し、`.env`ファイルの読み込みを適切に制御します。
+**注意**:
+- `MINERVA_SKIP_DOTENV`は通常の開発では設定不要。pytestが自動的にテスト環境を検出し制御します。
+- **セマンティック検索機能**は完全実装済みで、オプションで有効化可能です。機能には以下が含まれます：
+  - 384次元ベクター埋め込みによる意味的類似性検索
+  - DuckDB VSS拡張による高速ベクター検索
+  - コサイン類似度による精密な類似度判定
+  - 柔軟な検索オプション（閾値、件数制限、ディレクトリ指定）
 
 ### 4. pre-commit フックのセットアップ
 
@@ -104,25 +123,77 @@ git checkout -b fix/your-fix-name
 
 ### 2. テストの実行
 
-開発中は、定期的にテストを実行して、コードが正常に動作することを確認します：
+開発中は、定期的にテストを実行して、コードが正常に動作することを確認します。
 
+#### 日常開発用（推奨）
 ```bash
-uv run pytest
+# Makefileを使用（推奨）
+make test-fast          # 高速テスト（約5秒、487テスト）
+
+# または直接pytestを使用
+pytest -m "not slow"    # 遅いテストを除外
 ```
 
-特定のテストを実行する場合：
+**メリット**: 遅いMLモデルテストを除外して、85%の速度向上を実現。コード変更後の迅速なフィードバックに最適。
 
+#### 完全テスト（プルリクエスト前）
 ```bash
-uv run pytest tests/path/to/test.py::TestClass::test_method
+# Makefileを使用（推奨）
+make test               # 全テスト（約22秒、492テスト）
+
+# または直接pytestを使用
+uv run pytest           # 全テスト実行
 ```
 
-カバレッジレポートを生成する場合：
-
+#### 特定テストの実行
 ```bash
-uv run pytest --cov=minerva --cov-report=html
+# 特定のテストファイル
+pytest tests/test_specific.py
+
+# 特定のテストメソッド
+pytest tests/path/to/test.py::TestClass::test_method
+
+# 遅いテストのみ実行（MLモデルテストなど）
+make test-slow          # または pytest -m "slow"
 ```
 
-### 3. コードスタイルとリント
+#### カバレッジレポート
+```bash
+make test-cov                                                    # Makefileを使用
+pytest --cov=minerva --cov-report=html --cov-report=term        # 直接実行
+```
+
+#### テストパフォーマンスガイド
+- **日常開発**: `make test-fast` を使用して迅速なフィードバックを得る
+- **プルリクエスト前**: `make test` で完全なテストを実行
+- **CI/CD**: 段階実行で早期エラー検出とリソース効率化を実現
+
+### 3. コード品質チェック
+
+#### 日常開発用（高速）
+```bash
+make check-fast         # リント + 型チェック + 高速テスト（約6秒）
+```
+
+#### 完全チェック（プルリクエスト前）
+```bash
+make check-all          # リント + 型チェック + 全テスト（約23秒）
+```
+
+#### 個別チェック
+```bash
+# リントチェック
+make lint               # または uv run ruff check
+
+# 型チェック
+make type-check         # または uv run mypy src tests
+
+# コードフォーマット
+make format             # または uv run ruff format
+
+# トレイリングスペース修正
+make fix-whitespace     # pre-commitフックを使用した安全な修正
+```
 
 コードスタイルとリントを確認するには：
 

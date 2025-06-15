@@ -286,6 +286,7 @@ class TestLogPerformanceDecorator:
         # Should not log performance for fast operations
         assert "Slow operation" not in caplog.text
 
+    @pytest.mark.slow
     def test_slow_function_logs_performance(self, caplog):
         """Test that slow functions generate performance logs."""
         with caplog.at_level(logging.INFO):

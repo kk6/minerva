@@ -14,11 +14,17 @@ applyTo: '**/*.py'
 - Use Unix line endings (LF, not CRLF)
 
 ## Code Quality Tools
-- Run `make lint` to check code style with Ruff
+- Run `make lint` to check code style with Ruff (includes C901 complexity checks)
 - Run `make format` to auto-format code
 - Run `make type-check` to verify type annotations with mypy
 - Run `make check-all` for comprehensive quality checks
 - Use `make fix-whitespace` to remove trailing whitespace safely
+
+## Code Complexity Management
+- Maximum complexity level: 10 (Ruff's default, enforced via C901)
+- This is stricter than many industry standards (12-20) but appropriate for high-quality code
+- When C901 errors occur, extract helper functions to reduce complexity
+- Benefits: improved testability, maintainability, and reduced bug potential
 
 ## Logging Guidelines
 - Do NOT use f-strings when logging!

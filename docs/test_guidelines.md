@@ -9,8 +9,72 @@ Minervaプロジェクトでは、以下のテスト戦略を採用していま�
 1. **単体テスト**: 個別の関数やメソッドの動作を検証
 2. **統合テスト**: 複数のコンポーネントが連携して動作することを検証
 3. **例外テスト**: エラー条件とその処理が正しく機能することを検証
+4. **Property-basedテスト**: Hypothesisを使用したエッジケースの自動発見
 
 すべてのテストは `pytest` フレームワークを使用して実装し、モックやパラメータ化テストの機能を活用しています。
+
+### 1.2 コード複雑度管理とテスト性
+
+Minervaプロジェクトでは、最大複雑度10（Ruffのデフォルト）を維持しています：
+
+- **リファクタリング時の指針**: 複雑な関数を小さなヘルパー関数に分割
+- **テスト容易性**: 小さな関数は個別にテスト可能で、モックが簡単
+- **品質維持**: 厳しい複雑度制限により高品質なコードを保持
+- **C901エラー対処**: パラメータ検証、設定チェック、メイン処理を分離する
+
+### 1.3 パフォーマンス最適化と pytest マーカー
+
+Minervaでは、開発効率を高めるためにテストを以下のマーカーで分類しています：
+
+#### マーカーの種類
+- **`@pytest.mark.slow`**: 実行時間が長いテスト（MLモデル読み込み、大容量データ処理など）
+- **`@pytest.mark.vector`**: ベクトル検索依存関係が必要なテスト（numpy、duckdb、sentence-transformersなど）
+- **`@pytest.mark.unit`**: 高速な単体テスト
+- **`@pytest.mark.integration`**: 統合テスト
+
+#### 実行パフォーマンス
+- **コアテスト**: 575テスト、約2.5秒（ベクトル依存関係なし）
+- **ベクトルテスト**: 73テスト、約17秒（ML依存関係込み）
+- **高速テスト**: slowマーカーを除外して85%高速化
+- **全体テスト**: 全テストスイートは通常20秒程度で完了
+
+*注: 具体的な実行時間はハードウェアや追加されたテストにより変動します。*
+
+#### 実行コマンド
+```bash
+# 日常開発用（85%高速化）
+make test-fast          # 遅いテストを除外
+pytest -m "not slow"    # 直接実行
+
+# 依存関係別テスト実行
+make test-core          # コア機能のみ（ベクトル依存関係なし）
+make test-vector        # ベクトル機能のみ（依存関係必要）
+pytest -m "not vector"  # コアテストの直接実行
+pytest -m "vector"      # ベクトルテストの直接実行
+
+# 完全テスト
+make test              # 全テスト実行
+pytest                 # 直接実行
+
+# 遅いテストのみ
+make test-slow         # 遅いテストのみ
+pytest -m "slow"       # 直接実行
+```
+
+#### マーカーの使用例
+```python
+@pytest.mark.slow
+def test_embedding_generation():
+    """MLモデルを使用する遅いテスト例"""
+    provider = SentenceTransformerProvider()
+    result = provider.embed("test text")
+    assert isinstance(result, np.ndarray)
+
+@pytest.mark.unit
+def test_fast_validation():
+    """高速な単体テスト例"""
+    assert validate_filename("test.md") is True
+```
 
 ## 2. テスト構造
 
@@ -385,33 +449,226 @@ env:
 - ✅ 異なるテスト環境（ローカル、CI/CD）での一貫した動作
 - ✅ モジュールキャッシュ問題の大幅な軽減
 
-## 6. テスト実行
+## 6. オプション依存関係テストパターン
 
-### 6.1 全テストの実行
+Minervaでは、ベクトル検索機能などのオプション機能に対して条件付きテスト戦略を採用しています。
+
+### 6.1 pytest マーカーによる分離
+
+ベクトル検索依存関係が必要なテストには `@pytest.mark.vector` を付与：
+
+```python
+# 個別テスト
+@pytest.mark.vector
+def test_vector_functionality():
+    import numpy as np  # ここで安全にインポート
+    # ... テスト実装
+
+# モジュール全体
+pytestmark = pytest.mark.vector  # ファイル上部に記述
+```
+
+### 6.2 条件付きインポートパターン
+
+ベクトルモジュールでは、依存関係を条件付きでインポート：
+
+```python
+# モジュール上部
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+def _check_numpy_available() -> None:
+    if np is None:
+        raise ImportError("numpy is required. Install with: pip install 'minerva[vector]'")
+
+def embed(self, text: str) -> Any:
+    _check_numpy_available()  # 使用前にチェック
+    # ... 実装
+```
+
+### 6.3 実行方法
+
+```bash
+# コア機能のみ（依存関係不要、高速）
+make test-core
+pytest -m "not vector"
+
+# ベクトル機能のみ（依存関係必要）
+make test-vector
+pytest -m "vector"
+
+# 全テスト実行
+make test
+pytest
+```
+
+### 6.4 CI/CD での活用
+
+```yaml
+# 並列実行でパフォーマンス最適化
+test-core:
+  run: pytest -m "not vector"  # 基本依存関係のみ
+
+test-vector:
+  run: |
+    uv sync --extra vector     # 全依存関係インストール
+    pytest -m "vector"
+```
+
+**詳細情報**: [オプション依存関係実装ガイド](optional_dependencies.md)を参照
+
+## 7. テスト実行
+
+### 7.1 全テストの実行
 
 ```bash
 pytest
 ```
 
-### 6.2 特定のテストファイルの実行
+### 7.2 特定のテストファイルの実行
 
 ```bash
 pytest tests/test_file_handler.py
 ```
 
-### 6.3 特定のテストメソッドの実行
+### 7.3 特定のテストメソッドの実行
 
 ```bash
 pytest tests/test_file_handler.py::TestFileHandler::test_write_file_success
 ```
 
-## 7. CI/CD との統合
+### 7.4 マーカーベースのテスト実行
+
+```bash
+# 高速テストのみ実行（日常開発用）
+pytest -m "not slow"
+make test-fast
+
+# 遅いテストのみ実行（CI/リリース前確認用）
+pytest -m "slow"
+make test-slow
+
+# 単体テストのみ実行
+pytest -m "unit"
+
+# 統合テストのみ実行
+pytest -m "integration"
+
+# 複数マーカーの組み合わせ
+pytest -m "unit and not slow"  # 高速な単体テストのみ
+pytest -m "integration or slow"  # 統合テストまたは遅いテスト
+```
+
+### 7.5 開発ワークフローでの使い分け
+
+#### 日常開発時
+```bash
+make test-fast    # または pytest -m "not slow"
+```
+- **実行時間**: 約5秒
+- **対象**: 487テスト（遅いテスト5個を除外）
+- **用途**: コード変更後の迅速なフィードバック
+
+#### プルリクエスト前/CI実行時
+```bash
+make test         # または pytest
+```
+- **実行時間**: 約22秒
+- **対象**: 492テスト（全テスト）
+- **用途**: 完全な動作確認
+
+#### CI/CDでの最適化
+```bash
+# 段階実行でより早いフィードバック
+make test-fast    # 第1段階: 高速テスト
+make test-slow    # 第2段階: 遅いテスト（並列実行可能）
+```
+
+## 8. CI/CD との統合
 
 継続的インテグレーションパイプラインでは、すべてのプルリクエストに対して自動的にテストが実行されます。テストが失敗した場合、プルリクエストはマージできません。
 
-## 8. 新しいテスト
+### 8.1 CI/CDでのパフォーマンス最適化
 
-### 7.1 サーバーテスト (`test_server.py`)
+マーカーベースのテスト実行により、CI/CDパイプラインでも効率的なフィードバックループを実現できます：
+
+#### 段階実行戦略
+```yaml
+# GitHub Actions例
+jobs:
+  fast-tests:
+    name: "Fast Tests (Unit & Integration)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run fast tests
+        run: pytest -m "not slow"
+        # 5秒で487テストを実行、早期フィードバック
+
+  slow-tests:
+    name: "Slow Tests (ML & Heavy Processing)"
+    runs-on: ubuntu-latest
+    needs: fast-tests  # 高速テスト成功後に実行
+    steps:
+      - name: Run slow tests
+        run: pytest -m "slow"
+        # 17秒で5テストを実行
+```
+
+#### メリット
+- **早期フィードバック**: 基本的なエラーを5秒で検出
+- **並列実行**: 高速テストと遅いテストを並列実行可能
+- **リソース効率**: 高速テストが失敗した場合、遅いテストをスキップ
+- **開発者体験**: プルリクエストでの迅速なエラー通知
+
+## 9. テストマーカーのガイドライン
+
+### 9.1 slow マーカーを使用すべきケース
+
+以下の条件に該当するテストには `@pytest.mark.slow` を付与してください：
+
+- **MLモデルの読み込み**: SentenceTransformerなどの機械学習モデル
+- **大容量データ処理**: 大きなファイルやデータセットの処理
+- **外部サービス呼び出し**: APIコールやデータベース接続
+- **実行時間が3秒以上**: 経験的な閾値
+
+```python
+@pytest.mark.slow
+def test_vector_embedding_real():
+    """実際のMLモデルを使用する遅いテスト"""
+    provider = SentenceTransformerProvider()
+    result = provider.embed("test text")
+    assert result.shape[1] > 0
+```
+
+### 9.2 fast テストの設計指針
+
+高速テストを維持するための設計指針：
+
+- **モック活用**: 外部依存関係はモックで代替
+- **単純データ**: 最小限のテストデータを使用
+- **分離テスト**: 1テスト1責任で設計
+
+```python
+def test_embedding_provider_init():
+    """初期化のみをテストする高速テスト"""
+    provider = SentenceTransformerProvider("test-model")
+    assert provider.model_name == "test-model"
+    assert provider._model is None  # モデル未読み込み状態
+```
+
+### 9.3 マーカー付与の判断基準
+
+| 実行時間 | マーカー | 用途 | 例 |
+|---------|---------|------|----|
+| < 1秒 | なし（または `unit`） | 日常開発 | バリデーション、計算ロジック |
+| 1-3秒 | `integration` | 統合確認 | ファイルI/O、サービス連携 |
+| > 3秒 | `slow` | CI/リリース前 | MLモデル、大容量処理 |
+
+## 10. 新しいテスト
+
+### 10.1 サーバーテスト (`test_server.py` - 新規追加)
 
 サーバーモジュールのテストが追加され、MCP (Model Context Protocol) サーバーが適切に設定され、すべてのツールが正しく登録されていることを検証します。
 
@@ -432,7 +689,7 @@ def test_server_initialization():
     assert perform_note_delete in tool_functions
 ```
 
-### 7.2 プライベート関数テスト (`test_private_functions.py`)
+### 10.2 プライベート関数テスト (`test_private_functions.py`)
 
 内部ヘルパー関数のテストが追加され、これらの関数が期待通りに動作することを検証します。これは特に、コードの広範な改善と整理に関連して重要です。
 
@@ -457,7 +714,7 @@ def test_read_existing_frontmatter_with_datetime():
     assert metadata["created"] == mock_date.isoformat()
 ```
 
-### 7.3 エラー処理テスト
+### 10.3 エラー処理テスト
 
 エラー処理機能の改善に伴い、対応するテストも強化されました。特に、ファイル名のバリデーションと適切なエラーメッセージに焦点を当てています。
 
@@ -473,13 +730,13 @@ def test_empty_filename_validation():
         full_dir_path, base_filename = _build_file_path("path/to/")
 ```
 
-### 7.4 メインメソッドテスト (`test_main.py`)
+### 10.4 メインメソッドテスト (`test_main.py`)
 
 アプリケーションのエントリーポイントとしての`__main__.py`の機能をテストします。このテストは、コマンドラインからアプリケーションが正しく起動されることを検証します。
 
-## 8. 既存テストの移行ガイドライン
+## 11. 既存テストの移行ガイドライン
 
-### 8.1 段階的移行アプローチ
+### 11.1 段階的移行アプローチ
 
 既存のテストファイルは一度にすべて移行するのではなく、段階的に移行することを推奨します：
 
@@ -487,7 +744,7 @@ def test_empty_filename_validation():
 2. **メンテナンス時**: 既存テストを修正する際に新しいパターンへ移行
 3. **リファクタリング時**: 大幅な変更が必要な場合に移行
 
-### 8.2 移行例
+### 11.2 移行例
 
 従来のパターンから新しいパターンへの移行例：
 
@@ -512,11 +769,11 @@ def test_create_note_new_style(tmp_path, minerva_test_helper):
     minerva_test_helper.assert_note_content(note_path, "Test content")
 ```
 
-### 8.3 後方互換性
+### 11.3 後方互換性
 
 新しいヘルパーは既存のフィクスチャと共存できるよう設計されています。既存のテストが期待通りに動作することを確認してください。
 
-## 9. まとめ
+## 12. まとめ
 
 テストは製品コードと同様に重要なアセットです。テストコードも読みやすく、メンテナンスしやすく、そして何よりも信頼性の高いものにしましょう。Arrange-Act-Assertパターンを一貫して適用することで、テストの意図と構造が明確になり、長期的なメンテナンス性が向上します。
 

@@ -136,6 +136,9 @@ class NoteOperations(BaseService):
         logger.info("New note created at %s", file_path)
 
         self._log_operation_success("create_note", file_path)
+        # Auto-update vector index if enabled
+        self._update_vector_index_if_enabled(file_path, content)
+
         return file_path
 
     @log_performance(threshold_ms=500)
@@ -197,6 +200,9 @@ class NoteOperations(BaseService):
         logger.info("Note edited at %s", file_path)
 
         self._log_operation_success("edit_note", file_path)
+        # Auto-update vector index if enabled
+        self._update_vector_index_if_enabled(file_path, content)
+
         return file_path
 
     @log_performance(threshold_ms=200)
@@ -297,4 +303,200 @@ class NoteOperations(BaseService):
         logger.info("Note deleted successfully at %s", deleted_path)
 
         self._log_operation_success("perform_note_delete", deleted_path)
+        # Remove from vector index if enabled
+        self._remove_from_vector_index_if_enabled(deleted_path)
+
         return deleted_path
+
+    def _update_vector_index_if_enabled(self, file_path: Path, content: str) -> None:
+        """
+        Update vector index for the file if auto-indexing is enabled.
+
+        Args:
+            file_path: Path to the file that was created/updated
+            content: Content of the file for embedding generation
+        """
+        if not self._should_auto_update_index():
+            return
+
+        strategy = self.config.auto_index_strategy.lower()
+
+        if strategy == "immediate":
+            self._update_vector_index_immediate(file_path, content)
+        elif strategy in ["batch", "background"]:
+            self._update_vector_index_batched(file_path, content, strategy)
+        else:
+            logger.warning(
+                "Unknown auto-index strategy: %s, falling back to immediate", strategy
+            )
+            self._update_vector_index_immediate(file_path, content)
+
+    def _update_vector_index_immediate(self, file_path: Path, content: str) -> None:
+        """
+        Update vector index immediately.
+
+        Args:
+            file_path: Path to the file that was created/updated
+            content: Content of the file for embedding generation
+        """
+        try:
+            from minerva.vector.embeddings import SentenceTransformerProvider
+            from minerva.vector.indexer import VectorIndexer
+
+            # Initialize components
+            embedding_provider = SentenceTransformerProvider(
+                self.config.embedding_model
+            )
+            if not self.config.vector_db_path:
+                raise RuntimeError("Vector database path is not configured")
+            indexer = VectorIndexer(self.config.vector_db_path)
+
+            # Ensure schema is initialized - get dimension directly from provider
+            embedding_dim = embedding_provider.embedding_dim
+            try:
+                indexer.initialize_schema(embedding_dim)
+
+                # Generate and store embedding
+                embedding = embedding_provider.embed(content)
+                indexer.store_embedding(str(file_path), embedding, content)
+            finally:
+                # Ensure connections are closed
+                indexer.close()
+            logger.debug("Vector index updated immediately for file: %s", file_path)
+
+        except ImportError:
+            logger.debug(
+                "Vector search dependencies not available, skipping auto-index update"
+            )
+        except Exception as e:
+            logger.warning("Failed to update vector index for %s: %s", file_path, e)
+
+    def _update_vector_index_batched(
+        self, file_path: Path, content: str, strategy: str
+    ) -> None:
+        """
+        Queue file for batch/background vector index update.
+
+        Args:
+            file_path: Path to the file that was created/updated
+            content: Content of the file for embedding generation
+            strategy: Update strategy ('batch' or 'background')
+        """
+        try:
+            from minerva.vector.batch_indexer import get_batch_indexer
+
+            batch_indexer = get_batch_indexer(self.config, strategy)
+            if batch_indexer:
+                batch_indexer.queue_task(str(file_path), content, "update")
+                logger.debug("Queued vector index update for file: %s", file_path)
+            else:
+                logger.warning(
+                    "Failed to get batch indexer, falling back to immediate update"
+                )
+                self._update_vector_index_immediate(file_path, content)
+
+        except ImportError:
+            logger.debug(
+                "Vector search dependencies not available, skipping auto-index update"
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to queue vector index update for %s: %s", file_path, e
+            )
+
+    def _remove_from_vector_index_if_enabled(self, file_path: Path) -> None:
+        """
+        Remove file from vector index if auto-indexing is enabled.
+
+        Args:
+            file_path: Path to the file that was deleted
+        """
+        if not self._should_auto_update_index():
+            return
+
+        strategy = self.config.auto_index_strategy.lower()
+
+        if strategy == "immediate":
+            self._remove_from_vector_index_immediate(file_path)
+        elif strategy in ["batch", "background"]:
+            self._remove_from_vector_index_batched(file_path, strategy)
+        else:
+            logger.warning(
+                "Unknown auto-index strategy: %s, falling back to immediate", strategy
+            )
+            self._remove_from_vector_index_immediate(file_path)
+
+    def _remove_from_vector_index_immediate(self, file_path: Path) -> None:
+        """
+        Remove file from vector index immediately.
+
+        Args:
+            file_path: Path to the file that was deleted
+        """
+        try:
+            from minerva.vector.indexer import VectorIndexer
+
+            if not self.config.vector_db_path:
+                raise RuntimeError("Vector database path is not configured")
+            indexer = VectorIndexer(self.config.vector_db_path)
+
+            # Remove from index if it exists
+            if indexer.is_file_indexed(str(file_path)):
+                indexer.remove_file(str(file_path))
+                logger.debug(
+                    "Removed file from vector index immediately: %s", file_path
+                )
+
+            indexer.close()
+
+        except ImportError:
+            logger.debug(
+                "Vector search dependencies not available, skipping auto-index removal"
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to remove from vector index for %s: %s", file_path, e
+            )
+
+    def _remove_from_vector_index_batched(self, file_path: Path, strategy: str) -> None:
+        """
+        Queue file for batch/background vector index removal.
+
+        Args:
+            file_path: Path to the file that was deleted
+            strategy: Update strategy ('batch' or 'background')
+        """
+        try:
+            from minerva.vector.batch_indexer import get_batch_indexer
+
+            batch_indexer = get_batch_indexer(self.config, strategy)
+            if batch_indexer:
+                batch_indexer.queue_task(str(file_path), "", "remove")
+                logger.debug("Queued vector index removal for file: %s", file_path)
+            else:
+                logger.warning(
+                    "Failed to get batch indexer, falling back to immediate removal"
+                )
+                self._remove_from_vector_index_immediate(file_path)
+
+        except ImportError:
+            logger.debug(
+                "Vector search dependencies not available, skipping auto-index removal"
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to queue vector index removal for %s: %s", file_path, e
+            )
+
+    def _should_auto_update_index(self) -> bool:
+        """
+        Check if automatic vector index updates should be performed.
+
+        Returns:
+            bool: True if auto-updates should be performed
+        """
+        return (
+            self.config.vector_search_enabled
+            and self.config.auto_index_enabled
+            and self.config.vector_db_path is not None
+        )

@@ -30,15 +30,47 @@ Claude Desktopを通じて、以下の操作が可能です：
 - エイリアスの取得（get_aliases）
 - エイリアスによるノート検索（search_by_alias）
 
+### セマンティック検索機能（v0.15.0以降）
+- ベクターインデックスの構築（build_vector_index）
+- セマンティック検索によるノート発見（semantic_search）
+- インデックス状況確認（get_vector_index_status）
+- 小規模バッチ処理（build_vector_index_batch）
+- ベクターデータベースのリセット（reset_vector_database）
+
 ## 必要なもの
 
 - Python 3.12 以上
 - [uv](https://github.com/astral-sh/uv)
 - Claude Desktop（MCP対応版）
 
-## 設定方法
+### オプション依存関係
+セマンティック検索機能を使用する場合の追加要件：
+- DuckDB 1.1.3以上（ベクターデータベース、VSS拡張機能付き）
+- sentence-transformers 3.3.1以上（テキスト埋め込み生成）
+- numpy 1.24.0以上（数値計算とベクター操作）
 
-保存パッケージがある場合は、事前にインストールしてください。
+注意：これらの依存関係は`VECTOR_SEARCH_ENABLED=true`に設定した場合のみ必要です。セマンティック検索を使用しない場合、標準的なキーワード検索は引き続き利用可能です。
+
+## インストール方法
+
+### 基本インストール
+標準機能（ノート管理、検索、タグ機能）のみを使用する場合：
+```bash
+pip install -e .
+```
+
+### セマンティック検索付きインストール
+ベクター検索機能を含む完全版をインストールする場合：
+```bash
+pip install -e ".[vector]"
+```
+
+または、uvを使用する場合：
+```bash
+uv sync --extra vector
+```
+
+## 設定方法
 
 ### 環境変数の設定
 
@@ -54,6 +86,11 @@ DEFAULT_VAULT=<デフォルトで使用するvault名>
 ```
 # テスト環境やCI/CDで.envファイルの読み込みをスキップする場合
 MINERVA_SKIP_DOTENV=1
+
+# セマンティック検索機能（オプション）
+VECTOR_SEARCH_ENABLED=false  # "true"でセマンティック検索機能を有効化
+VECTOR_DB_PATH=/custom/path/to/vectors.db  # カスタムベクターDB保存場所（省略時: {vault}/.minerva/vectors.db）
+EMBEDDING_MODEL=all-MiniLM-L6-v2  # テキスト埋め込みモデル（384次元、省略時: all-MiniLM-L6-v2）
 ```
 
 ### pre-commit フックの設定
@@ -99,6 +136,12 @@ make clean
 # テストの実行
 make test
 
+# 高速テストのみ実行（遅いテストを除外、日常開発用）
+make test-fast
+
+# 遅いテストのみ実行（ML処理など、CI/リリース前用）
+make test-slow
+
 # カバレッジ付きテスト
 make test-cov
 
@@ -107,6 +150,9 @@ uv run pytest tests/*_properties.py
 
 # コードの品質チェック（lint、type-check、testを一括実行）
 make check-all
+
+# 高速品質チェック（遅いテストを除外、日常開発用）
+make check-fast
 ```
 
 ### MCP Inspector を起動する
@@ -123,12 +169,26 @@ uv run mcp dev src/minerva/server.py:mcp
 
 ## Claude Desktop にインストールする
 
-`-f .env` フラグは、環境変数を設定するための `.env` ファイルを指定します。このファイルには、プロジェクトの設定に必要な変数が含まれています。
+### 基本機能のみ
+標準機能のみを使用する場合：
 ```bash
 uv run mcp install src/minerva/server.py:mcp -f .env --with-editable .
 ```
 
-**重要**: `--with-editable .` オプションにより、プロジェクトをeditable modeでインストールします。これにより、Claude Desktop環境でも`minerva`パッケージとその依存関係（`python-frontmatter`など）が適切に認識されます。
+### セマンティック検索機能込み
+ベクター検索機能を含む場合（推奨）：
+```bash
+# まずvector依存関係をインストール
+uv sync --extra vector
+
+# Claude Desktopにインストール
+uv run mcp install src/minerva/server.py:mcp -f .env --with-editable .
+```
+
+**重要**:
+- `--with-editable .` オプションにより、プロジェクトをeditable modeでインストールします
+- セマンティック検索を使用する場合は、事前に`uv sync --extra vector`を実行してください
+- `.env`ファイルで`VECTOR_SEARCH_ENABLED=true`を設定することを忘れずに
 
 ## Claude Desktop での使い方
 
@@ -170,6 +230,15 @@ add_alias 関数を使って「project_notes」ファイルに「プロジェク
 search_by_alias 関数を使って「会議メモ」というエイリアスでノートを検索してください。
 ```
 
+#### セマンティック検索（v0.15.0以降）
+```text
+ベクターインデックスを構築してセマンティック検索を有効にしてください。まず build_vector_index を実行してからsemantic_search で「機械学習」に関連するノートを探してください。
+```
+
+```text
+semantic_search 関数を使って「プロジェクト管理」に関連するノートを類似度0.7以上で5件まで検索してください。
+```
+
 ## Claude Desktop のログの確認
 
 MacOSの場合、以下のコマンドでログを確認できます。
@@ -184,18 +253,22 @@ pytestを使用して、テストを実行することができます。
 
 ```bash
 # Makefileを使用（推奨）
-make test
+make test          # 全テスト実行
+make test-fast     # 高速テスト（日常開発用、約5秒）
+make test-slow     # 遅いテスト（MLモデル読み込みなど、約17秒）
 
 # カバレッジ付きテスト
 make test-cov
 
 # または直接uvコマンドを使用
-uv run pytest
+uv run pytest                    # 全テスト実行
+uv run pytest -m "not slow"      # 高速テストのみ
+uv run pytest -m "slow"          # 遅いテストのみ
 ```
 
 ## 現在のバージョン
 
-Minervaの現在のバージョンは `v0.14.0` です。詳細な変更履歴については[CHANGELOG.md](CHANGELOG.md)を参照してください。
+Minervaの現在のバージョンは `v0.15.0` です。詳細な変更履歴については[CHANGELOG.md](CHANGELOG.md)を参照してください。
 
 ## 将来の開発方針
 
@@ -204,6 +277,7 @@ Minervaは現在、基本的なノート操作（作成、読取、検索）と�
 ### 優先度：高（Must）
 - [x] **タグ管理機能** - タグの追加・削除・リネーム・検索など（v0.2.0で実装済み）
 - [x] **スマートエイリアス機能** - 複数のエイリアス（別名）でノートを参照（v0.9.2で実装済み）
+- [✅] **セマンティック検索機能** - ベクター埋め込みによる意味的類似度検索でノート発見支援（v0.15.0で実装完了：埋め込み生成・ベクターインデックス・DuckDB VSS統合・セマンティック検索・MCP統合）
 - [ ] **Front Matter 編集支援** - YAMLメタデータの構造を保った属性追加／変更
 - [x] **変更プレビュー／承認フロー** - ファイル変更前に差分を表示し確認する機能
 - [ ] **バージョン履歴統合** - Git連携による変更履歴管理
@@ -250,6 +324,7 @@ Minervaの目標は、Claude Desktopと連携してObsidianの操作を自然言
 - [Issueと PR の効果的な活用ガイド](docs/issue_pr_guide.md) - IssueとPRの効果的な活用方法
 - [GitHub Copilot カスタム指示ガイドライン](docs/copilot_guidelines.md) - GitHub Copilotのカスタム指示を使用した開発ガイドライン
 - [Claude Code カスタムスラッシュコマンドガイドライン](docs/claude_code_commands.md) - Claude Codeのカスタムスラッシュコマンドの使用方法
+- [ベクター検索トラブルシューティング](docs/vector_search_troubleshooting.md) - セマンティック検索機能の問題解決ガイド
 - [リリースプロセス](docs/release_process.md) - リリースプロセスと自動化の詳細
 
 ## 開発ガイド

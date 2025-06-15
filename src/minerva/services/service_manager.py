@@ -8,7 +8,11 @@ maintaining backward compatibility with the existing API.
 
 import logging
 from pathlib import Path
-from typing import ParamSpec, TypeVar
+from typing import ParamSpec, TypeVar, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from minerva.vector.indexer import VectorIndexer
+    from minerva.vector.embeddings import SentenceTransformerProvider
 
 from minerva.config import MinervaConfig
 from minerva.error_handler import MinervaErrorHandler
@@ -477,6 +481,228 @@ class ServiceManager:
             FileNotFoundError: If the specified directory does not exist
         """
         return self.alias_operations.search_by_alias(alias, directory)
+
+    # Vector search operations
+    def _prepare_vector_indexing(
+        self,
+        indexer: "VectorIndexer",
+        embedding_provider: "SentenceTransformerProvider",
+        files_to_process: list[str],
+        force_rebuild: bool,
+    ) -> None:
+        """Prepare vector indexing by initializing schema."""
+        if not files_to_process:
+            return
+
+        # Get dimension from first embedding
+        with open(files_to_process[0], "r", encoding="utf-8") as f:
+            sample_content = f.read()[:500]  # Sample content for dimension detection
+        sample_embedding = embedding_provider.embed(sample_content)
+
+        # If force_rebuild is True, clear existing data first
+        if force_rebuild:
+            try:
+                conn = indexer._get_connection()
+                conn.execute("DROP TABLE IF EXISTS vectors")
+                conn.execute("DROP TABLE IF EXISTS indexed_files")
+                conn.execute("DROP SEQUENCE IF EXISTS vectors_id_seq")
+                logger.info("Cleared existing vector database for rebuild")
+            except Exception as e:
+                logger.warning("Could not clear existing database: %s", e)
+
+        # Get the actual embedding dimension (shape[1] for 2D array)
+        embedding_dim = (
+            sample_embedding.shape[1]
+            if sample_embedding.ndim == 2
+            else len(sample_embedding)
+        )
+        indexer.initialize_schema(embedding_dim)
+
+    def build_vector_index(
+        self,
+        directory: str | None = None,
+        file_pattern: str = "*.md",
+        force_rebuild: bool = False,
+    ) -> dict[str, int | list[str]]:
+        """
+        Build or update the vector search index for semantic search.
+
+        Args:
+            directory: Specific folder to index (if None, indexes entire vault)
+            file_pattern: File pattern to match (default: "*.md")
+            force_rebuild: Whether to rebuild existing embeddings (default: False)
+
+        Returns:
+            Dict with 'processed' (count), 'skipped' (count), and 'errors' (list) keys
+
+        Raises:
+            RuntimeError: If vector search is not enabled
+            ImportError: If vector search dependencies are not available
+
+        Note:
+            If you encounter dimension mismatch errors, try force_rebuild=True
+            to recreate the database with the correct embedding dimensions.
+        """
+        if not self.config.vector_search_enabled:
+            raise RuntimeError("Vector search is not enabled in configuration")
+
+        if not self.config.vector_db_path:
+            raise RuntimeError("Vector database path is not configured")
+
+        try:
+            import glob
+            import os
+            from minerva.vector.embeddings import SentenceTransformerProvider
+            from minerva.vector.indexer import VectorIndexer
+
+            # Initialize components
+            embedding_provider = SentenceTransformerProvider(
+                self.config.embedding_model
+            )
+            indexer = VectorIndexer(self.config.vector_db_path)
+
+            # Determine directory to process
+            target_dir = directory or str(self.config.vault_path)
+
+            # Find files to process
+            search_pattern = os.path.join(target_dir, "**", file_pattern)
+            files_to_process = glob.glob(search_pattern, recursive=True)
+
+            # Initialize tracking
+            processed = 0
+            skipped = 0
+            errors = []
+
+            # Initialize schema (embedding dimension will be determined dynamically)
+            try:
+                self._prepare_vector_indexing(
+                    indexer, embedding_provider, files_to_process, force_rebuild
+                )
+            except Exception as e:
+                logger.error("Failed to initialize schema: %s", e)
+                raise
+
+            # Filter files that need updating (incremental indexing)
+            if not force_rebuild:
+                files_to_update = indexer.get_outdated_files(files_to_process)
+                logger.info(
+                    "Incremental indexing: %d out of %d files need updates",
+                    len(files_to_update),
+                    len(files_to_process),
+                )
+                skipped = len(files_to_process) - len(files_to_update)
+                files_to_process = files_to_update
+            else:
+                logger.info(
+                    "Force rebuild: processing all %d files", len(files_to_process)
+                )
+
+            # Process each file that needs updating
+            for file_path in files_to_process:
+                try:
+                    # Read file content
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+
+                    # Generate embedding
+                    embedding = embedding_provider.embed(content)
+
+                    # Store in index
+                    indexer.store_embedding(file_path, embedding, content)
+                    processed += 1
+
+                    if processed % 5 == 0:  # Log progress every 5 files
+                        logger.info("Processed %d files for vector indexing", processed)
+
+                    # Yield control periodically to prevent timeout
+                    if processed % 3 == 0:
+                        import time
+
+                        time.sleep(0.1)  # Small pause to yield control
+
+                except Exception as e:
+                    error_msg = f"Failed to process {file_path}: {e}"
+                    logger.warning(error_msg)
+                    errors.append(error_msg)
+
+            # Close connections
+            indexer.close()
+
+            logger.info(
+                "Vector indexing complete: %d processed, %d skipped, %d errors",
+                processed,
+                skipped,
+                len(errors),
+            )
+
+            return {
+                "processed": processed,
+                "skipped": skipped,
+                "errors": errors,
+            }
+
+        except ImportError as e:
+            logger.error("Vector search dependencies not available: %s", e)
+            raise ImportError(
+                "Vector search requires additional dependencies. "
+                "Install with: pip install sentence-transformers duckdb"
+            ) from e
+
+    def get_vector_index_status(self) -> dict[str, int | bool | str]:
+        """
+        Get information about the current vector search index status.
+
+        Returns:
+            Dict with index statistics and availability status
+
+        Raises:
+            RuntimeError: If vector search is not enabled
+        """
+        try:
+            if not self.config.vector_search_enabled:
+                return {
+                    "vector_search_enabled": False,
+                    "indexed_files_count": 0,
+                    "database_exists": False,
+                }
+
+            if not self.config.vector_db_path:
+                return {
+                    "vector_search_enabled": True,
+                    "indexed_files_count": 0,
+                    "database_exists": False,
+                }
+
+            from minerva.vector.searcher import VectorSearcher
+
+            # Check if database exists
+            db_exists = self.config.vector_db_path.exists()
+
+            if not db_exists:
+                return {
+                    "vector_search_enabled": True,
+                    "indexed_files_count": 0,
+                    "database_exists": False,
+                }
+
+            # Get indexed files count
+            searcher = VectorSearcher(self.config.vector_db_path)
+            indexed_files = searcher.get_indexed_files()
+            searcher.close()
+
+            return {
+                "vector_search_enabled": True,
+                "indexed_files_count": len(indexed_files),
+                "database_exists": True,
+            }
+
+        except ImportError:
+            return {
+                "vector_search_enabled": False,
+                "indexed_files_count": 0,
+                "database_exists": False,
+                "error": "Vector search dependencies not available",
+            }
 
 
 def create_minerva_service() -> ServiceManager:

@@ -2,7 +2,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, field_validator, Field
 
@@ -93,6 +93,28 @@ class SearchResult(BaseModel):
     )
     context: Optional[str] = Field(
         default=None, description="Context around the found keyword"
+    )
+
+
+class SemanticSearchResult(BaseModel):
+    """
+    Model for semantic search results using vector similarity.
+    """
+
+    file_path: str = Field(description="Path to the file")
+    title: Optional[str] = Field(
+        default=None,
+        description="Title of the note (extracted from frontmatter or filename)",
+    )
+    content_preview: str = Field(description="Preview of the relevant content")
+    similarity_score: float = Field(
+        description="Similarity score between 0.0 and 1.0", ge=0.0, le=1.0
+    )
+    metadata: Optional[dict[str, Any]] = Field(
+        default=None, description="Additional metadata from the note"
+    )
+    aliases: Optional[list[str]] = Field(
+        default=None, description="List of aliases for the note"
     )
 
 

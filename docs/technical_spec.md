@@ -16,6 +16,14 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
    - **MinervaConfig**: 依存性注入用の設定データクラス
    - **create_minerva_service()**: デフォルト設定でのServiceManagerファクトリー関数
 
+1.1. **セマンティック検索層** (`vector/`) - **完全実装済み（v0.15.0）**
+- **EmbeddingProvider**: テキスト埋め込み抽象基底クラス（実装済み）
+- **SentenceTransformerProvider**: sentence-transformers実装（all-MiniLM-L6-v2モデル、384次元埋め込み、実装済み）
+- **VectorIndexer**: DuckDB VSS拡張を使用したベクトルインデックス管理（HNSWインデックス対応、実装済み）
+- **VectorSearcher**: コサイン類似度ベクター検索とフィルタリング（実装済み）
+- **SearchOperations統合**: セマンティック検索の完全統合（実装済み）
+- **オプショナル依存関係管理**: 適切なエラーメッセージとlazy loading実装
+
 2. **MCPサーバー層** (`server.py`) - **MCP 1.9対応済み**
    - **FastMCPサーバー**: MCP 1.9.3準拠、`@mcp.tool()` デコレータを使用した直接的なツール登録
    - **ダイレクトサービス統合**: ラッパー関数を排除し、サービスメソッドを直接呼び出し
@@ -23,10 +31,17 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
      - `read_note()`, `search_notes()` 関数（読み取り操作）
      - `create_note()`, `edit_note()` 関数（状態変更操作）
      - `get_note_delete_confirmation()`, `perform_note_delete()` 関数（2段階削除プロセス）
-     - `add_tag()`, `remove_tag()`, `rename_tag()`, `get_tags()`, `list_all_tags()`, `find_notes_with_tag()` 関数
+     - `add_tag()`, `remove_tag()`, `rename_tag()`, `get_tags()`, `list_all_tags()`, `find_notes_with_tag()` 関数（タグ管理）
+     - `add_alias()`, `remove_alias()`, `get_aliases()`, `search_by_alias()` 関数（エイリアス管理）
+     - `semantic_search()`, `build_vector_index()`, `get_vector_index_status()` 関数（セマンティック検索）
+     - `build_vector_index_batch()`, `reset_vector_database()`, `debug_vector_schema()` 関数（ベクター検索デバッグ・管理）
 
-3. **設定管理層** (`config.py`) - **拡張済み**
+3. **設定管理層** (`config.py`) - **セマンティック検索対応済み**
    - **MinervaConfig**: 新しい設定データクラス
+   - **セマンティック検索設定**: 実装済みオプション機能設定
+     - `vector_search_enabled`: 機能の有効/無効切り替え（デフォルト: false）
+     - `vector_db_path`: ベクターデータベースファイルパス（省略時: {vault}/.minerva/vectors.db）
+     - `embedding_model`: 使用する埋め込みモデル名（デフォルト: all-MiniLM-L6-v2、384次元）
    - **レガシーグローバル変数**: 既存の設定（後方互換性維持）
 
 4. **フロントマター管理層** (`frontmatter_manager.py`)

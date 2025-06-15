@@ -1,7 +1,7 @@
 # Minerva Development Makefile
 # Provides unified interface for common development commands
 
-.PHONY: help install setup-dev test test-cov lint type-check format dev clean check-all fix-whitespace
+.PHONY: help install install-vector setup-dev test test-fast test-core test-vector test-slow test-cov lint type-check format dev clean check-all check-fast fix-whitespace
 
 # Default target
 .DEFAULT_GOAL := help
@@ -29,12 +29,12 @@ help: ## Display this help message
 	@echo ""
 	@echo "$(GREEN)Testing:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		grep -E "(test)" | \
+		grep -E "^test" | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-15s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
-	@echo "$(GREEN)Code Quality:$(RESET)"
+	@echo "$(GREEN)Quality Checks:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		grep -E "(lint|type-check|format|check-all|fix-whitespace|pre-commit)" | \
+		grep -E "(lint|type-check|format|check-fast|check-all|fix-whitespace|pre-commit)" | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-15s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(GREEN)Development Tools:$(RESET)"
@@ -42,13 +42,19 @@ help: ## Display this help message
 		grep -E "(dev)" | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-15s$(RESET) %s\n", $$1, $$2}'
 
-install: ## Install project dependencies
+install: ## Install project dependencies (basic features only)
 	@echo "$(BLUE)Installing dependencies...$(RESET)"
 	uv pip install -e .
 	uv sync --group dev
 	@echo "$(GREEN)Dependencies installed successfully$(RESET)"
 
-setup-dev: install ## Set up complete development environment
+install-vector: ## Install project with vector search dependencies
+	@echo "$(BLUE)Installing dependencies with vector search support...$(RESET)"
+	uv pip install -e ".[vector]"
+	uv sync --group dev --extra vector
+	@echo "$(GREEN)Dependencies installed with vector search support$(RESET)"
+
+setup-dev: install-vector ## Set up complete development environment with vector search
 	@echo "$(BLUE)Setting up development environment...$(RESET)"
 	@if [ ! -f .env ]; then \
 		echo "$(YELLOW)Warning: .env file not found. Create one with OBSIDIAN_VAULT_ROOT and DEFAULT_VAULT$(RESET)"; \
@@ -59,6 +65,26 @@ setup-dev: install ## Set up complete development environment
 test: ## Run all tests
 	@echo "$(BLUE)Running tests...$(RESET)"
 	PYTHONPATH=src uv run pytest
+
+test-fast: ## Run fast tests only (excludes slow integration tests)
+	@echo "$(BLUE)Running fast tests (excluding slow tests)...$(RESET)"
+	PYTHONPATH=src uv run pytest -m "not slow and not integration"
+	@echo "$(GREEN)Fast tests completed! Use 'make test' for full test suite.$(RESET)"
+
+test-core: ## Run core tests only (excludes vector dependency tests)
+	@echo "$(BLUE)Running core tests (excluding vector tests)...$(RESET)"
+	PYTHONPATH=src uv run pytest -m "not vector"
+	@echo "$(GREEN)Core tests completed! Use 'make test-vector' for vector tests.$(RESET)"
+
+test-vector: ## Run vector tests only (requires vector dependencies)
+	@echo "$(BLUE)Running vector tests...$(RESET)"
+	PYTHONPATH=src uv run pytest -m "vector"
+	@echo "$(GREEN)Vector tests completed!$(RESET)"
+
+test-slow: ## Run slow integration tests only
+	@echo "$(BLUE)Running slow integration tests...$(RESET)"
+	PYTHONPATH=src uv run pytest -m "slow"
+	@echo "$(GREEN)Slow tests completed!$(RESET)"
 
 test-cov: ## Run tests with coverage report
 	@echo "$(BLUE)Running tests with coverage...$(RESET)"
@@ -104,5 +130,11 @@ pre-commit: ## Run pre-commit hooks on all files
 	PYTHONPATH=src uv run pre-commit run --all-files
 	@echo "$(GREEN)Pre-commit checks passed!$(RESET)"
 
+check-fast: lint type-check test-fast ## Run fast quality checks (excludes slow tests)
+	@echo "$(GREEN)Fast quality checks passed!$(RESET)"
+
 check-all: lint type-check test ## Run comprehensive quality checks
 	@echo "$(GREEN)All quality checks passed!$(RESET)"
+
+check-all-core: lint type-check test-core ## Run comprehensive quality checks (core only, no vector deps)
+	@echo "$(GREEN)All core quality checks passed!$(RESET)"

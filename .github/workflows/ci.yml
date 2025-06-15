@@ -27,11 +27,11 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
-      - name: Install dependencies
-        run: uv sync --dev
+      - name: Install dependencies (with vector support for type checking)
+        run: uv sync --dev --extra vector
 
-      - name: Install project with Makefile support
-        run: make install
+      - name: Install project with vector support
+        run: make install-vector
 
       - name: Run comprehensive quality checks
         run: make check-all
@@ -41,8 +41,8 @@ jobs:
           DEFAULT_NOTE_DIR: test-notes
           DEFAULT_NOTE_AUTHOR: test-author
 
-  test:
-    name: Test
+  test-core:
+    name: Core Tests (without vector dependencies)
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -59,33 +59,78 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: Install dependencies (core only)
         run: uv sync --dev
 
-      - name: Install project with Makefile support
+      - name: Install project (core only)
         run: make install
 
-      - name: Run tests with coverage
-        run: make test-cov
+      - name: Run core tests (exclude vector tests)
+        run: uv run pytest -m "not vector" --cov=minerva --cov-report=xml --cov-report=html --cov-report=term
         env:
+          PYTHONPATH: src
           OBSIDIAN_VAULT_ROOT: /tmp/obsidian-vault
           DEFAULT_VAULT: test-vault
           DEFAULT_NOTE_DIR: test-notes
           DEFAULT_NOTE_AUTHOR: test-author
 
-      - name: Upload coverage reports to Codecov
+      - name: Upload core coverage reports to Codecov
         if: matrix.python-version == '3.12' && !env.ACT
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
+          flags: core
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Upload HTML coverage report
+  test-vector:
+    name: Vector Tests (with full dependencies)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.7.12"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies (with vector support)
+        run: uv sync --dev --extra vector
+
+      - name: Install project (with vector support)
+        run: make install-vector
+
+      - name: Run vector tests only
+        run: uv run pytest -m "vector" --cov=minerva --cov-report=xml --cov-report=term
+        env:
+          PYTHONPATH: src
+          OBSIDIAN_VAULT_ROOT: /tmp/obsidian-vault
+          DEFAULT_VAULT: test-vault
+          DEFAULT_NOTE_DIR: test-notes
+          DEFAULT_NOTE_AUTHOR: test-author
+
+      - name: Upload vector coverage reports to Codecov
         if: matrix.python-version == '3.12' && !env.ACT
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+          flags: vector
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload HTML coverage report (core tests)
+        if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
+          name: coverage-report-core
           path: htmlcov/
           retention-days: 30
