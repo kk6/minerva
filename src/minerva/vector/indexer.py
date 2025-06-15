@@ -510,20 +510,23 @@ class VectorIndexer:
             file_stat = os.stat(file_path)
             file_mtime = datetime.fromtimestamp(file_stat.st_mtime).isoformat()
 
+            # Get current timestamp for indexed_at
+            current_time = datetime.now().isoformat()
+
             conn = self._get_connection()
 
             # Insert or update file tracking record
             conn.execute(
                 """
-                INSERT INTO indexed_files (file_path, content_hash, file_modified_at, embedding_count)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO indexed_files (file_path, content_hash, file_modified_at, embedding_count, indexed_at)
+                VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(file_path) DO UPDATE SET
                     content_hash = excluded.content_hash,
                     file_modified_at = excluded.file_modified_at,
                     embedding_count = excluded.embedding_count,
-                    indexed_at = CURRENT_TIMESTAMP
+                    indexed_at = excluded.indexed_at
             """,
-                (file_path, content_hash, file_mtime, embedding_count),
+                (file_path, content_hash, file_mtime, embedding_count, current_time),
             )
 
             logger.debug("Updated file tracking for %s", file_path)

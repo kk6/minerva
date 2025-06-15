@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from minerva.vector.indexer import VectorIndexer
 
@@ -190,3 +190,90 @@ class TestVectorIndexer:
 
         # Cleanup
         indexer.close()
+
+
+class TestVectorIndexerErrorPaths:
+    """Test error paths and edge cases in vector indexer."""
+
+    def test_home_directory_fallback(self):
+        """Test home directory fallback logic."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test.db"
+            indexer = VectorIndexer(db_path)
+
+            # Mock os.path.expanduser to return invalid home
+            with patch("os.path.expanduser", return_value=""):
+                # This should trigger the fallback logic
+                indexer._get_connection()
+
+            # Should still work with fallback
+            assert indexer._connection is not None
+            indexer.close()
+
+    def test_home_directory_tilde_fallback(self):
+        """Test home directory fallback when expanduser returns '~'."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test.db"
+            indexer = VectorIndexer(db_path)
+
+            # Mock os.path.expanduser to return just "~"
+            with patch("os.path.expanduser", return_value="~"):
+                # This should trigger the fallback logic
+                indexer._get_connection()
+
+            # Should still work with fallback
+            assert indexer._connection is not None
+            indexer.close()
+
+    def test_home_directory_setup_error(self):
+        """Test error handling in home directory setup."""
+        indexer = VectorIndexer(Path("/test/path.db"))
+
+        # Mock connection to raise exception
+        mock_connection = Mock()
+        mock_connection.execute.side_effect = Exception("Test error")
+        indexer._connection = mock_connection
+
+        # Call _setup_home_directory directly
+        indexer._setup_home_directory()
+        # Should not raise exception, just log warning
+
+    def test_vss_extension_already_loaded(self):
+        """Test VSS extension setup when already loaded."""
+        indexer = VectorIndexer(Path("/test/path.db"))
+
+        # Mock connection with VSS already loaded
+        mock_connection = Mock()
+        mock_connection.fetchone.return_value = True  # Already loaded
+        indexer._connection = mock_connection
+
+        # This should trigger the "already loaded" path
+        indexer._setup_vss_extension()
+
+        # Verify that only the check query was executed, not install/load
+        assert mock_connection.execute.call_count == 1
+
+    def test_close_idempotent(self):
+        """Test that close() can be called multiple times safely."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            db_path = Path(tmp_dir) / "test.db"
+            indexer = VectorIndexer(db_path)
+
+            # Get connection
+            indexer._get_connection()
+
+            # Close once
+            indexer.close()
+            assert indexer._connection is None
+
+            # Close again - should not raise exception
+            indexer.close()
+            assert indexer._connection is None
+
+    def test_close_without_connection(self):
+        """Test that close() works when no connection was ever created."""
+        indexer = VectorIndexer(Path("/test/path.db"))
+
+        # Close without ever calling _get_connection
+        indexer.close()  # Should not raise exception
+        assert indexer._connection is None

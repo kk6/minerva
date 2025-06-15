@@ -1,5 +1,9 @@
 import logging
+import os
 from pathlib import Path
+from typing import Dict, Union
+import glob
+import re
 
 from mcp.server.fastmcp import FastMCP
 
@@ -621,7 +625,6 @@ def reset_vector_database() -> dict[str, str]:
     This is useful when encountering dimension mismatch errors that cannot
     be resolved by force_rebuild alone.
 
-    Returns:
         Dict with status message
     """
     import os
@@ -709,6 +712,35 @@ def _process_batch_files(indexer, embedding_provider, all_files, force_rebuild):
     return processed, skipped, errors
 
 
+def _validate_batch_parameters(
+    max_files: int, file_pattern: str, directory: str | None
+) -> None:
+    """Validate batch indexing parameters."""
+    if max_files > 100:
+        raise ValueError("max_files exceeds safety limit of 100")
+    if max_files < 1:
+        raise ValueError("max_files must be positive")
+    if not re.match(r"^[\w\*\.\-/]+$", file_pattern):
+        raise ValueError("Invalid characters in file_pattern")
+
+    if directory:
+        try:
+            dir_path = Path(directory).resolve()
+            vault_path = Path(get_service().config.vault_path).resolve()
+            if not dir_path.is_relative_to(vault_path):
+                raise ValueError("Directory must be within vault")
+        except (ValueError, OSError):
+            raise ValueError("Invalid directory path")
+
+
+def _check_vector_configuration(service) -> None:
+    """Check vector search configuration prerequisites."""
+    if not service.config.vector_search_enabled:
+        raise RuntimeError("Vector search is not enabled in configuration")
+    if not service.config.vector_db_path:
+        raise RuntimeError("Vector database path is not configured")
+
+
 @mcp.tool()
 def build_vector_index_batch(
     directory: str | None = None,
@@ -730,15 +762,10 @@ def build_vector_index_batch(
     Returns:
         Dict with 'processed' (count), 'skipped' (count), and 'errors' (list) keys
     """
-    import glob
-    import os
+    _validate_batch_parameters(max_files, file_pattern, directory)
 
     service = get_service()
-    if not service.config.vector_search_enabled:
-        raise RuntimeError("Vector search is not enabled in configuration")
-
-    if not service.config.vector_db_path:
-        raise RuntimeError("Vector database path is not configured")
+    _check_vector_configuration(service)
 
     try:
         from minerva.vector.embeddings import SentenceTransformerProvider
@@ -881,21 +908,8 @@ def find_similar_notes(
 
 
 @mcp.tool()
-def process_batch_index_queue() -> dict[str, int]:
-    """
-    Process pending batch index operations immediately.
-
-    This tool manually triggers processing of any queued batch index operations
-    when using 'batch' or 'background' auto-index strategies. It's useful for
-    ensuring all pending index updates are completed before performing searches.
-
-    Returns:
-        Dictionary with processing statistics: tasks_processed, queue_size_before, queue_size_after
-
-    Note:
-        Only useful when AUTO_INDEX_STRATEGY is set to 'batch' or 'background'.
-        Has no effect when using 'immediate' strategy.
-    """
+def process_batch_index() -> Dict[str, Union[int, str]]:
+    """Process pending batch index tasks."""
     try:
         from minerva.vector.batch_indexer import get_batch_indexer
 
@@ -927,22 +941,15 @@ def process_batch_index_queue() -> dict[str, int]:
             "tasks_processed": tasks_processed,
             "queue_size_before": queue_size_before,
             "queue_size_after": queue_size_after,
-            "message": f"Processed {tasks_processed} tasks from batch queue",
+            "message": "Batch processing completed successfully",
         }
 
-    except ImportError:
-        return {
-            "tasks_processed": 0,
-            "queue_size_before": 0,
-            "queue_size_after": 0,
-            "error": "Vector search dependencies not available",
-        }
     except Exception as e:
         return {
             "tasks_processed": 0,
             "queue_size_before": 0,
             "queue_size_after": 0,
-            "error": f"Failed to process batch queue: {e}",
+            "message": f"Error during batch processing: {str(e)}",
         }
 
 

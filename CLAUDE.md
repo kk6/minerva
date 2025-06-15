@@ -138,6 +138,73 @@ Follow the language conventions defined in `.github/instructions/language_rules.
 - **CRITICAL**: Do NOT use f-strings in logging! Use % formatting instead
 - **CRITICAL**: Remove all trailing whitespace from files before committing - CI checks will fail otherwise
 
+### Code Complexity Management (Updated December 2024)
+
+**Complexity Threshold**: `max-complexity = 10` (Ruff's default level)
+- This is a **strict setting** compared to industry standards (12-20)
+- Appropriate for Minerva's high-quality requirements and small team size
+- Enforces better code organization and testability
+
+**Industry Comparison**:
+- Ruff/Flake8 default: 10 (Minerva's setting)
+- SonarQube: 15
+- ESLint: 20
+- Large enterprise projects: 12-15
+
+**When C901 "too complex" errors occur**:
+1. **Extract helper functions**: Break complex validation, configuration checks, or processing logic into focused functions
+2. **Use early returns**: Reduce nesting with guard clauses and early exits
+3. **Separate concerns**: Split functions that handle multiple responsibilities
+4. **Create private methods**: Extract reusable logic within classes
+
+**Example refactoring pattern**:
+```python
+# Before: Complex function (complexity > 10)
+@mcp.tool()
+def complex_function(param1, param2, param3):
+    # Validation logic (5 conditions)
+    if not param1:
+        raise ValueError("...")
+    if param2 < 0:
+        raise ValueError("...")
+    # ... more validation
+
+    # Configuration checks (3 conditions)
+    if not config.enabled:
+        raise RuntimeError("...")
+    # ... more config checks
+
+    # Main processing logic
+    # ... complex implementation
+
+# After: Refactored with helper functions (complexity < 10)
+def _validate_parameters(param1, param2, param3):
+    """Extract validation logic."""
+    if not param1:
+        raise ValueError("...")
+    if param2 < 0:
+        raise ValueError("...")
+
+def _check_configuration(config):
+    """Extract configuration validation."""
+    if not config.enabled:
+        raise RuntimeError("...")
+
+@mcp.tool()
+def complex_function(param1, param2, param3):
+    _validate_parameters(param1, param2, param3)
+    _check_configuration(get_config())
+
+    # Simplified main logic
+    return process_main_logic()
+```
+
+**Benefits of strict complexity limits**:
+- **Improved testability**: Smaller functions are easier to unit test
+- **Better maintainability**: Easier to understand and modify
+- **Reduced bugs**: Less complex control flow reduces error potential
+- **Enhanced readability**: Functions have clear, single responsibilities
+
 ## Development Workflow
 
 ### **MANDATORY FIRST STEP: Create Topic Branch**
@@ -722,6 +789,165 @@ make check-all     # Complete quality checks with all tests
 - **Encourages frequent testing** due to faster feedback
 - **Maintains full coverage** available when needed
 - **Improves developer productivity** for quick iteration cycles
+
+### Test Coverage Improvement Strategies (December 2024)
+
+#### Systematic Coverage Analysis and Improvement
+
+When test coverage drops significantly (e.g., from 95% to 82%), use a systematic approach to identify and address coverage gaps:
+
+**1. Identify High-Impact Modules**
+```bash
+# Get detailed coverage report with missing lines
+uv run pytest tests/ --cov=src/minerva --cov-report=term-missing | grep -E "[0-9]+%"
+
+# Focus on modules with lowest coverage and highest line counts
+# Priority order: server.py (49% coverage), service_manager.py (71%), vector modules
+```
+
+**2. Coverage Improvement Workflow**
+```bash
+# Start with highest priority/lowest coverage files
+# 1. Analyze uncovered lines to understand missing scenarios
+# 2. Add targeted test cases for specific line ranges
+# 3. Verify improvements with incremental coverage checks
+uv run pytest tests/test_server.py --cov=src/minerva/server --cov-report=term-missing
+```
+
+**3. Common Coverage Gaps and Solutions**
+
+**Server/MCP Tool Functions** (High Impact):
+- **Problem**: MCP tool functions often have low coverage because they're simple delegations
+- **Solution**: Test each tool function directly with various parameter combinations
+```python
+@patch("minerva.server.get_service")
+def test_semantic_search_tool(self, mock_get_service, mock_service):
+    """Test semantic_search MCP tool function."""
+    mock_get_service.return_value = mock_service
+    result = server.semantic_search("test query", limit=5, threshold=0.6)
+    mock_service.search_operations.semantic_search.assert_called_once_with(
+        "test query", 5, 0.6, None
+    )
+```
+
+**Error Paths and Edge Cases** (Medium Impact):
+- **Problem**: Error handling code often uncovered in happy-path testing
+- **Solution**: Systematically test failure scenarios
+```python
+def test_vector_search_disabled(self, service_manager):
+    """Test behavior when vector search is disabled."""
+    with pytest.raises(RuntimeError, match="Vector search is not enabled"):
+        service_manager.build_vector_index()
+
+def test_import_error_handling(self):
+    """Test handling of missing dependencies."""
+    with patch('minerva.vector.indexer.duckdb', None):
+        with pytest.raises(ImportError, match="duckdb is required"):
+            indexer._get_connection()
+```
+
+**Configuration Edge Cases** (Medium Impact):
+- **Problem**: Different configuration states create branching paths
+- **Solution**: Test each configuration combination
+```python
+def test_get_vector_index_status_disabled(self, service_manager_vector_disabled):
+    """Test status when vector search is disabled."""
+    result = service_manager_vector_disabled.get_vector_index_status()
+    expected = {
+        "vector_search_enabled": False,
+        "indexed_files_count": 0,
+        "database_exists": False,
+    }
+    assert result == expected
+```
+
+**4. Testing Patterns for Different Coverage Scenarios**
+
+**External Dependency Mocking**:
+```python
+# Mock file system operations that can't be tested reliably
+@pytest.fixture
+def mock_config_with_path_mocks(self):
+    config = Mock(spec=MinervaConfig)
+    mock_path = Mock()
+    mock_path.__str__ = Mock(return_value="/test/vectors.db")
+    mock_path.exists.return_value = True
+    config.vector_db_path = mock_path
+    return config
+```
+
+**Database Connection Testing**:
+```python
+# Test database operations without real database
+def test_database_connection_error(self):
+    indexer = VectorIndexer(Path("/test/path.db"))
+    mock_connection = Mock()
+    mock_connection.execute.side_effect = Exception("Connection failed")
+    indexer._connection = mock_connection
+
+    # Should handle connection errors gracefully
+    indexer._setup_home_directory()  # Should not raise
+```
+
+**Module-Level Import Testing**:
+```python
+def test_optional_dependency_handling(self):
+    """Test graceful handling when optional dependencies unavailable."""
+    from minerva.vector import indexer
+    original_duckdb = indexer.duckdb
+    indexer.duckdb = None
+
+    try:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            vector_indexer = VectorIndexer(Path(tmp_dir) / "test.db")
+            with pytest.raises(ImportError, match="duckdb is required"):
+                vector_indexer._get_connection()
+    finally:
+        indexer.duckdb = original_duckdb
+```
+
+**5. Coverage Improvement Results**
+
+**Actual improvements achieved in December 2024 session**:
+- **Overall Coverage**: 82% → 87% (+5 percentage points)
+- **server.py**: 49% → 84% (+35 percentage points) - High impact
+- **service_manager.py**: 71% → 92% (+21 percentage points) - High impact
+- **vector/indexer.py**: 67% → 69% (+2 percentage points) - Foundational
+
+**Test Cases Added**: ~50 new test cases covering:
+- MCP tool function delegation testing
+- Error path scenarios for vector operations
+- Configuration state testing (enabled/disabled)
+- Database error handling
+- Import error handling for optional dependencies
+
+**6. Coverage Improvement Best Practices**
+
+**Prioritization Strategy**:
+1. **High-impact modules first**: Start with lowest coverage % and highest line count
+2. **Server/API layer**: Often has lowest coverage but highest user impact
+3. **Error paths**: Focus on uncovered exception handling and configuration edge cases
+4. **Integration points**: Test boundaries between modules
+
+**Efficient Testing Patterns**:
+- **Group related tests by scenario**: Create test classes for specific error conditions
+- **Use fixtures for common setup**: Reduce duplication with parametrized fixtures
+- **Mock external dependencies properly**: Use spec parameters to catch interface changes
+- **Test behavior, not implementation**: Focus on observable outcomes rather than internal mechanics
+
+**Coverage Validation**:
+```bash
+# Before starting coverage work
+uv run pytest tests/ --cov=src/minerva --cov-report=term | grep "TOTAL"
+
+# After each improvement iteration
+uv run pytest tests/path/to/modified/tests.py --cov=src/minerva/specific/module.py --cov-report=term-missing
+
+# Final verification
+make test-cov  # Full test suite with coverage report
+```
+
+**Key Insight**: Focusing on the highest-impact, lowest-coverage modules first provides the most significant overall coverage improvements. Server/API layers often have the lowest coverage but highest impact on overall percentages.
 
 ### See Also
 - `docs/test_guidelines.md` for detailed testing patterns and solutions

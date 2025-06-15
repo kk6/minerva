@@ -438,3 +438,224 @@ class TestServiceManagerIntegration:
         assert result_name == "integration_test.md"
         assert "Integration test content" in result_content
         assert "---" in result_content  # Should have frontmatter
+
+
+class TestServiceManagerVectorOperations:
+    """Test cases for vector search operations in ServiceManager."""
+
+    @pytest.fixture
+    def mock_config_vector_enabled(self):
+        """Create a mock configuration with vector search enabled."""
+        config = Mock(spec=MinervaConfig)
+        config.vault_path = Path("/test/vault")
+        config.vector_search_enabled = True
+        mock_path = Mock()
+        mock_path.__str__ = Mock(return_value="/test/vectors.db")
+        config.vector_db_path = mock_path
+        config.embedding_model = "all-MiniLM-L6-v2"
+        return config
+
+    @pytest.fixture
+    def mock_config_vector_disabled(self):
+        """Create a mock configuration with vector search disabled."""
+        config = Mock(spec=MinervaConfig)
+        config.vault_path = Path("/test/vault")
+        config.vector_search_enabled = False
+        return config
+
+    @pytest.fixture
+    def service_manager_vector_enabled(self, mock_config_vector_enabled):
+        """Create ServiceManager with vector search enabled."""
+        frontmatter_manager = Mock(spec=FrontmatterManager)
+        return ServiceManager(mock_config_vector_enabled, frontmatter_manager)
+
+    @pytest.fixture
+    def service_manager_vector_disabled(self, mock_config_vector_disabled):
+        """Create ServiceManager with vector search disabled."""
+        frontmatter_manager = Mock(spec=FrontmatterManager)
+        return ServiceManager(mock_config_vector_disabled, frontmatter_manager)
+
+    def test_build_vector_index_disabled(self, service_manager_vector_disabled):
+        """Test build_vector_index when vector search is disabled."""
+        with pytest.raises(RuntimeError, match="Vector search is not enabled"):
+            service_manager_vector_disabled.build_vector_index()
+
+    def test_build_vector_index_no_db_path(self, service_manager_vector_enabled):
+        """Test build_vector_index when vector database path is not configured."""
+        service_manager_vector_enabled.config.vector_db_path = None
+
+        with pytest.raises(
+            RuntimeError, match="Vector database path is not configured"
+        ):
+            service_manager_vector_enabled.build_vector_index()
+
+    @patch("glob.glob")
+    @patch("minerva.vector.embeddings.SentenceTransformerProvider")
+    @patch("minerva.vector.indexer.VectorIndexer")
+    def test_prepare_vector_indexing_empty_files(
+        self,
+        mock_indexer_class,
+        mock_embedding_class,
+        mock_glob,
+        service_manager_vector_enabled,
+    ):
+        """Test _prepare_vector_indexing with empty file list."""
+        mock_glob.return_value = []
+
+        mock_indexer = Mock()
+        mock_indexer.get_outdated_files.return_value = []
+        mock_indexer_class.return_value = mock_indexer
+
+        # Should return early when no files to process
+        result = service_manager_vector_enabled.build_vector_index()
+
+        # Should have processed 0 files
+        assert result["processed"] == 0
+        assert result["skipped"] == 0
+        mock_indexer.close.assert_called_once()
+
+    @patch("glob.glob")
+    @patch("builtins.open")
+    @patch("minerva.vector.embeddings.SentenceTransformerProvider")
+    @patch("minerva.vector.indexer.VectorIndexer")
+    def test_prepare_vector_indexing_force_rebuild(
+        self,
+        mock_indexer_class,
+        mock_embedding_class,
+        mock_open,
+        mock_glob,
+        service_manager_vector_enabled,
+    ):
+        """Test _prepare_vector_indexing with force_rebuild=True."""
+        mock_glob.return_value = ["/test/file1.md"]
+        mock_open.return_value.__enter__.return_value.read.return_value = (
+            "Sample content"
+        )
+
+        mock_embedding_provider = Mock()
+        import numpy as np
+
+        mock_embedding_provider.embed.return_value = np.array([0.1, 0.2, 0.3])
+        mock_embedding_class.return_value = mock_embedding_provider
+
+        mock_indexer = Mock()
+        mock_connection = Mock()
+        mock_indexer._get_connection.return_value = mock_connection
+        mock_indexer.get_outdated_files.return_value = ["/test/file1.md"]
+        mock_indexer_class.return_value = mock_indexer
+
+        result = service_manager_vector_enabled.build_vector_index(force_rebuild=True)
+
+        # Verify force rebuild clears tables
+        expected_calls = [
+            ("DROP TABLE IF EXISTS vectors",),
+            ("DROP TABLE IF EXISTS indexed_files",),
+            ("DROP SEQUENCE IF EXISTS vectors_id_seq",),
+        ]
+        actual_calls = [call[0] for call in mock_connection.execute.call_args_list]
+        for expected_call in expected_calls:
+            assert expected_call in actual_calls
+
+        assert result["processed"] >= 0
+
+    @patch("glob.glob")
+    @patch("builtins.open")
+    @patch("minerva.vector.embeddings.SentenceTransformerProvider")
+    @patch("minerva.vector.indexer.VectorIndexer")
+    def test_prepare_vector_indexing_initialization_error(
+        self,
+        mock_indexer_class,
+        mock_embedding_class,
+        mock_open,
+        mock_glob,
+        service_manager_vector_enabled,
+    ):
+        """Test _prepare_vector_indexing when schema initialization fails."""
+        mock_glob.return_value = ["/test/file1.md"]
+        mock_open.return_value.__enter__.return_value.read.side_effect = Exception(
+            "File read error"
+        )
+
+        mock_embedding_provider = Mock()
+        mock_embedding_class.return_value = mock_embedding_provider
+
+        mock_indexer = Mock()
+        mock_indexer_class.return_value = mock_indexer
+
+        with pytest.raises(Exception):
+            service_manager_vector_enabled.build_vector_index()
+
+    def test_get_vector_index_status_disabled(self, service_manager_vector_disabled):
+        """Test get_vector_index_status when vector search is disabled."""
+        result = service_manager_vector_disabled.get_vector_index_status()
+
+        expected = {
+            "vector_search_enabled": False,
+            "indexed_files_count": 0,
+            "database_exists": False,
+        }
+        assert result == expected
+
+    def test_get_vector_index_status_no_db_path(self, service_manager_vector_enabled):
+        """Test get_vector_index_status when database path is not configured."""
+        service_manager_vector_enabled.config.vector_db_path = None
+
+        result = service_manager_vector_enabled.get_vector_index_status()
+
+        expected = {
+            "vector_search_enabled": True,
+            "indexed_files_count": 0,
+            "database_exists": False,
+        }
+        assert result == expected
+
+    def test_get_vector_index_status_db_not_exists(
+        self, service_manager_vector_enabled
+    ):
+        """Test get_vector_index_status when database file doesn't exist."""
+        service_manager_vector_enabled.config.vector_db_path.exists.return_value = False
+
+        result = service_manager_vector_enabled.get_vector_index_status()
+
+        expected = {
+            "vector_search_enabled": True,
+            "indexed_files_count": 0,
+            "database_exists": False,
+        }
+        assert result == expected
+
+    @patch("minerva.vector.searcher.VectorSearcher")
+    def test_get_vector_index_status_success(
+        self, mock_searcher_class, service_manager_vector_enabled
+    ):
+        """Test successful get_vector_index_status."""
+        service_manager_vector_enabled.config.vector_db_path.exists.return_value = True
+
+        mock_searcher = Mock()
+        mock_searcher.get_indexed_files.return_value = ["file1.md", "file2.md"]
+        mock_searcher_class.return_value = mock_searcher
+
+        result = service_manager_vector_enabled.get_vector_index_status()
+
+        expected = {
+            "vector_search_enabled": True,
+            "indexed_files_count": 2,
+            "database_exists": True,
+        }
+        assert result == expected
+        mock_searcher.close.assert_called_once()
+
+    def test_get_vector_index_status_import_error(self, service_manager_vector_enabled):
+        """Test get_vector_index_status with import error."""
+        service_manager_vector_enabled.config.vector_db_path.exists.return_value = True
+
+        with patch.dict("sys.modules", {"minerva.vector.searcher": None}):
+            result = service_manager_vector_enabled.get_vector_index_status()
+
+            expected = {
+                "vector_search_enabled": False,
+                "indexed_files_count": 0,
+                "database_exists": False,
+                "error": "Vector search dependencies not available",
+            }
+            assert result == expected

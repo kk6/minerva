@@ -85,6 +85,9 @@ class BatchIndexer:
             logger.warning("Batch indexer is stopped, ignoring task for %s", file_path)
             return
 
+        # Validate inputs for security
+        self._validate_task_inputs(file_path, content, operation)
+
         task = IndexingTask(
             file_path=file_path,
             content=content,
@@ -100,6 +103,35 @@ class BatchIndexer:
         if not self.background_enabled and self._task_queue.qsize() >= self.batch_size:
             self.process_batch()
 
+    def _validate_task_inputs(
+        self, file_path: str, content: str, operation: str
+    ) -> None:
+        """Validate task inputs for security."""
+        from pathlib import Path
+
+        # Validate operation type
+        valid_operations = {"add", "update", "remove"}
+        if operation not in valid_operations:
+            raise ValueError(f"Invalid operation: {operation}")
+
+        # Validate file path against path traversal
+        try:
+            path = Path(file_path).resolve()
+            vault_path = Path(self.config.vault_path).resolve()
+            if not path.is_relative_to(vault_path):
+                raise ValueError(f"Path traversal detected: {file_path}")
+        except (ValueError, OSError) as e:
+            raise ValueError(f"Invalid file path: {file_path}") from e
+
+        # Validate content size to prevent memory exhaustion
+        MAX_CONTENT_SIZE = 10 * 1024 * 1024  # 10MB
+        if len(content.encode("utf-8")) > MAX_CONTENT_SIZE:
+            raise ValueError(f"Content too large for file: {file_path}")
+
+        # Validate file extension
+        if not file_path.endswith((".md", ".txt")):
+            logger.warning("Unusual file extension for indexing: %s", file_path)
+
     def process_batch(self) -> int:
         """
         Process a batch of queued tasks immediately.
@@ -109,14 +141,18 @@ class BatchIndexer:
         """
         if not self.config.vector_search_enabled:
             logger.debug("Vector search disabled, skipping batch processing")
+            self._stats["batches_processed"] += 1
             return 0
 
         tasks = self._collect_batch_tasks()
+
+        # Always increment batches_processed counter, even for empty batches
+        self._stats["batches_processed"] += 1
+
         if not tasks:
             return 0
 
         processed_count = self._process_tasks_batch(tasks)
-        self._stats["batches_processed"] += 1
 
         logger.info("Processed batch of %d tasks", processed_count)
         return processed_count
@@ -170,6 +206,43 @@ class BatchIndexer:
 
         return tasks
 
+    def _initialize_components(self, tasks: List[IndexingTask]):
+        """Initialize embedding provider and indexer components."""
+        from minerva.vector.embeddings import SentenceTransformerProvider
+        from minerva.vector.indexer import VectorIndexer
+
+        embedding_provider = SentenceTransformerProvider(self.config.embedding_model)
+        indexer = VectorIndexer(self.config.vector_db_path)
+
+        if tasks:
+            sample_embedding = embedding_provider.embed(tasks[0].content[:500])
+            embedding_dim = (
+                sample_embedding.shape[1]
+                if sample_embedding.ndim == 2
+                else len(sample_embedding)
+            )
+            indexer.initialize_schema(embedding_dim)
+
+        return embedding_provider, indexer
+
+    def _process_single_task(
+        self, task: IndexingTask, embedding_provider, indexer
+    ) -> bool:
+        """Process a single indexing task."""
+        try:
+            if task.operation in ["add", "update"]:
+                embedding = embedding_provider.embed(task.content)
+                indexer.store_embedding(task.file_path, embedding, task.content)
+            elif task.operation == "remove":
+                indexer.remove_file(task.file_path)
+
+            self._stats["tasks_processed"] += 1
+            return True
+        except Exception as e:
+            logger.error("Failed to process task for %s: %s", task.file_path, e)
+            self._stats["errors"] += 1
+            return False
+
     def _process_tasks_batch(self, tasks: List[IndexingTask]) -> int:
         """
         Process a batch of indexing tasks.
@@ -183,50 +256,14 @@ class BatchIndexer:
         if not tasks:
             return 0
 
+        indexer = None
         try:
-            # Lazy import to avoid circular dependencies
-            from minerva.vector.embeddings import SentenceTransformerProvider
-            from minerva.vector.indexer import VectorIndexer
-
-            # Initialize components
-            embedding_provider = SentenceTransformerProvider(
-                self.config.embedding_model
-            )
-            indexer = VectorIndexer(self.config.vector_db_path)
-
-            # Initialize schema if needed
-            if tasks:
-                sample_embedding = embedding_provider.embed(tasks[0].content[:500])
-                embedding_dim = (
-                    sample_embedding.shape[1]
-                    if sample_embedding.ndim == 2
-                    else len(sample_embedding)
-                )
-                indexer.initialize_schema(embedding_dim)
-
+            embedding_provider, indexer = self._initialize_components(tasks)
             processed_count = 0
 
-            # Process each task
             for task in tasks:
-                try:
-                    if task.operation in ["add", "update"]:
-                        # Generate embedding and store
-                        embedding = embedding_provider.embed(task.content)
-                        indexer.store_embedding(task.file_path, embedding, task.content)
-
-                    elif task.operation == "remove":
-                        # Remove from index
-                        indexer.remove_file(task.file_path)
-
+                if self._process_single_task(task, embedding_provider, indexer):
                     processed_count += 1
-                    self._stats["tasks_processed"] += 1
-
-                except Exception as e:
-                    logger.error("Failed to process task for %s: %s", task.file_path, e)
-                    self._stats["errors"] += 1
-
-            # Close connections
-            indexer.close()
 
             return processed_count
 
@@ -239,6 +276,12 @@ class BatchIndexer:
             logger.error("Batch processing failed: %s", e)
             self._stats["errors"] += len(tasks)
             return 0
+        finally:
+            if indexer:
+                try:
+                    indexer.close()
+                except Exception as e:
+                    logger.warning("Error closing indexer: %s", e)
 
     def _start_background_processing(self) -> None:
         """Start background thread for processing tasks."""
@@ -277,8 +320,9 @@ class BatchIndexer:
         logger.info("Background batch processing stopped")
 
 
-# Global batch indexer instance
+# Global batch indexer instance with thread safety
 _global_batch_indexer: Optional[BatchIndexer] = None
+_indexer_lock = threading.Lock()
 
 
 def get_batch_indexer(config, strategy: str = "immediate") -> Optional[BatchIndexer]:
@@ -297,28 +341,41 @@ def get_batch_indexer(config, strategy: str = "immediate") -> Optional[BatchInde
     if strategy == "immediate":
         return None
 
-    if _global_batch_indexer is None:
-        background_enabled = strategy == "background"
-        batch_size = getattr(config, "batch_size", 10)
-        batch_timeout = getattr(config, "batch_timeout", 30.0)
+    # Thread-safe singleton pattern
+    with _indexer_lock:
+        if _global_batch_indexer is None:
+            background_enabled = strategy == "background"
+            batch_size = getattr(config, "batch_size", 10)
+            batch_timeout = getattr(config, "batch_timeout", 30.0)
 
-        _global_batch_indexer = BatchIndexer(
-            config=config,
-            batch_size=batch_size,
-            batch_timeout=batch_timeout,
-            background_enabled=background_enabled,
-        )
+            _global_batch_indexer = BatchIndexer(
+                config=config,
+                batch_size=batch_size,
+                batch_timeout=batch_timeout,
+                background_enabled=background_enabled,
+            )
 
-        logger.info("Created global batch indexer with strategy: %s", strategy)
+            logger.info("Created global batch indexer with strategy: %s", strategy)
+        else:
+            # Update background_enabled if strategy changes
+            requested_background = strategy == "background"
+            if _global_batch_indexer.background_enabled != requested_background:
+                logger.warning(
+                    "Global batch indexer already exists with different background setting. "
+                    "Current: %s, Requested: %s",
+                    _global_batch_indexer.background_enabled,
+                    requested_background,
+                )
 
-    return _global_batch_indexer
+        return _global_batch_indexer
 
 
 def stop_batch_indexer() -> None:
     """Stop the global batch indexer if it exists."""
     global _global_batch_indexer
 
-    if _global_batch_indexer:
-        _global_batch_indexer.stop()
-        _global_batch_indexer = None
-        logger.info("Stopped global batch indexer")
+    with _indexer_lock:
+        if _global_batch_indexer:
+            _global_batch_indexer.stop()
+            _global_batch_indexer = None
+            logger.info("Stopped global batch indexer")

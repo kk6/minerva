@@ -544,8 +544,15 @@ class TestSemanticSearchOperations:
             patch(
                 "minerva.services.search_operations.frontmatter.loads"
             ) as mock_frontmatter,
-            patch.object(Path, "exists", return_value=True),
+            patch("minerva.services.search_operations.Path") as mock_path_class,
         ):
+            # Mock Path object and its methods
+            mock_path = Mock()
+            mock_path.exists.return_value = True
+            mock_path.stat.return_value.st_size = 1000  # Small file size
+            mock_path.__str__ = Mock(return_value=file_path)
+            mock_path_class.return_value = mock_path
+
             mock_post = Mock()
             mock_post.metadata = {"title": "Test File"}
             mock_post.content = "Content here"
@@ -602,8 +609,14 @@ class TestSemanticSearchOperations:
             patch(
                 "minerva.services.search_operations.frontmatter.loads"
             ) as mock_frontmatter,
-            patch.object(Path, "exists", return_value=True),
+            patch("minerva.services.search_operations.Path") as mock_path_class,
         ):
+            # Mock Path object and its methods
+            mock_path = Mock()
+            mock_path.exists.return_value = True
+            mock_path.stat.return_value.st_size = 1000  # Small file size
+            mock_path.__str__ = Mock(return_value=file_path)
+            mock_path_class.return_value = mock_path
             mock_post = Mock()
             mock_post.metadata = {
                 "title": "Test File",
@@ -645,8 +658,14 @@ class TestSemanticSearchOperations:
             patch(
                 "minerva.services.search_operations.frontmatter.loads"
             ) as mock_frontmatter,
-            patch.object(Path, "exists", return_value=True),
+            patch("minerva.services.search_operations.Path") as mock_path_class,
         ):
+            # Mock Path object and its methods
+            mock_path = Mock()
+            mock_path.exists.return_value = True
+            mock_path.stat.return_value.st_size = 1000  # Small file size
+            mock_path.__str__ = Mock(return_value=file_path)
+            mock_path_class.return_value = mock_path
             mock_post = Mock()
             mock_post.metadata = {"title": "Test File", "aliases": "Single Alias"}
             mock_post.content = "Content here"
@@ -681,8 +700,14 @@ class TestSemanticSearchOperations:
             patch(
                 "minerva.services.search_operations.frontmatter.loads"
             ) as mock_frontmatter,
-            patch.object(Path, "exists", return_value=True),
+            patch("minerva.services.search_operations.Path") as mock_path_class,
         ):
+            # Mock Path object and its methods
+            mock_path = Mock()
+            mock_path.exists.return_value = True
+            mock_path.stat.return_value.st_size = 1000  # Small file size
+            mock_path.__str__ = Mock(return_value=file_path)
+            mock_path_class.return_value = mock_path
             mock_post = Mock()
             mock_post.metadata = {"title": "Test File", "aliases": []}
             mock_post.content = "Content here"
@@ -973,3 +998,549 @@ class TestFindSimilarNotes:
         mock_resolve.assert_called_once_with(
             search_operations_vector_enabled.config, "reference.md", None, "subfolder"
         )
+
+
+class TestSemanticSearchCoverage:
+    """Test cases for semantic search functionality coverage."""
+
+    @pytest.fixture
+    def mock_config_vector_enabled(self):
+        """Create a mock configuration with vector search enabled."""
+        config = Mock(spec=MinervaConfig)
+        config.vault_path = Path("/test/vault")
+        config.vector_search_enabled = True
+        config.vector_db_path = Path("/test/vectors.db")
+        config.embedding_model = "all-MiniLM-L6-v2"
+        return config
+
+    @pytest.fixture
+    def search_operations_vector_enabled(self, mock_config_vector_enabled):
+        """Create SearchOperations with vector search enabled."""
+        frontmatter_manager = Mock(spec=FrontmatterManager)
+        return SearchOperations(mock_config_vector_enabled, frontmatter_manager)
+
+    def test_semantic_search_no_db_path(self, search_operations_vector_enabled):
+        """Test semantic search when vector database path is not configured."""
+        search_operations_vector_enabled.config.vector_db_path = None
+
+        with pytest.raises(
+            RuntimeError, match="Vector database path is not configured"
+        ):
+            search_operations_vector_enabled.semantic_search("test query")
+
+    @patch("minerva.vector.embeddings.SentenceTransformerProvider")
+    @patch("minerva.vector.searcher.VectorSearcher")
+    def test_semantic_search_full_flow(
+        self,
+        mock_searcher_class,
+        mock_embedding_class,
+        search_operations_vector_enabled,
+    ):
+        """Test complete semantic search flow with mocked dependencies."""
+        # Arrange
+        mock_embedding_provider = Mock()
+        import numpy as np
+
+        mock_embedding_provider.embed.return_value = np.array([0.1, 0.2, 0.3])
+        mock_embedding_class.return_value = mock_embedding_provider
+
+        mock_searcher = Mock()
+        mock_searcher.search_similar.return_value = [
+            ("/test/vault/file1.md", 0.8),
+            ("/test/vault/file2.md", 0.7),
+        ]
+        mock_searcher_class.return_value = mock_searcher
+
+        # Mock _create_semantic_search_result
+        with patch.object(
+            search_operations_vector_enabled, "_create_semantic_search_result"
+        ) as mock_create_result:
+            mock_result1 = Mock(spec=SemanticSearchResult)
+            mock_result2 = Mock(spec=SemanticSearchResult)
+            mock_create_result.side_effect = [mock_result1, mock_result2]
+
+            # Act
+            results = search_operations_vector_enabled.semantic_search(
+                "test query", limit=10, threshold=0.5
+            )
+
+            # Assert
+            assert len(results) == 2
+            assert results[0] == mock_result1
+            assert results[1] == mock_result2
+            mock_searcher.search_similar.assert_called_once()
+            mock_searcher.close.assert_called_once()
+
+    @patch("minerva.vector.embeddings.SentenceTransformerProvider")
+    @patch("minerva.vector.searcher.VectorSearcher")
+    def test_semantic_search_2d_embedding_handling(
+        self,
+        mock_searcher_class,
+        mock_embedding_class,
+        search_operations_vector_enabled,
+    ):
+        """Test semantic search with 2D embedding array."""
+        # Arrange
+        mock_embedding_provider = Mock()
+        import numpy as np
+
+        # Return 2D array that needs to be flattened
+        mock_embedding_provider.embed.return_value = np.array([[0.1, 0.2, 0.3]])
+        mock_embedding_class.return_value = mock_embedding_provider
+
+        mock_searcher = Mock()
+        mock_searcher.search_similar.return_value = []
+        mock_searcher_class.return_value = mock_searcher
+
+        # Act
+        results = search_operations_vector_enabled.semantic_search("test query")
+
+        # Assert
+        assert results == []
+        # Verify that the searcher received the flattened embedding
+        args, kwargs = mock_searcher.search_similar.call_args
+        query_embedding = args[0]
+        assert query_embedding.ndim == 1  # Should be flattened to 1D
+
+    @patch("minerva.vector.embeddings.SentenceTransformerProvider")
+    def test_semantic_search_exception_handling(
+        self, mock_embedding_class, search_operations_vector_enabled
+    ):
+        """Test semantic search exception handling."""
+        # Arrange - Make embedding provider raise an exception
+        mock_embedding_class.side_effect = Exception("Test error")
+
+        # Act & Assert
+        with pytest.raises(Exception, match="Test error"):
+            search_operations_vector_enabled.semantic_search("test query")
+
+    def test_semantic_search_import_error_in_method(
+        self, search_operations_vector_enabled
+    ):
+        """Test semantic search ImportError handling within the method."""
+        # Simulate ImportError during the import statements inside semantic_search
+        with patch.dict("sys.modules", {"minerva.vector.embeddings": None}):
+            with pytest.raises(
+                ImportError, match="Vector search requires additional dependencies"
+            ):
+                search_operations_vector_enabled.semantic_search("test query")
+
+    def test_create_semantic_search_result_directory_filter(
+        self, search_operations_vector_enabled
+    ):
+        """Test directory filtering in _create_semantic_search_result."""
+        # Arrange
+        file_path = "/other/path/file.md"
+        target_directory = "/test/vault"
+
+        # Mock Path.is_relative_to to return False
+        with patch("minerva.services.search_operations.Path") as mock_path_class:
+            mock_path = Mock()
+            mock_path.is_relative_to.return_value = False
+            mock_path_class.return_value = mock_path
+
+            # Act
+            result = search_operations_vector_enabled._create_semantic_search_result(
+                file_path, 0.8, target_directory
+            )
+
+            # Assert
+            assert result is None
+
+    def test_extract_title_from_metadata(self, search_operations_vector_enabled):
+        """Test title extraction from metadata."""
+        # Arrange
+        metadata = {"title": "Custom Title"}
+        path = Path("/test/my_test_file.md")
+
+        # Act
+        title = search_operations_vector_enabled._extract_title(metadata, path)
+
+        # Assert
+        assert title == "Custom Title"
+
+    def test_extract_title_from_filename(self, search_operations_vector_enabled):
+        """Test title extraction from filename when no metadata title."""
+        # Arrange
+        metadata = {}
+        path = Path("/test/my-test_file.md")
+
+        # Act
+        title = search_operations_vector_enabled._extract_title(metadata, path)
+
+        # Assert
+        assert title == "My Test File"
+
+    def test_extract_title_non_string_metadata(self, search_operations_vector_enabled):
+        """Test title extraction when metadata title is not a string."""
+        # Arrange
+        metadata = {"title": 123}  # Non-string value
+        path = Path("/test/fallback_file.md")
+
+        # Act
+        title = search_operations_vector_enabled._extract_title(metadata, path)
+
+        # Assert
+        assert title == "Fallback File"
+
+    def test_create_content_preview_with_frontmatter(
+        self, search_operations_vector_enabled
+    ):
+        """Test content preview creation with frontmatter."""
+        # Arrange
+        mock_post = Mock()
+        mock_post.content = "Line 1\nLine 2\nLine 3\n" + "Very long content " * 50
+        mock_post.metadata = {"title": "Test"}
+        content = "original content"
+
+        # Act
+        preview = search_operations_vector_enabled._create_content_preview(
+            mock_post, content
+        )
+
+        # Assert
+        assert len(preview) <= 200
+        assert preview.endswith("...")
+        assert "Line 1 Line 2 Line 3" in preview
+
+    def test_create_content_preview_without_frontmatter(
+        self, search_operations_vector_enabled
+    ):
+        """Test content preview creation without frontmatter."""
+        # Arrange
+        mock_post = Mock()
+        mock_post.content = "Very long content " * 50
+        mock_post.metadata = None  # No metadata
+        content = "Very long content " * 50
+
+        # Act
+        preview = search_operations_vector_enabled._create_content_preview(
+            mock_post, content
+        )
+
+        # Assert
+        assert len(preview) <= 200
+        assert preview.endswith("...")
+
+    def test_create_content_preview_short_content(
+        self, search_operations_vector_enabled
+    ):
+        """Test content preview with short content."""
+        # Arrange
+        mock_post = Mock()
+        mock_post.content = "Short content"
+        mock_post.metadata = {"title": "Test"}
+        content = "original"
+
+        # Act
+        preview = search_operations_vector_enabled._create_content_preview(
+            mock_post, content
+        )
+
+        # Assert
+        assert preview == "Short content"
+        assert not preview.endswith("...")
+
+    @patch("minerva.vector.searcher.VectorSearcher")
+    def test_get_indexed_files_count_success(
+        self, mock_searcher_class, search_operations_vector_enabled
+    ):
+        """Test successful get_indexed_files_count."""
+        # Arrange
+        mock_searcher = Mock()
+        mock_searcher.get_indexed_files.return_value = [
+            "file1.md",
+            "file2.md",
+            "file3.md",
+        ]
+        mock_searcher_class.return_value = mock_searcher
+
+        # Act
+        count = search_operations_vector_enabled.get_indexed_files_count()
+
+        # Assert
+        assert count == 3
+        mock_searcher.close.assert_called_once()
+
+    def test_get_indexed_files_count_no_db_path(self, search_operations_vector_enabled):
+        """Test get_indexed_files_count when vector database path is not configured."""
+        search_operations_vector_enabled.config.vector_db_path = None
+
+        with pytest.raises(
+            RuntimeError, match="Vector database path is not configured"
+        ):
+            search_operations_vector_enabled.get_indexed_files_count()
+
+    def test_get_indexed_files_count_import_error(
+        self, search_operations_vector_enabled
+    ):
+        """Test get_indexed_files_count with import error."""
+        with patch.dict("sys.modules", {"minerva.vector.searcher": None}):
+            with pytest.raises(
+                ImportError, match="Vector search requires additional dependencies"
+            ):
+                search_operations_vector_enabled.get_indexed_files_count()
+
+    @patch("minerva.vector.searcher.VectorSearcher")
+    @patch("minerva.services.core.file_operations.resolve_note_file")
+    def test_find_similar_notes_import_error_coverage(
+        self, mock_resolve, mock_searcher_class, search_operations_vector_enabled
+    ):
+        """Test find_similar_notes ImportError handling for coverage."""
+        # Arrange
+        mock_path = Mock()
+        mock_path.exists.return_value = True
+        mock_resolve.return_value = mock_path
+
+        # Simulate ImportError during VectorSearcher import
+        mock_searcher_class.side_effect = ImportError("Missing dependencies")
+
+        # Act & Assert
+        with pytest.raises(
+            ImportError, match="Vector search requires additional dependencies"
+        ):
+            search_operations_vector_enabled.find_similar_notes(filename="test.md")
+
+
+class TestFileSizeValidation:
+    """Test cases for file size validation in SearchOperations."""
+
+    @pytest.fixture
+    def mock_config_vector_enabled(self):
+        """Create a mock configuration with vector search enabled."""
+        config = Mock(spec=MinervaConfig)
+        config.vault_path = Path("/test/vault")
+        config.vector_search_enabled = True
+        config.vector_db_path = Path("/test/vectors.db")
+        config.embedding_model = "all-MiniLM-L6-v2"
+        return config
+
+    @pytest.fixture
+    def search_operations(self, mock_config_vector_enabled):
+        """Create SearchOperations for file size validation testing."""
+        frontmatter_manager = Mock(spec=FrontmatterManager)
+        return SearchOperations(mock_config_vector_enabled, frontmatter_manager)
+
+    @patch("os.stat")
+    def test_read_and_parse_file_size_limit_exceeded(
+        self, mock_stat, search_operations
+    ):
+        """Test that _read_and_parse_file blocks files exceeding size limit."""
+        # Arrange
+        test_file = Path("/test/vault/large_file.md")
+
+        # Mock file stat to return size larger than 10MB
+        mock_stat_result = Mock()
+        mock_stat_result.st_size = 11 * 1024 * 1024  # 11MB
+        mock_stat.return_value = mock_stat_result
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="File too large"):
+            search_operations._read_and_parse_file(test_file)
+
+    @patch("os.stat")
+    @patch("builtins.open", mock_open_with_content("# Test content"))
+    @patch("minerva.services.search_operations.frontmatter.loads")
+    def test_read_and_parse_file_size_within_limit(
+        self, mock_frontmatter, mock_stat, search_operations
+    ):
+        """Test that _read_and_parse_file accepts files within size limit."""
+        # Arrange
+        test_file = Path("/test/vault/normal_file.md")
+
+        # Mock file stat to return size within 10MB limit
+        mock_stat_result = Mock()
+        mock_stat_result.st_size = 5 * 1024 * 1024  # 5MB
+        mock_stat.return_value = mock_stat_result
+
+        # Mock frontmatter parsing
+        mock_post = Mock()
+        mock_post.metadata = {"title": "Test"}
+        mock_frontmatter.return_value = mock_post
+
+        # Act
+        content, post, metadata = search_operations._read_and_parse_file(test_file)
+
+        # Assert
+        assert content == "# Test content"
+        assert post == mock_post
+        assert metadata == {"title": "Test"}
+
+    @patch("os.stat")
+    def test_read_and_parse_file_size_exactly_at_limit(
+        self, mock_stat, search_operations
+    ):
+        """Test file exactly at the 10MB size limit."""
+        # Arrange
+        test_file = Path("/test/vault/limit_file.md")
+
+        # Mock file stat to return exactly 10MB
+        mock_stat_result = Mock()
+        mock_stat_result.st_size = 10 * 1024 * 1024  # Exactly 10MB
+        mock_stat.return_value = mock_stat_result
+
+        # Mock file content
+        with (
+            patch("builtins.open", mock_open_with_content("# Content at limit")),
+            patch(
+                "minerva.services.search_operations.frontmatter.loads"
+            ) as mock_frontmatter,
+        ):
+            mock_post = Mock()
+            mock_post.metadata = {}
+            mock_frontmatter.return_value = mock_post
+
+            # Act - should succeed as it's exactly at limit
+            content, post, metadata = search_operations._read_and_parse_file(test_file)
+
+            # Assert
+            assert content == "# Content at limit"
+
+    @patch("os.stat")
+    def test_read_and_parse_file_size_one_byte_over_limit(
+        self, mock_stat, search_operations
+    ):
+        """Test file one byte over the 10MB size limit."""
+        # Arrange
+        test_file = Path("/test/vault/over_limit_file.md")
+
+        # Mock file stat to return one byte over 10MB
+        mock_stat_result = Mock()
+        mock_stat_result.st_size = (10 * 1024 * 1024) + 1  # 10MB + 1 byte
+        mock_stat.return_value = mock_stat_result
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="File too large"):
+            search_operations._read_and_parse_file(test_file)
+
+    @patch("os.stat")
+    def test_read_and_parse_file_empty_file(self, mock_stat, search_operations):
+        """Test handling of empty files."""
+        # Arrange
+        test_file = Path("/test/vault/empty_file.md")
+
+        # Mock file stat to return zero size
+        mock_stat_result = Mock()
+        mock_stat_result.st_size = 0
+        mock_stat.return_value = mock_stat_result
+
+        # Mock empty file content
+        with (
+            patch("builtins.open", mock_open_with_content("")),
+            patch(
+                "minerva.services.search_operations.frontmatter.loads"
+            ) as mock_frontmatter,
+        ):
+            mock_post = Mock()
+            mock_post.metadata = {}
+            mock_frontmatter.return_value = mock_post
+
+            # Act
+            content, post, metadata = search_operations._read_and_parse_file(test_file)
+
+            # Assert
+            assert content == ""
+            assert metadata == {}
+
+    @patch("os.stat")
+    def test_read_and_parse_file_stat_error(self, mock_stat, search_operations):
+        """Test handling of file stat errors."""
+        # Arrange
+        test_file = Path("/test/vault/inaccessible_file.md")
+
+        # Mock file stat to raise OSError
+        mock_stat.side_effect = OSError("Permission denied")
+
+        # Act & Assert
+        with pytest.raises(OSError, match="Permission denied"):
+            search_operations._read_and_parse_file(test_file)
+
+    @patch("os.stat")
+    @patch("minerva.services.search_operations.logger")
+    def test_create_semantic_search_result_large_file_handling(
+        self, mock_logger, mock_stat, search_operations
+    ):
+        """Test that large files are properly handled in semantic search results."""
+        # Arrange
+        file_path = "/test/vault/large_file.md"
+        similarity_score = 0.8
+
+        # Mock file stat to return size larger than 10MB
+        mock_stat_result = Mock()
+        mock_stat_result.st_size = 15 * 1024 * 1024  # 15MB
+        mock_stat.return_value = mock_stat_result
+
+        # Mock file existence
+        with patch("minerva.services.search_operations.Path") as mock_path_class:
+            # Mock Path object and its methods
+            mock_path = Mock()
+            mock_path.exists.return_value = True
+            mock_path.stat.return_value = mock_stat_result
+            mock_path.__str__ = Mock(return_value=file_path)
+            mock_path_class.return_value = mock_path
+
+            # Act
+            result = search_operations._create_semantic_search_result(
+                file_path, similarity_score, None
+            )
+
+            # Assert
+            assert result is None
+            # Check that warnings were logged
+            assert mock_logger.warning.call_count == 2
+
+            # First warning should be about file being too large
+            first_call = mock_logger.warning.call_args_list[0]
+            assert "File too large for processing" in first_call[0][0]
+
+            # Second warning should be about failed creation
+            second_call = mock_logger.warning.call_args_list[1]
+            assert "Failed to create semantic search result" in second_call[0][0]
+
+    @patch("os.stat")
+    def test_read_and_parse_file_unicode_content_size_calculation(
+        self, mock_stat, search_operations
+    ):
+        """Test that file size validation uses actual byte size for Unicode content."""
+        # Arrange
+        test_file = Path("/test/vault/unicode_file.md")
+
+        # Create Unicode content that is large when encoded as UTF-8
+        # Each Japanese character takes 3 bytes in UTF-8
+        unicode_content = "あ" * (4 * 1024 * 1024)  # ~12MB when encoded to UTF-8
+
+        # Mock file stat to return the actual UTF-8 byte size (over limit)
+        mock_stat_result = Mock()
+        mock_stat_result.st_size = len(unicode_content.encode("utf-8"))
+        mock_stat.return_value = mock_stat_result
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="File too large"):
+            search_operations._read_and_parse_file(test_file)
+
+    @patch("os.stat")
+    @patch("builtins.open", mock_open_with_content("日本語コンテンツ"))
+    @patch("minerva.services.search_operations.frontmatter.loads")
+    def test_read_and_parse_file_small_unicode_content(
+        self, mock_frontmatter, mock_stat, search_operations
+    ):
+        """Test that small Unicode content is processed correctly."""
+        # Arrange
+        test_file = Path("/test/vault/small_unicode_file.md")
+
+        # Mock file stat to return small size
+        mock_stat_result = Mock()
+        mock_stat_result.st_size = 100  # Small file
+        mock_stat.return_value = mock_stat_result
+
+        # Mock frontmatter parsing
+        mock_post = Mock()
+        mock_post.metadata = {"title": "日本語タイトル"}
+        mock_frontmatter.return_value = mock_post
+
+        # Act
+        content, post, metadata = search_operations._read_and_parse_file(test_file)
+
+        # Assert
+        assert content == "日本語コンテンツ"
+        assert metadata == {"title": "日本語タイトル"}

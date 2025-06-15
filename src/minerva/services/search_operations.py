@@ -340,6 +340,15 @@ class SearchOperations(BaseService):
 
     def _read_and_parse_file(self, path: Path) -> tuple[str, object, dict]:
         """Read file content and parse frontmatter."""
+        # Check file size to prevent memory exhaustion
+        MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+        file_size = path.stat().st_size
+        if file_size > MAX_FILE_SIZE:
+            logger.warning(
+                "File too large for processing: %s (%d bytes)", path, file_size
+            )
+            raise ValueError(f"File too large: {path}")
+
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
 
