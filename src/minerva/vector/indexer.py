@@ -228,9 +228,7 @@ class VectorIndexer:
             logger.error("Failed to create HNSW index: %s", e)
             raise
 
-    def add_vectors(
-        self, file_path: str, content_hash: str, embeddings: Any
-    ) -> int:
+    def add_vectors(self, file_path: str, content_hash: str, embeddings: Any) -> int:
         """
         Add vectors to the index.
 
@@ -364,9 +362,7 @@ class VectorIndexer:
             logger.error("Failed to check if file is indexed: %s", e)
             return False
 
-    def store_embedding(
-        self, file_path: str, embedding: Any, content: str
-    ) -> None:
+    def store_embedding(self, file_path: str, embedding: Any, content: str) -> None:
         """
         Store a single embedding for a file.
 

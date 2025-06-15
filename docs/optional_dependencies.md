@@ -69,7 +69,7 @@ def embed(self, text: Union[str, List[str]]) -> Any:  # np.ndarrayではなく
 [[tool.mypy.overrides]]
 module = [
     "numpy.*",
-    "sentence_transformers.*", 
+    "sentence_transformers.*",
     "duckdb.*",
 ]
 ignore_missing_imports = true
@@ -110,7 +110,7 @@ test-core:
     - run: uv run pytest -m "not vector"
 
 test-vector:
-  name: ベクトルテスト（全依存関係あり）  
+  name: ベクトルテスト（全依存関係あり）
   steps:
     - run: uv sync --dev --extra vector  # 全依存関係
     - run: uv run pytest -m "vector"
@@ -167,7 +167,7 @@ make install
 make test-core      # ~2-3秒
 make check-all-core # コア品質チェック
 
-# ベクトル機能開発  
+# ベクトル機能開発
 make install-vector
 make test-vector    # ~17秒
 make check-all      # 全品質チェック
@@ -202,7 +202,7 @@ def test_with_environment_patch():
     with patch.dict(os.environ, {"VAR": "new_value"}):
         # 新しいインポートのため関連モジュールをキャッシュからクリア
         sys.modules.pop("minerva.vector.module", None)
-        
+
         from minerva.vector import module  # 新しい環境での新しいインポート
 ```
 
@@ -215,7 +215,7 @@ def test_vector_logic_with_mocks():
     mock_provider.embed.return_value = Mock()  # 実際のnumpyは不要
     # 実依存関係なしでロジックをテスト
 
-# 実依存関係での統合テスト  
+# 実依存関係での統合テスト
 @pytest.mark.vector
 def test_vector_integration_real():
     import numpy as np
@@ -233,20 +233,20 @@ def test_vector_integration_real():
 class MinervaConfig:
     # コア必須フィールド
     vault_path: Path
-    
+
     # 安全なデフォルトを持つオプション機能フィールド
     vector_search_enabled: bool = False
     vector_db_path: Path | None = None
 
-    @classmethod  
+    @classmethod
     def from_env(cls) -> "MinervaConfig":
         vector_enabled = os.getenv("VECTOR_SEARCH_ENABLED", "false").lower() == "true"
-        
+
         # 機能が有効な場合のみスマートデフォルト
         vector_db_path = None
         if vector_enabled:
             vector_db_path = Path(os.getenv("VECTOR_DB_PATH", f"{vault}/.minerva/vectors.db"))
-            
+
         return cls(
             vector_search_enabled=vector_enabled,
             vector_db_path=vector_db_path,
@@ -259,11 +259,11 @@ class MinervaConfig:
 class ServiceManager:
     def __init__(self, config: MinervaConfig):
         self.config = config
-        
+
     def semantic_search(self, query: str) -> List[SearchResult]:
         if not self.config.vector_search_enabled:
             raise RuntimeError("ベクトル検索が有効になっていません")
-            
+
         # 依存関係チェックはベクトルモジュール内で発生
         return self._vector_search_impl(query)
 ```

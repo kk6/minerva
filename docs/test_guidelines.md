@@ -496,7 +496,7 @@ make test-core
 pytest -m "not vector"
 
 # ベクトル機能のみ（依存関係必要）
-make test-vector  
+make test-vector
 pytest -m "vector"
 
 # 全テスト実行
@@ -511,7 +511,7 @@ pytest
 test-core:
   run: pytest -m "not vector"  # 基本依存関係のみ
 
-test-vector:  
+test-vector:
   run: |
     uv sync --extra vector     # 全依存関係インストール
     pytest -m "vector"
