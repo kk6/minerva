@@ -1,6 +1,6 @@
 # Check Documentation Updates
 
-After completing an implementation or code changes, systematically review and update all relevant documentation to ensure consistency and completeness across the project.
+After completing an implementation or code changes, systematically review and update all relevant documentation following the hierarchical documentation strategy: `docs/` → `CLAUDE.md` → `README.md`.
 
 ## Instructions
 
@@ -10,38 +10,39 @@ After completing an implementation or code changes, systematically review and up
    - Determine which components, APIs, or workflows were modified
    - Assess the impact on existing functionality and user experience
 
-2. **Documentation Impact Assessment**
-   - **Core Documentation**: README.md, CLAUDE.md
-   - **User Documentation**: docs/ directory (user guides, API docs, tutorials)
-   - **AI Instructions**: .github/instructions/ directory (custom instructions for AI agents)
-   - **Development Documentation**: Contributing guides, setup instructions, testing docs
-   - **Configuration Files**: Comments in config files, environment examples
+2. **Hierarchical Documentation Strategy**
+   **Primary Focus**: `docs/` directory (master source of truth)
+   **Secondary**: `CLAUDE.md` (Claude Code essentials + references to docs/)
+   **Tertiary**: `README.md` (user onboarding)
+   **Supporting**: `.github/instructions/` (AI agent guidelines)
 
-3. **Systematic Documentation Review**
+3. **Documentation Update Priority (Follow This Order)**
 
-   ### 3.1 README.md Review
+   ### 3.1 docs/ Directory Review (PRIMARY - Master Documentation)
+   - **API documentation**: Are new endpoints/methods documented?
+   - **User guides**: Do they work with current features?
+   - **Architecture docs**: Do they reflect current design?
+   - **Configuration guides**: Are new options documented?
+   - **Troubleshooting**: Are new common issues included?
+   - **Development workflow**: Complete development process documentation
+   - **Testing guidelines**: Comprehensive testing strategies and patterns
+
+   ### 3.2 CLAUDE.md Review (SECONDARY - Claude Code Essentials)
+   - **Project context**: Does it reflect current architecture?
+   - **Build/test commands**: Are they still valid and complete?
+   - **Critical workflows**: Essential Claude Code-specific information only
+   - **Known issues**: Resolved issues removed? New issues added?
+   - **Reference links**: Do "See Also" links point to correct docs/ files?
+   - **Size check**: Ensure file stays under 40,000 characters
+
+   ### 3.3 README.md Review (TERTIARY - User Onboarding)
    - **Installation instructions**: Are they still accurate?
    - **Usage examples**: Do they reflect current API/interface?
    - **Feature list**: Are new features mentioned? Deprecated features removed?
    - **Getting started guide**: Does it work with current implementation?
    - **Dependencies**: Are version requirements up to date?
 
-   ### 3.2 CLAUDE.md Review
-   - **Project context**: Does it reflect current architecture?
-   - **Build/test commands**: Are they still valid?
-   - **Development workflow**: Does it match current practices?
-   - **Known issues**: Are resolved issues removed? New issues added?
-   - **Service architecture**: Does it reflect recent refactoring?
-   - **Testing strategy**: Are new testing approaches documented?
-
-   ### 3.3 docs/ Directory Review
-   - **API documentation**: Are new endpoints/methods documented?
-   - **User guides**: Do they work with current features?
-   - **Architecture docs**: Do they reflect current design?
-   - **Configuration guides**: Are new options documented?
-   - **Troubleshooting**: Are new common issues included?
-
-   ### 3.4 .github/instructions/ Review
+   ### 3.4 .github/instructions/ Review (SUPPORTING - AI Guidelines)
    - **Custom instructions**: Do they reflect current codebase structure?
    - **AI agent guidelines**: Are they consistent with current practices?
    - **Workflow instructions**: Do they match current development process?
@@ -81,39 +82,67 @@ After completing an implementation or code changes, systematically review and up
    - **Screenshots**: Update any outdated visual documentation
    - **Version compatibility**: Verify information applies to current versions
 
-## Specific Areas to Check
+## Specific Areas to Check (Hierarchical Priority)
 
 ### After Feature Implementation
-- [ ] README.md feature list and usage examples
-- [ ] API documentation for new endpoints/methods
-- [ ] User guides for new functionality
-- [ ] CLAUDE.md service architecture updates
-- [ ] Configuration examples and environment variables
+**Priority 1 - docs/ (Master Documentation)**:
+- [ ] docs/technical_spec.md for new API endpoints/methods
+- [ ] docs/note_operations.md or relevant feature docs for user guides
+- [ ] docs/development_workflow.md for development process changes
+
+**Priority 2 - CLAUDE.md (Claude Code Essentials)**:
+- [ ] Key Features section for new functionality summary
+- [ ] Build/Test/Lint Commands if new commands added
+- [ ] Service architecture overview (brief, with reference to docs/)
+
+**Priority 3 - README.md (User Onboarding)**:
+- [ ] Feature list and usage examples
+- [ ] Installation/getting started if setup changed
 
 ### After Bug Fixes
-- [ ] Known issues section in CLAUDE.md
-- [ ] Troubleshooting guides in docs/
-- [ ] Common pitfalls documentation
-- [ ] Testing strategy updates if testing approach changed
+**Priority 1 - docs/ (Master Documentation)**:
+- [ ] docs/vector_search_troubleshooting.md or relevant troubleshooting docs
+- [ ] docs/test_guidelines.md if testing approach changed
+- [ ] docs/error_handling.md for common pitfalls
+
+**Priority 2 - CLAUDE.md (Claude Code Essentials)**:
+- [ ] Known Issues section (brief summary with reference to docs/)
+- [ ] Common Pitfalls to Avoid section
 
 ### After Refactoring
-- [ ] Architecture documentation in docs/
-- [ ] CLAUDE.md service layer descriptions
-- [ ] Developer guides and setup instructions
-- [ ] .github/instructions/ custom instructions
-- [ ] Code examples throughout documentation
+**Priority 1 - docs/ (Master Documentation)**:
+- [ ] docs/technical_spec.md for architecture changes
+- [ ] docs/development_workflow.md for process updates
+- [ ] docs/test_guidelines.md for testing approach changes
+
+**Priority 2 - CLAUDE.md (Claude Code Essentials)**:
+- [ ] Service-Based Architecture section (overview only)
+- [ ] Code examples update if patterns changed
+
+**Priority 3 - .github/instructions/**:
+- [ ] Custom instructions for AI agents
+- [ ] Code style guides and patterns
 
 ### After Configuration Changes
-- [ ] Environment setup instructions
-- [ ] Configuration file examples
-- [ ] Deployment guides
-- [ ] Development environment setup
+**Priority 1 - docs/ (Master Documentation)**:
+- [ ] docs/development_setup.md for environment setup
+- [ ] docs/optional_dependencies.md for feature configuration
+
+**Priority 2 - CLAUDE.md (Claude Code Essentials)**:
+- [ ] Environment Setup section
+- [ ] Optional Feature Configuration patterns
 
 ### After Dependencies Updates
+**Priority 1 - docs/ (Master Documentation)**:
+- [ ] docs/requirements.md for detailed dependency information
+- [ ] docs/optional_dependencies.md for optional feature dependencies
+
+**Priority 2 - README.md (User Onboarding)**:
 - [ ] Installation instructions
-- [ ] Requirements documentation
 - [ ] Compatibility information
-- [ ] Known issues with specific versions
+
+**Priority 3 - CLAUDE.md (Claude Code Essentials)**:
+- [ ] Known Issues section for version-specific issues
 
 ## Documentation Quality Standards
 
