@@ -1,6 +1,6 @@
 """Vector search module for semantic search capabilities."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:  # static type-checkers still "see" the real classes
     from .embeddings import EmbeddingProvider, SentenceTransformerProvider
@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):  # pragma: no cover
+def __getattr__(name: str) -> Any:  # pragma: no cover
     """Lazy loading for vector search components to avoid eager imports."""
     if name == "EmbeddingProvider":
         from .embeddings import EmbeddingProvider

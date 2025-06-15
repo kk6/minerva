@@ -94,9 +94,9 @@ class TestAutoIndexUpdates:
 
         mock_embedding_provider = Mock()
         # Create actual numpy arrays for proper testing
-        sample_embedding = np.array([0.1] * 384)
         actual_embedding = np.array([0.2] * 384)
-        mock_embedding_provider.embed.side_effect = [sample_embedding, actual_embedding]
+        mock_embedding_provider.embed.return_value = actual_embedding
+        mock_embedding_provider.embedding_dim = 384  # Mock the property
         mock_embedding_class.return_value = mock_embedding_provider
 
         mock_indexer = Mock()
@@ -111,7 +111,7 @@ class TestAutoIndexUpdates:
         # Assert
         mock_embedding_class.assert_called_once_with("all-MiniLM-L6-v2")
         mock_indexer_class.assert_called_once_with(Path("/test/vectors.db"))
-        assert mock_embedding_provider.embed.call_count == 2
+        assert mock_embedding_provider.embed.call_count == 1
         mock_indexer.initialize_schema.assert_called_once_with(384)
         mock_indexer.store_embedding.assert_called_once()
         mock_indexer.close.assert_called_once()

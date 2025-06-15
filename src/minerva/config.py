@@ -60,10 +60,12 @@ class MinervaConfig:
         assert default_vault is not None
 
         # Vector search configuration from environment
-        from distutils.util import strtobool
+        def _str_to_bool(value: str) -> bool:
+            """Convert string to boolean, similar to distutils.util.strtobool."""
+            return value.lower() in ("true", "1", "yes", "on")
 
-        vector_search_enabled = bool(
-            strtobool(os.getenv("VECTOR_SEARCH_ENABLED", "false"))
+        vector_search_enabled = _str_to_bool(
+            os.getenv("VECTOR_SEARCH_ENABLED", "false")
         )
         vector_db_path = None
         if vector_search_enabled:
@@ -77,7 +79,7 @@ class MinervaConfig:
                 )
 
         # Auto index configuration
-        auto_index_enabled = bool(strtobool(os.getenv("AUTO_INDEX_ENABLED", "true")))
+        auto_index_enabled = _str_to_bool(os.getenv("AUTO_INDEX_ENABLED", "true"))
         auto_index_strategy = os.getenv("AUTO_INDEX_STRATEGY", "immediate")
 
         return cls(
