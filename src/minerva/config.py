@@ -52,7 +52,8 @@ class MinervaConfig:
 
         if missing_vars:
             raise ValueError(
-                f"Required environment variables not set: {', '.join(missing_vars)} must be provided"
+                f"Required environment variables not set: {', '.join(missing_vars)}. "
+                "These must be provided"
             )
 
         # At this point, we know vault_root and default_vault are not None

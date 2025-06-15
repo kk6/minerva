@@ -210,7 +210,8 @@ def get_note_delete_confirmation(
         Dict with file path and confirmation message about what will be deleted
 
     Note:
-        You must provide either filename or filepath. Use perform_note_delete() after this.
+        You must provide either filename or filepath.
+        Use perform_note_delete() after this.
     """
     return get_service().get_note_delete_confirmation(filename, filepath, default_path)
 
@@ -444,7 +445,8 @@ def add_alias(
         filename: Name of the file to modify (provide this OR filepath)
         filepath: Full path to the file to modify (provide this OR filename)
         default_path: Subfolder to look for the file (optional)
-        allow_conflicts: Whether to allow aliases that conflict with existing filenames or aliases
+        allow_conflicts: Whether to allow aliases that conflict with existing
+            filenames or aliases
 
     Returns:
         Path to the modified note file
@@ -894,7 +896,9 @@ def find_similar_notes(
     Example:
         find_similar_notes(filename="project-analysis.md")
         find_similar_notes(filepath="/vault/research/paper.md", limit=3)
-        find_similar_notes(filename="meeting.md", default_path="work", exclude_self=False)
+        find_similar_notes(
+            filename="meeting.md", default_path="work", exclude_self=False
+        )
 
     Args:
         filename: Name of the reference file (provide this OR filepath)
