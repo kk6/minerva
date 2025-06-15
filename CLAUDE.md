@@ -11,8 +11,9 @@ Minerva is a tool that integrates with Claude Desktop to automate tasks such as 
 For a unified development experience, use the Makefile commands:
 
 - **Development Environment**:
-  - Install dependencies: `make install`
-  - Set up development environment: `make setup-dev`
+  - Install basic dependencies: `make install`
+  - Install with vector search: `make install-vector`
+  - Set up development environment: `make setup-dev` (includes vector search)
   - Clean build artifacts: `make clean`
 
 - **Testing**:
@@ -36,7 +37,8 @@ For a unified development experience, use the Makefile commands:
 ### Direct uv Commands (Alternative)
 If you prefer to use uv commands directly:
 
-- Install dependencies: `uv pip install -e .` then `uv sync --group dev`
+- Install basic dependencies: `uv pip install -e .` then `uv sync --group dev`
+- Install with vector search: `uv pip install -e ".[vector]"` then `uv sync --group dev --extra vector`
 - Run all tests: `uv run pytest`
 - Run single test: `uv run pytest tests/path/to/test.py::TestClass::test_method`
 - Run property-based tests: `uv run pytest tests/*_properties.py`

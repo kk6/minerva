@@ -30,8 +30,16 @@ make setup-dev
 
 #### 直接uvコマンドを使用
 
+基本的な開発環境：
 ```bash
-uv pip install -e ".[dev]"
+uv pip install -e .
+uv sync --group dev
+```
+
+セマンティック検索機能込みの開発環境（推奨）：
+```bash
+uv pip install -e ".[vector]"
+uv sync --group dev --extra vector
 ```
 
 これにより、プロジェクトとその開発用依存関係がインストールされます。

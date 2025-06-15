@@ -51,9 +51,26 @@ Claude Desktopを通じて、以下の操作が可能です：
 
 注意：これらの依存関係は`VECTOR_SEARCH_ENABLED=true`に設定した場合のみ必要です。セマンティック検索を使用しない場合、標準的なキーワード検索は引き続き利用可能です。
 
-## 設定方法
+## インストール方法
 
-保存パッケージがある場合は、事前にインストールしてください。
+### 基本インストール
+標準機能（ノート管理、検索、タグ機能）のみを使用する場合：
+```bash
+pip install -e .
+```
+
+### セマンティック検索付きインストール
+ベクター検索機能を含む完全版をインストールする場合：
+```bash
+pip install -e ".[vector]"
+```
+
+または、uvを使用する場合：
+```bash
+uv sync --extra vector
+```
+
+## 設定方法
 
 ### 環境変数の設定
 
@@ -152,12 +169,26 @@ uv run mcp dev src/minerva/server.py:mcp
 
 ## Claude Desktop にインストールする
 
-`-f .env` フラグは、環境変数を設定するための `.env` ファイルを指定します。このファイルには、プロジェクトの設定に必要な変数が含まれています。
+### 基本機能のみ
+標準機能のみを使用する場合：
 ```bash
 uv run mcp install src/minerva/server.py:mcp -f .env --with-editable .
 ```
 
-**重要**: `--with-editable .` オプションにより、プロジェクトをeditable modeでインストールします。これにより、Claude Desktop環境でも`minerva`パッケージとその依存関係（`python-frontmatter`など）が適切に認識されます。
+### セマンティック検索機能込み
+ベクター検索機能を含む場合（推奨）：
+```bash
+# まずvector依存関係をインストール
+uv sync --extra vector
+
+# Claude Desktopにインストール
+uv run mcp install src/minerva/server.py:mcp -f .env --with-editable .
+```
+
+**重要**:
+- `--with-editable .` オプションにより、プロジェクトをeditable modeでインストールします
+- セマンティック検索を使用する場合は、事前に`uv sync --extra vector`を実行してください
+- `.env`ファイルで`VECTOR_SEARCH_ENABLED=true`を設定することを忘れずに
 
 ## Claude Desktop での使い方
 

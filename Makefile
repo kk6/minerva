@@ -42,13 +42,19 @@ help: ## Display this help message
 		grep -E "(dev)" | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-15s$(RESET) %s\n", $$1, $$2}'
 
-install: ## Install project dependencies
+install: ## Install project dependencies (basic features only)
 	@echo "$(BLUE)Installing dependencies...$(RESET)"
 	uv pip install -e .
 	uv sync --group dev
 	@echo "$(GREEN)Dependencies installed successfully$(RESET)"
 
-setup-dev: install ## Set up complete development environment
+install-vector: ## Install project with vector search dependencies
+	@echo "$(BLUE)Installing dependencies with vector search support...$(RESET)"
+	uv pip install -e ".[vector]"
+	uv sync --group dev --extra vector
+	@echo "$(GREEN)Dependencies installed with vector search support$(RESET)"
+
+setup-dev: install-vector ## Set up complete development environment with vector search
 	@echo "$(BLUE)Setting up development environment...$(RESET)"
 	@if [ ! -f .env ]; then \
 		echo "$(YELLOW)Warning: .env file not found. Create one with OBSIDIAN_VAULT_ROOT and DEFAULT_VAULT$(RESET)"; \
