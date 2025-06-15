@@ -582,14 +582,24 @@ class ServiceManager:
                 logger.error("Failed to initialize schema: %s", e)
                 raise
 
-            # Process each file
+            # Filter files that need updating (incremental indexing)
+            if not force_rebuild:
+                files_to_update = indexer.get_outdated_files(files_to_process)
+                logger.info(
+                    "Incremental indexing: %d out of %d files need updates",
+                    len(files_to_update),
+                    len(files_to_process),
+                )
+                skipped = len(files_to_process) - len(files_to_update)
+                files_to_process = files_to_update
+            else:
+                logger.info(
+                    "Force rebuild: processing all %d files", len(files_to_process)
+                )
+
+            # Process each file that needs updating
             for file_path in files_to_process:
                 try:
-                    # Skip if already indexed and not forcing rebuild
-                    if not force_rebuild and indexer.is_file_indexed(file_path):
-                        skipped += 1
-                        continue
-
                     # Read file content
                     with open(file_path, "r", encoding="utf-8") as f:
                         content = f.read()

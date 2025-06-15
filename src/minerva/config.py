@@ -22,6 +22,9 @@ class MinervaConfig:
     vector_search_enabled: bool = False
     vector_db_path: Path | None = None
     embedding_model: str = "all-MiniLM-L6-v2"
+    # Automatic index updates configuration
+    auto_index_enabled: bool = True
+    auto_index_strategy: str = "immediate"  # immediate, batch, background
 
     @classmethod
     def from_env(cls) -> "MinervaConfig":
@@ -71,6 +74,10 @@ class MinervaConfig:
                     Path(vault_root) / default_vault / ".minerva" / "vectors.db"
                 )
 
+        # Auto index configuration
+        auto_index_enabled = os.getenv("AUTO_INDEX_ENABLED", "true").lower() == "true"
+        auto_index_strategy = os.getenv("AUTO_INDEX_STRATEGY", "immediate")
+
         return cls(
             vault_path=Path(vault_root) / default_vault,
             default_note_dir=os.getenv("DEFAULT_NOTE_DIR", "default_notes"),
@@ -78,4 +85,6 @@ class MinervaConfig:
             vector_search_enabled=vector_search_enabled,
             vector_db_path=vector_db_path,
             embedding_model=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
+            auto_index_enabled=auto_index_enabled,
+            auto_index_strategy=auto_index_strategy,
         )

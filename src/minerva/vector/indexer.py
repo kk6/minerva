@@ -173,6 +173,7 @@ class VectorIndexer:
                 file_path TEXT PRIMARY KEY,
                 content_hash TEXT NOT NULL,
                 indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                file_modified_at TIMESTAMP,
                 embedding_count INTEGER DEFAULT 0
             )
         """)
@@ -367,7 +368,191 @@ class VectorIndexer:
         content_hash = hashlib.sha256(content.encode()).hexdigest()
 
         # Use add_vectors to store the embedding
-        self.add_vectors(file_path, content_hash, embedding)
+        embedding_count = self.add_vectors(file_path, content_hash, embedding)
+
+        # Update file tracking information
+        self.update_file_tracking(file_path, content_hash, embedding_count)
+
+    def remove_file(self, file_path: str) -> None:
+        """
+        Remove all vectors associated with a file from the index.
+
+        Args:
+            file_path: Path to the file to remove from index
+        """
+        if not self._initialized:
+            raise RuntimeError(
+                "Database schema not initialized. Call initialize_schema() first."
+            )
+
+        conn = self._get_connection()
+
+        # Remove vectors for this file
+        result = conn.execute("DELETE FROM vectors WHERE file_path = ?", (file_path,))
+        deleted_count = result.rowcount
+
+        # Remove from indexed_files tracking table if it exists
+        try:
+            conn.execute("DELETE FROM indexed_files WHERE file_path = ?", (file_path,))
+        except Exception:
+            # Table might not exist, ignore
+            pass
+
+        logger.debug("Removed %d vectors for file: %s", deleted_count, file_path)
+
+    def needs_update(self, file_path: str) -> bool:
+        """
+        Check if a file needs to be re-indexed based on modification time.
+
+        Args:
+            file_path: Path to the file to check
+
+        Returns:
+            bool: True if file needs to be indexed or re-indexed
+        """
+        if not self._initialized:
+            # If schema not initialized, everything needs indexing
+            return True
+
+        import os
+        from datetime import datetime
+
+        try:
+            # Get file modification time
+            file_stat = os.stat(file_path)
+            file_mtime = datetime.fromtimestamp(file_stat.st_mtime)
+
+            conn = self._get_connection()
+
+            # Check if file is tracked in indexed_files
+            result = conn.execute(
+                "SELECT file_modified_at, content_hash FROM indexed_files WHERE file_path = ?",
+                (file_path,),
+            ).fetchone()
+
+            if not result:
+                # File not indexed yet
+                return True
+
+            stored_mtime_str, stored_hash = result
+
+            # Parse stored modification time
+            if stored_mtime_str:
+                try:
+                    stored_mtime = datetime.fromisoformat(
+                        stored_mtime_str.replace("Z", "+00:00")
+                    )
+                    # Remove timezone info for comparison (both are local)
+                    if stored_mtime.tzinfo:
+                        stored_mtime = stored_mtime.replace(tzinfo=None)
+
+                    # Check if file was modified after last indexing
+                    if file_mtime > stored_mtime:
+                        logger.debug("File %s modified since last indexing", file_path)
+                        return True
+                except (ValueError, AttributeError):
+                    # Invalid timestamp, re-index to be safe
+                    logger.debug("Invalid timestamp for %s, re-indexing", file_path)
+                    return True
+            else:
+                # No modification time stored, needs update
+                return True
+
+            # Check if file content has changed (hash comparison)
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+
+                import hashlib
+
+                current_hash = hashlib.sha256(content.encode()).hexdigest()
+
+                if current_hash != stored_hash:
+                    logger.debug("File %s content changed (hash mismatch)", file_path)
+                    return True
+
+            except (IOError, UnicodeDecodeError):
+                # Error reading file, assume it needs update
+                logger.debug("Error reading %s, assuming update needed", file_path)
+                return True
+
+            # File hasn't changed
+            return False
+
+        except Exception as e:
+            logger.warning(
+                "Error checking if file needs update for %s: %s", file_path, e
+            )
+            # When in doubt, update
+            return True
+
+    def update_file_tracking(
+        self, file_path: str, content_hash: str, embedding_count: int = 1
+    ) -> None:
+        """
+        Update file tracking information after successful indexing.
+
+        Args:
+            file_path: Path to the indexed file
+            content_hash: Hash of the file content
+            embedding_count: Number of embeddings stored for this file
+        """
+        if not self._initialized:
+            raise RuntimeError(
+                "Database schema not initialized. Call initialize_schema() first."
+            )
+
+        import os
+        from datetime import datetime
+
+        try:
+            # Get file modification time
+            file_stat = os.stat(file_path)
+            file_mtime = datetime.fromtimestamp(file_stat.st_mtime).isoformat()
+
+            conn = self._get_connection()
+
+            # Insert or update file tracking record
+            conn.execute(
+                """
+                INSERT INTO indexed_files (file_path, content_hash, file_modified_at, embedding_count)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(file_path) DO UPDATE SET
+                    content_hash = excluded.content_hash,
+                    file_modified_at = excluded.file_modified_at,
+                    embedding_count = excluded.embedding_count,
+                    indexed_at = CURRENT_TIMESTAMP
+            """,
+                (file_path, content_hash, file_mtime, embedding_count),
+            )
+
+            logger.debug("Updated file tracking for %s", file_path)
+
+        except Exception as e:
+            logger.warning("Failed to update file tracking for %s: %s", file_path, e)
+
+    def get_outdated_files(self, file_paths: list[str]) -> list[str]:
+        """
+        Get list of files that need to be re-indexed from a given list.
+
+        Args:
+            file_paths: List of file paths to check
+
+        Returns:
+            List of file paths that need indexing/re-indexing
+        """
+        outdated_files = []
+
+        for file_path in file_paths:
+            if self.needs_update(file_path):
+                outdated_files.append(file_path)
+
+        logger.info(
+            "Found %d outdated files out of %d total",
+            len(outdated_files),
+            len(file_paths),
+        )
+        return outdated_files
 
     def close(self) -> None:
         """Close the database connection."""

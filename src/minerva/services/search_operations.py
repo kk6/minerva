@@ -386,3 +386,110 @@ class SearchOperations(BaseService):
                 "Vector search requires additional dependencies. "
                 "Install with: pip install sentence-transformers duckdb"
             ) from e
+
+    @log_performance(threshold_ms=1000)
+    def find_similar_notes(
+        self,
+        filename: str | None = None,
+        filepath: str | None = None,
+        default_path: str | None = None,
+        limit: int = 5,
+        exclude_self: bool = True,
+    ) -> List[SemanticSearchResult]:
+        """
+        Find notes that are similar to a given note using vector similarity.
+
+        Args:
+            filename: Name of the reference file (provide this OR filepath)
+            filepath: Full path to the reference file (provide this OR filename)
+            default_path: Subfolder to look for the file (optional)
+            limit: Maximum number of similar notes to return
+            exclude_self: Whether to exclude the reference file from results
+
+        Returns:
+            List of semantic search results ordered by similarity
+
+        Raises:
+            RuntimeError: If vector search is not enabled
+            ValueError: If neither filename nor filepath is provided or if file doesn't exist
+            ImportError: If vector search dependencies are not available
+        """
+        self._log_operation_start(
+            "find_similar_notes", filename=filename, filepath=filepath, limit=limit
+        )
+
+        if not self.config.vector_search_enabled:
+            error = RuntimeError("Vector search is not enabled in configuration")
+            self._log_operation_error("find_similar_notes", error)
+            raise error
+
+        # Validate input parameters
+        if not filename and not filepath:
+            error = ValueError("Either filename or filepath must be provided")
+            self._log_operation_error("find_similar_notes", error)
+            raise error
+
+        # Validate limit parameter
+        if limit <= 0:
+            error = ValueError("Limit must be positive")
+            self._log_operation_error("find_similar_notes", error)
+            raise error
+
+        try:
+            from minerva.vector.searcher import VectorSearcher
+            from minerva.services.core.file_operations import resolve_note_file
+
+            # Resolve the reference file path
+            reference_file_path = resolve_note_file(
+                self.config, filename, filepath, default_path
+            )
+
+            if not reference_file_path.exists():
+                error = FileNotFoundError(
+                    f"Reference file does not exist: {reference_file_path}"
+                )
+                self._log_operation_error("find_similar_notes", error)
+                raise error
+
+            # Initialize vector searcher
+            searcher = VectorSearcher(self.config.vector_db_path)
+
+            # Find similar files using vector similarity
+            similar_files = searcher.find_similar_to_file(
+                str(reference_file_path), k=limit, exclude_self=exclude_self
+            )
+
+            # Convert to semantic search results
+            semantic_results = []
+            for file_path, similarity_score in similar_files:
+                semantic_result = self._create_semantic_search_result(
+                    file_path, similarity_score, None
+                )
+                if semantic_result:
+                    semantic_results.append(semantic_result)
+
+            # Close connections
+            searcher.close()
+
+            logger.info(
+                "Found %d similar notes to %s",
+                len(semantic_results),
+                reference_file_path,
+            )
+
+            self._log_operation_success("find_similar_notes", semantic_results)
+            return semantic_results
+
+        except ImportError as e:
+            logger.error("Vector search dependencies not available: %s", e)
+            error = ImportError(
+                "Vector search requires additional dependencies. "
+                "Install with: pip install sentence-transformers duckdb"
+            )
+            self._log_operation_error("find_similar_notes", error)
+            raise error from e
+
+        except Exception as e:
+            logger.error("Find similar notes failed: %s", e)
+            self._log_operation_error("find_similar_notes", e)
+            raise

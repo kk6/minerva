@@ -136,6 +136,9 @@ class NoteOperations(BaseService):
         logger.info("New note created at %s", file_path)
 
         self._log_operation_success("create_note", file_path)
+        # Auto-update vector index if enabled
+        self._update_vector_index_if_enabled(file_path, content)
+
         return file_path
 
     @log_performance(threshold_ms=500)
@@ -197,6 +200,9 @@ class NoteOperations(BaseService):
         logger.info("Note edited at %s", file_path)
 
         self._log_operation_success("edit_note", file_path)
+        # Auto-update vector index if enabled
+        self._update_vector_index_if_enabled(file_path, content)
+
         return file_path
 
     @log_performance(threshold_ms=200)
@@ -297,4 +303,97 @@ class NoteOperations(BaseService):
         logger.info("Note deleted successfully at %s", deleted_path)
 
         self._log_operation_success("perform_note_delete", deleted_path)
+        # Remove from vector index if enabled
+        self._remove_from_vector_index_if_enabled(deleted_path)
+
         return deleted_path
+
+    def _update_vector_index_if_enabled(self, file_path: Path, content: str) -> None:
+        """
+        Update vector index for the file if auto-indexing is enabled.
+
+        Args:
+            file_path: Path to the file that was created/updated
+            content: Content of the file for embedding generation
+        """
+        if not self._should_auto_update_index():
+            return
+
+        try:
+            from minerva.vector.embeddings import SentenceTransformerProvider
+            from minerva.vector.indexer import VectorIndexer
+
+            # Initialize components
+            embedding_provider = SentenceTransformerProvider(
+                self.config.embedding_model
+            )
+            indexer = VectorIndexer(self.config.vector_db_path)
+
+            # Ensure schema is initialized
+            sample_embedding = embedding_provider.embed(content[:500])
+            embedding_dim = (
+                sample_embedding.shape[1]
+                if sample_embedding.ndim == 2
+                else len(sample_embedding)
+            )
+            indexer.initialize_schema(embedding_dim)
+
+            # Generate and store embedding
+            embedding = embedding_provider.embed(content)
+            indexer.store_embedding(str(file_path), embedding, content)
+
+            # Close connections
+            indexer.close()
+
+            logger.debug("Vector index updated for file: %s", file_path)
+
+        except ImportError:
+            logger.debug(
+                "Vector search dependencies not available, skipping auto-index update"
+            )
+        except Exception as e:
+            logger.warning("Failed to update vector index for %s: %s", file_path, e)
+
+    def _remove_from_vector_index_if_enabled(self, file_path: Path) -> None:
+        """
+        Remove file from vector index if auto-indexing is enabled.
+
+        Args:
+            file_path: Path to the file that was deleted
+        """
+        if not self._should_auto_update_index():
+            return
+
+        try:
+            from minerva.vector.indexer import VectorIndexer
+
+            indexer = VectorIndexer(self.config.vector_db_path)
+
+            # Remove from index if it exists
+            if indexer.is_file_indexed(str(file_path)):
+                indexer.remove_file(str(file_path))
+                logger.debug("Removed file from vector index: %s", file_path)
+
+            indexer.close()
+
+        except ImportError:
+            logger.debug(
+                "Vector search dependencies not available, skipping auto-index removal"
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to remove from vector index for %s: %s", file_path, e
+            )
+
+    def _should_auto_update_index(self) -> bool:
+        """
+        Check if automatic vector index updates should be performed.
+
+        Returns:
+            bool: True if auto-updates should be performed
+        """
+        return (
+            self.config.vector_search_enabled
+            and self.config.auto_index_enabled
+            and self.config.vector_db_path is not None
+        )

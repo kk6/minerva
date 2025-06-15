@@ -620,3 +620,240 @@ def mock_open_with_content(content):
     from unittest.mock import mock_open
 
     return mock_open(read_data=content)
+
+
+class TestFindSimilarNotes:
+    """Test cases for find_similar_notes functionality in SearchOperations."""
+
+    @pytest.fixture
+    def mock_config_vector_enabled(self):
+        """Create a mock configuration with vector search enabled."""
+        config = Mock(spec=MinervaConfig)
+        config.vault_path = Path("/test/vault")
+        config.vector_search_enabled = True
+        config.vector_db_path = Path("/test/vectors.db")
+        config.embedding_model = "all-MiniLM-L6-v2"
+        return config
+
+    @pytest.fixture
+    def mock_config_vector_disabled(self):
+        """Create a mock configuration with vector search disabled."""
+        config = Mock(spec=MinervaConfig)
+        config.vault_path = Path("/test/vault")
+        config.vector_search_enabled = False
+        return config
+
+    @pytest.fixture
+    def search_operations_vector_enabled(self, mock_config_vector_enabled):
+        """Create SearchOperations with vector search enabled."""
+        frontmatter_manager = Mock(spec=FrontmatterManager)
+        return SearchOperations(mock_config_vector_enabled, frontmatter_manager)
+
+    @pytest.fixture
+    def search_operations_vector_disabled(self, mock_config_vector_disabled):
+        """Create SearchOperations with vector search disabled."""
+        frontmatter_manager = Mock(spec=FrontmatterManager)
+        return SearchOperations(mock_config_vector_disabled, frontmatter_manager)
+
+    def test_find_similar_notes_vector_disabled(
+        self, search_operations_vector_disabled
+    ):
+        """Test find_similar_notes when vector search is disabled."""
+        # Act & Assert
+        with pytest.raises(RuntimeError, match="Vector search is not enabled"):
+            search_operations_vector_disabled.find_similar_notes(filename="test.md")
+
+    def test_find_similar_notes_no_filename_or_filepath(
+        self, search_operations_vector_enabled
+    ):
+        """Test find_similar_notes with neither filename nor filepath provided."""
+        # Act & Assert
+        with pytest.raises(
+            ValueError, match="Either filename or filepath must be provided"
+        ):
+            search_operations_vector_enabled.find_similar_notes()
+
+    def test_find_similar_notes_invalid_limit(self, search_operations_vector_enabled):
+        """Test find_similar_notes with invalid limit."""
+        # Act & Assert
+        with pytest.raises(ValueError, match="Limit must be positive"):
+            search_operations_vector_enabled.find_similar_notes(
+                filename="test.md", limit=0
+            )
+
+    @patch("minerva.vector.searcher.VectorSearcher")
+    @patch("minerva.services.core.file_operations.resolve_note_file")
+    def test_find_similar_notes_file_not_exists(
+        self, mock_resolve, mock_searcher_class, search_operations_vector_enabled
+    ):
+        """Test find_similar_notes when reference file doesn't exist."""
+        # Arrange
+        mock_path = Mock()
+        mock_path.exists.return_value = False
+        mock_resolve.return_value = mock_path
+
+        # Act & Assert
+        with pytest.raises(FileNotFoundError, match="Reference file does not exist"):
+            search_operations_vector_enabled.find_similar_notes(
+                filename="nonexistent.md"
+            )
+
+    @patch("minerva.vector.searcher.VectorSearcher")
+    @patch("minerva.services.core.file_operations.resolve_note_file")
+    def test_find_similar_notes_success(
+        self, mock_resolve, mock_searcher_class, search_operations_vector_enabled
+    ):
+        """Test successful find_similar_notes operation."""
+        # Arrange
+        mock_path = Mock()
+        mock_path.exists.return_value = True
+        mock_resolve.return_value = mock_path
+
+        mock_searcher = Mock()
+        mock_searcher.find_similar_to_file.return_value = [
+            ("/test/vault/similar1.md", 0.8),
+            ("/test/vault/similar2.md", 0.7),
+        ]
+        mock_searcher_class.return_value = mock_searcher
+
+        # Mock _create_semantic_search_result
+        with patch.object(
+            search_operations_vector_enabled, "_create_semantic_search_result"
+        ) as mock_create_result:
+            mock_result1 = Mock(spec=SemanticSearchResult)
+            mock_result2 = Mock(spec=SemanticSearchResult)
+            mock_create_result.side_effect = [mock_result1, mock_result2]
+
+            # Act
+            results = search_operations_vector_enabled.find_similar_notes(
+                filename="reference.md", limit=5, exclude_self=True
+            )
+
+            # Assert
+            assert len(results) == 2
+            assert results[0] == mock_result1
+            assert results[1] == mock_result2
+            mock_searcher.find_similar_to_file.assert_called_once_with(
+                str(mock_path), k=5, exclude_self=True
+            )
+            mock_searcher.close.assert_called_once()
+
+    @patch("minerva.vector.searcher.VectorSearcher")
+    @patch("minerva.services.core.file_operations.resolve_note_file")
+    def test_find_similar_notes_with_filepath(
+        self, mock_resolve, mock_searcher_class, search_operations_vector_enabled
+    ):
+        """Test find_similar_notes using filepath parameter."""
+        # Arrange
+        mock_path = Mock()
+        mock_path.exists.return_value = True
+        mock_resolve.return_value = mock_path
+
+        mock_searcher = Mock()
+        mock_searcher.find_similar_to_file.return_value = []
+        mock_searcher_class.return_value = mock_searcher
+
+        # Act
+        results = search_operations_vector_enabled.find_similar_notes(
+            filepath="/test/vault/reference.md"
+        )
+
+        # Assert
+        assert results == []
+        mock_resolve.assert_called_once_with(
+            search_operations_vector_enabled.config,
+            None,
+            "/test/vault/reference.md",
+            None,
+        )
+
+    def test_find_similar_notes_import_error(self, search_operations_vector_enabled):
+        """Test find_similar_notes with import error."""
+        # Create a mock that simulates ImportError during lazy import
+        original_method = search_operations_vector_enabled.find_similar_notes
+
+        # Create a new method that raises ImportError
+        def mock_find_similar_with_import_error(*args, **kwargs):
+            # Simulate the import error that would occur inside find_similar_notes
+            raise ImportError(
+                "Vector search requires additional dependencies. "
+                "Install with: pip install sentence-transformers duckdb"
+            )
+
+        # Replace the method temporarily
+        search_operations_vector_enabled.find_similar_notes = (
+            mock_find_similar_with_import_error
+        )
+
+        try:
+            # Act & Assert
+            with pytest.raises(
+                ImportError, match="Vector search requires additional dependencies"
+            ):
+                search_operations_vector_enabled.find_similar_notes(filename="test.md")
+        finally:
+            # Restore original method
+            search_operations_vector_enabled.find_similar_notes = original_method
+
+    @patch("minerva.vector.searcher.VectorSearcher")
+    @patch("minerva.services.core.file_operations.resolve_note_file")
+    def test_find_similar_notes_exclude_self_false(
+        self, mock_resolve, mock_searcher_class, search_operations_vector_enabled
+    ):
+        """Test find_similar_notes with exclude_self=False."""
+        # Arrange
+        mock_path = Mock()
+        mock_path.exists.return_value = True
+        mock_resolve.return_value = mock_path
+
+        mock_searcher = Mock()
+        mock_searcher.find_similar_to_file.return_value = [
+            ("/test/vault/reference.md", 1.0),  # Self-reference
+            ("/test/vault/similar.md", 0.9),
+        ]
+        mock_searcher_class.return_value = mock_searcher
+
+        # Mock _create_semantic_search_result
+        with patch.object(
+            search_operations_vector_enabled, "_create_semantic_search_result"
+        ) as mock_create_result:
+            mock_result1 = Mock(spec=SemanticSearchResult)
+            mock_result2 = Mock(spec=SemanticSearchResult)
+            mock_create_result.side_effect = [mock_result1, mock_result2]
+
+            # Act
+            results = search_operations_vector_enabled.find_similar_notes(
+                filename="reference.md", exclude_self=False
+            )
+
+            # Assert
+            assert len(results) == 2
+            mock_searcher.find_similar_to_file.assert_called_once_with(
+                str(mock_path), k=5, exclude_self=False
+            )
+
+    @patch("minerva.vector.searcher.VectorSearcher")
+    @patch("minerva.services.core.file_operations.resolve_note_file")
+    def test_find_similar_notes_with_default_path(
+        self, mock_resolve, mock_searcher_class, search_operations_vector_enabled
+    ):
+        """Test find_similar_notes with default_path parameter."""
+        # Arrange
+        mock_path = Mock()
+        mock_path.exists.return_value = True
+        mock_resolve.return_value = mock_path
+
+        mock_searcher = Mock()
+        mock_searcher.find_similar_to_file.return_value = []
+        mock_searcher_class.return_value = mock_searcher
+
+        # Act
+        results = search_operations_vector_enabled.find_similar_notes(
+            filename="reference.md", default_path="subfolder"
+        )
+
+        # Assert
+        assert results == []
+        mock_resolve.assert_called_once_with(
+            search_operations_vector_enabled.config, "reference.md", None, "subfolder"
+        )

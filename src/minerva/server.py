@@ -839,3 +839,42 @@ def get_vector_index_status() -> dict[str, int | bool | str]:
         Returns meaningful data only if vector search is enabled
     """
     return get_service().get_vector_index_status()
+
+
+@mcp.tool()
+def find_similar_notes(
+    filename: str | None = None,
+    filepath: str | None = None,
+    default_path: str | None = None,
+    limit: int = 5,
+    exclude_self: bool = True,
+) -> list[SemanticSearchResult]:
+    """
+    Find notes that are similar to a given note using vector similarity.
+
+    This searches for notes that are semantically similar to the reference note,
+    using the stored vector embeddings. Great for discovering related content
+    and making connections between ideas.
+
+    Example:
+        find_similar_notes(filename="project-analysis.md")
+        find_similar_notes(filepath="/vault/research/paper.md", limit=3)
+        find_similar_notes(filename="meeting.md", default_path="work", exclude_self=False)
+
+    Args:
+        filename: Name of the reference file (provide this OR filepath)
+        filepath: Full path to the reference file (provide this OR filename)
+        default_path: Subfolder to look for the file (optional)
+        limit: Maximum number of similar notes to return (default: 5)
+        exclude_self: Whether to exclude the reference file from results (default: True)
+
+    Returns:
+        List of semantic search results ordered by similarity to the reference note
+
+    Note:
+        Requires vector search to be enabled and the reference note to be indexed.
+        You must provide either filename or filepath.
+    """
+    return get_service().search_operations.find_similar_notes(
+        filename, filepath, default_path, limit, exclude_self
+    )
