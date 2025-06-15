@@ -878,3 +878,146 @@ def find_similar_notes(
     return get_service().search_operations.find_similar_notes(
         filename, filepath, default_path, limit, exclude_self
     )
+
+
+@mcp.tool()
+def process_batch_index_queue() -> dict[str, int]:
+    """
+    Process pending batch index operations immediately.
+
+    This tool manually triggers processing of any queued batch index operations
+    when using 'batch' or 'background' auto-index strategies. It's useful for
+    ensuring all pending index updates are completed before performing searches.
+
+    Returns:
+        Dictionary with processing statistics: tasks_processed, queue_size_before, queue_size_after
+
+    Note:
+        Only useful when AUTO_INDEX_STRATEGY is set to 'batch' or 'background'.
+        Has no effect when using 'immediate' strategy.
+    """
+    try:
+        from minerva.vector.batch_indexer import get_batch_indexer
+
+        config = get_service().config
+        strategy = config.auto_index_strategy.lower()
+
+        if strategy == "immediate":
+            return {
+                "tasks_processed": 0,
+                "queue_size_before": 0,
+                "queue_size_after": 0,
+                "message": "No batch processing needed for immediate strategy",
+            }
+
+        batch_indexer = get_batch_indexer(config, strategy)
+        if not batch_indexer:
+            return {
+                "tasks_processed": 0,
+                "queue_size_before": 0,
+                "queue_size_after": 0,
+                "message": "Batch indexer not available",
+            }
+
+        queue_size_before = batch_indexer.get_queue_size()
+        tasks_processed = batch_indexer.process_all_pending()
+        queue_size_after = batch_indexer.get_queue_size()
+
+        return {
+            "tasks_processed": tasks_processed,
+            "queue_size_before": queue_size_before,
+            "queue_size_after": queue_size_after,
+            "message": f"Processed {tasks_processed} tasks from batch queue",
+        }
+
+    except ImportError:
+        return {
+            "tasks_processed": 0,
+            "queue_size_before": 0,
+            "queue_size_after": 0,
+            "error": "Vector search dependencies not available",
+        }
+    except Exception as e:
+        return {
+            "tasks_processed": 0,
+            "queue_size_before": 0,
+            "queue_size_after": 0,
+            "error": f"Failed to process batch queue: {e}",
+        }
+
+
+@mcp.tool()
+def get_batch_index_status() -> dict[str, int | str]:
+    """
+    Get the current status of the batch indexing system.
+
+    This tool provides information about the batch indexing queue size,
+    processing statistics, and current strategy configuration.
+
+    Returns:
+        Dictionary with batch indexer status and statistics
+
+    Note:
+        Shows detailed statistics when using 'batch' or 'background' strategies.
+        Limited information available for 'immediate' strategy.
+    """
+    try:
+        from minerva.vector.batch_indexer import get_batch_indexer
+
+        config = get_service().config
+        strategy = config.auto_index_strategy.lower()
+
+        result = {
+            "auto_index_enabled": config.auto_index_enabled,
+            "auto_index_strategy": strategy,
+            "vector_search_enabled": config.vector_search_enabled,
+        }
+
+        if strategy == "immediate":
+            result.update(
+                {
+                    "queue_size": 0,
+                    "tasks_queued": 0,
+                    "tasks_processed": 0,
+                    "batches_processed": 0,
+                    "errors": 0,
+                    "message": "Using immediate strategy - no batch queue",
+                }
+            )
+            return result
+
+        batch_indexer = get_batch_indexer(config, strategy)
+        if not batch_indexer:
+            result.update({"queue_size": 0, "error": "Batch indexer not available"})
+            return result
+
+        # Get current status
+        queue_size = batch_indexer.get_queue_size()
+        stats = batch_indexer.get_stats()
+
+        result.update(
+            {
+                "queue_size": queue_size,
+                "tasks_queued": stats["tasks_queued"],
+                "tasks_processed": stats["tasks_processed"],
+                "batches_processed": stats["batches_processed"],
+                "errors": stats["errors"],
+            }
+        )
+
+        return result
+
+    except ImportError:
+        return {
+            "auto_index_enabled": False,
+            "auto_index_strategy": "unknown",
+            "vector_search_enabled": False,
+            "error": "Vector search dependencies not available",
+        }
+    except Exception as e:
+        return {
+            "auto_index_enabled": False,
+            "auto_index_strategy": "unknown",
+            "vector_search_enabled": False,
+            "error": f"Failed to get batch status: {e}",
+        }

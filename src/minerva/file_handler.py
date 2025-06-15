@@ -113,6 +113,9 @@ class SemanticSearchResult(BaseModel):
     metadata: Optional[dict] = Field(
         default=None, description="Additional metadata from the note"
     )
+    aliases: Optional[list[str]] = Field(
+        default=None, description="List of aliases for the note"
+    )
 
 
 def is_binary_file(file_path: Path) -> bool:

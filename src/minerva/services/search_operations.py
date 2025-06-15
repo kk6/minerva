@@ -305,40 +305,23 @@ class SearchOperations(BaseService):
             path = Path(file_path)
 
             # Apply directory filter if specified
-            if target_directory:
-                if not path.is_relative_to(Path(target_directory)):
-                    return None
+            if target_directory and not path.is_relative_to(Path(target_directory)):
+                return None
 
             # Check if file exists
             if not path.exists():
                 logger.warning("File not found: %s", file_path)
                 return None
 
-            # Read file content and extract metadata
-            with open(path, "r", encoding="utf-8") as f:
-                content = f.read()
+            # Read and parse file content
+            content, post, metadata = self._read_and_parse_file(path)
 
-            # Parse frontmatter if present
-            post = frontmatter.loads(content)
-            metadata = dict(post.metadata) if post.metadata else {}
+            # Extract title and aliases
+            title = self._extract_title(metadata, path)
+            aliases = self._extract_aliases(metadata)
 
-            # Extract title from frontmatter or filename
-            title_value = metadata.get("title")
-            title = title_value if isinstance(title_value, str) else None
-            if not title:
-                title = path.stem.replace("_", " ").replace("-", " ").title()
-
-            # Create content preview (first 200 characters of main content)
-            main_content = post.content if hasattr(post, "content") else content
-            if hasattr(post, "metadata") and post.metadata:
-                # Remove frontmatter from content preview
-                lines = main_content.split("\n")
-                content_preview = " ".join(lines).strip()[:200]
-            else:
-                content_preview = main_content.strip()[:200]
-
-            if len(content_preview) > 197:  # Account for "..."
-                content_preview = content_preview[:197] + "..."
+            # Create content preview
+            content_preview = self._create_content_preview(post, content)
 
             return SemanticSearchResult(
                 file_path=str(path),
@@ -346,6 +329,7 @@ class SearchOperations(BaseService):
                 content_preview=content_preview,
                 similarity_score=similarity_score,
                 metadata=metadata,
+                aliases=aliases if aliases else None,
             )
 
         except Exception as e:
@@ -353,6 +337,50 @@ class SearchOperations(BaseService):
                 "Failed to create semantic search result for %s: %s", file_path, e
             )
             return None
+
+    def _read_and_parse_file(self, path: Path) -> tuple[str, object, dict]:
+        """Read file content and parse frontmatter."""
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        post = frontmatter.loads(content)
+        metadata = dict(post.metadata) if post.metadata else {}
+
+        return content, post, metadata
+
+    def _extract_title(self, metadata: dict, path: Path) -> str:
+        """Extract title from metadata or generate from filename."""
+        title_value = metadata.get("title")
+        title = title_value if isinstance(title_value, str) else None
+        if not title:
+            title = path.stem.replace("_", " ").replace("-", " ").title()
+        return title
+
+    def _extract_aliases(self, metadata: dict) -> list[str]:
+        """Extract aliases from metadata."""
+        aliases = []
+        if "aliases" in metadata:
+            alias_value = metadata["aliases"]
+            if isinstance(alias_value, list):
+                aliases = [str(alias) for alias in alias_value if alias]
+            elif isinstance(alias_value, str):
+                aliases = [alias_value] if alias_value else []
+        return aliases
+
+    def _create_content_preview(self, post: object, content: str) -> str:
+        """Create content preview from post or raw content."""
+        main_content = post.content if hasattr(post, "content") else content
+        if hasattr(post, "metadata") and post.metadata:
+            # Remove frontmatter from content preview
+            lines = main_content.split("\n")
+            content_preview = " ".join(lines).strip()[:200]
+        else:
+            content_preview = main_content.strip()[:200]
+
+        if len(content_preview) > 197:  # Account for "..."
+            content_preview = content_preview[:197] + "..."
+
+        return content_preview
 
     def get_indexed_files_count(self) -> int:
         """

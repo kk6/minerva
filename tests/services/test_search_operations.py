@@ -563,6 +563,7 @@ class TestSemanticSearchOperations:
             assert result.title == "Test File"
             assert result.similarity_score == similarity_score
             assert "Content here" in result.content_preview
+            assert result.aliases is None  # No aliases in this test
 
     def test_create_semantic_search_result_file_not_found(
         self, search_operations_vector_enabled
@@ -581,6 +582,121 @@ class TestSemanticSearchOperations:
 
             # Assert
             assert result is None
+
+    def test_create_semantic_search_result_with_aliases(
+        self, search_operations_vector_enabled
+    ):
+        """Test semantic search result creation with aliases."""
+        # Arrange
+        file_path = "/test/file.md"
+        similarity_score = 0.9
+
+        # Mock file reading and frontmatter parsing with aliases
+        with (
+            patch(
+                "builtins.open",
+                mock_open_with_content(
+                    "---\ntitle: Test File\naliases: ['Alias 1', 'Alias 2']\n---\nContent here"
+                ),
+            ),
+            patch(
+                "minerva.services.search_operations.frontmatter.loads"
+            ) as mock_frontmatter,
+            patch.object(Path, "exists", return_value=True),
+        ):
+            mock_post = Mock()
+            mock_post.metadata = {
+                "title": "Test File",
+                "aliases": ["Alias 1", "Alias 2"],
+            }
+            mock_post.content = "Content here"
+            mock_frontmatter.return_value = mock_post
+
+            # Act
+            result = search_operations_vector_enabled._create_semantic_search_result(
+                file_path, similarity_score, None
+            )
+
+            # Assert
+            assert result is not None
+            assert isinstance(result, SemanticSearchResult)
+            assert result.file_path == file_path
+            assert result.title == "Test File"
+            assert result.similarity_score == similarity_score
+            assert result.aliases == ["Alias 1", "Alias 2"]
+            assert "Content here" in result.content_preview
+
+    def test_create_semantic_search_result_with_single_alias(
+        self, search_operations_vector_enabled
+    ):
+        """Test semantic search result creation with single alias string."""
+        # Arrange
+        file_path = "/test/file.md"
+        similarity_score = 0.7
+
+        # Mock file reading and frontmatter parsing with single alias
+        with (
+            patch(
+                "builtins.open",
+                mock_open_with_content(
+                    "---\ntitle: Test File\naliases: 'Single Alias'\n---\nContent here"
+                ),
+            ),
+            patch(
+                "minerva.services.search_operations.frontmatter.loads"
+            ) as mock_frontmatter,
+            patch.object(Path, "exists", return_value=True),
+        ):
+            mock_post = Mock()
+            mock_post.metadata = {"title": "Test File", "aliases": "Single Alias"}
+            mock_post.content = "Content here"
+            mock_frontmatter.return_value = mock_post
+
+            # Act
+            result = search_operations_vector_enabled._create_semantic_search_result(
+                file_path, similarity_score, None
+            )
+
+            # Assert
+            assert result is not None
+            assert isinstance(result, SemanticSearchResult)
+            assert result.aliases == ["Single Alias"]
+
+    def test_create_semantic_search_result_with_empty_aliases(
+        self, search_operations_vector_enabled
+    ):
+        """Test semantic search result creation with empty aliases."""
+        # Arrange
+        file_path = "/test/file.md"
+        similarity_score = 0.6
+
+        # Mock file reading and frontmatter parsing with empty aliases
+        with (
+            patch(
+                "builtins.open",
+                mock_open_with_content(
+                    "---\ntitle: Test File\naliases: []\n---\nContent here"
+                ),
+            ),
+            patch(
+                "minerva.services.search_operations.frontmatter.loads"
+            ) as mock_frontmatter,
+            patch.object(Path, "exists", return_value=True),
+        ):
+            mock_post = Mock()
+            mock_post.metadata = {"title": "Test File", "aliases": []}
+            mock_post.content = "Content here"
+            mock_frontmatter.return_value = mock_post
+
+            # Act
+            result = search_operations_vector_enabled._create_semantic_search_result(
+                file_path, similarity_score, None
+            )
+
+            # Assert
+            assert result is not None
+            assert isinstance(result, SemanticSearchResult)
+            assert result.aliases is None  # Empty list should be None
 
     def test_get_indexed_files_count_vector_disabled(
         self, search_operations_vector_disabled
