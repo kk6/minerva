@@ -347,6 +347,8 @@ class NoteOperations(BaseService):
             embedding_provider = SentenceTransformerProvider(
                 self.config.embedding_model
             )
+            if not self.config.vector_db_path:
+                raise RuntimeError("Vector database path is not configured")
             indexer = VectorIndexer(self.config.vector_db_path)
 
             # Ensure schema is initialized
@@ -439,6 +441,8 @@ class NoteOperations(BaseService):
         try:
             from minerva.vector.indexer import VectorIndexer
 
+            if not self.config.vector_db_path:
+                raise RuntimeError("Vector database path is not configured")
             indexer = VectorIndexer(self.config.vector_db_path)
 
             # Remove from index if it exists

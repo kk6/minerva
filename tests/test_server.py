@@ -609,7 +609,7 @@ class TestDebugVectorSchemaFunction:
         mock_service = Mock()
         mock_service.config.vector_search_enabled = True
         mock_path = Mock()
-        mock_path.__str__ = Mock(return_value="/test/vectors.db")
+        mock_path.__str__ = Mock(return_value="/test/vectors.db")  # type: ignore[method-assign]
         mock_service.config.vector_db_path = mock_path
         mock_service.config.embedding_model = "all-MiniLM-L6-v2"
         return mock_service
@@ -691,7 +691,7 @@ class TestResetVectorDatabaseFunction:
         mock_service = Mock()
         mock_service.config.vector_search_enabled = True
         mock_path = Mock()
-        mock_path.__str__ = Mock(return_value="/test/vectors.db")
+        mock_path.__str__ = Mock(return_value="/test/vectors.db")  # type: ignore[method-assign]
         mock_service.config.vector_db_path = mock_path
         return mock_service
 

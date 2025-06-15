@@ -450,7 +450,7 @@ class TestServiceManagerVectorOperations:
         config.vault_path = Path("/test/vault")
         config.vector_search_enabled = True
         mock_path = Mock()
-        mock_path.__str__ = Mock(return_value="/test/vectors.db")
+        mock_path.__str__ = Mock(return_value="/test/vectors.db")  # type: ignore[method-assign]
         config.vector_db_path = mock_path
         config.embedding_model = "all-MiniLM-L6-v2"
         return config

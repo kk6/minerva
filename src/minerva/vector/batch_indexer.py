@@ -8,9 +8,12 @@ for vector embeddings to optimize performance for large vaults.
 import logging
 import threading
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from queue import Queue, Empty
 from dataclasses import dataclass
+
+if TYPE_CHECKING:
+    from minerva.config import MinervaConfig
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +38,7 @@ class BatchIndexer:
 
     def __init__(
         self,
-        config,
+        config: "MinervaConfig",
         batch_size: int = 10,
         batch_timeout: float = 30.0,
         background_enabled: bool = False,
@@ -206,12 +209,14 @@ class BatchIndexer:
 
         return tasks
 
-    def _initialize_components(self, tasks: List[IndexingTask]):
+    def _initialize_components(self, tasks: List[IndexingTask]) -> tuple:
         """Initialize embedding provider and indexer components."""
         from minerva.vector.embeddings import SentenceTransformerProvider
         from minerva.vector.indexer import VectorIndexer
 
         embedding_provider = SentenceTransformerProvider(self.config.embedding_model)
+        if not self.config.vector_db_path:
+            raise RuntimeError("Vector database path is not configured")
         indexer = VectorIndexer(self.config.vector_db_path)
 
         if tasks:
@@ -226,7 +231,7 @@ class BatchIndexer:
         return embedding_provider, indexer
 
     def _process_single_task(
-        self, task: IndexingTask, embedding_provider, indexer
+        self, task: IndexingTask, embedding_provider: Any, indexer: Any
     ) -> bool:
         """Process a single indexing task."""
         try:
@@ -325,7 +330,9 @@ _global_batch_indexer: Optional[BatchIndexer] = None
 _indexer_lock = threading.Lock()
 
 
-def get_batch_indexer(config, strategy: str = "immediate") -> Optional[BatchIndexer]:
+def get_batch_indexer(
+    config: "MinervaConfig", strategy: str = "immediate"
+) -> Optional[BatchIndexer]:
     """
     Get or create a global batch indexer instance.
 

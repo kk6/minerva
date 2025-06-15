@@ -1,7 +1,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Union
+from typing import Any
 import glob
 import re
 
@@ -648,7 +648,7 @@ def reset_vector_database() -> dict[str, str]:
 
 
 def _initialize_batch_schema(
-    indexer, embedding_provider, all_files, force_rebuild
+    indexer: Any, embedding_provider: Any, all_files: list[str], force_rebuild: bool
 ) -> None:
     """Helper function to initialize schema for batch processing."""
     from minerva.vector.indexer import VectorIndexer
@@ -681,7 +681,9 @@ def _initialize_batch_schema(
     indexer.initialize_schema(embedding_dim)
 
 
-def _process_batch_files(indexer, embedding_provider, all_files, force_rebuild):
+def _process_batch_files(
+    indexer: Any, embedding_provider: Any, all_files: list[str], force_rebuild: bool
+) -> tuple[int, int, list[str]]:
     """Helper function to process files in batch."""
     processed = 0
     skipped = 0
@@ -733,7 +735,7 @@ def _validate_batch_parameters(
             raise ValueError("Invalid directory path")
 
 
-def _check_vector_configuration(service) -> None:
+def _check_vector_configuration(service: Any) -> None:
     """Check vector search configuration prerequisites."""
     if not service.config.vector_search_enabled:
         raise RuntimeError("Vector search is not enabled in configuration")
@@ -773,6 +775,8 @@ def build_vector_index_batch(
 
         # Initialize components
         embedding_provider = SentenceTransformerProvider(service.config.embedding_model)
+        if not service.config.vector_db_path:
+            raise RuntimeError("Vector database path is not configured")
         indexer = VectorIndexer(service.config.vector_db_path)
 
         # Determine directory to process
@@ -908,7 +912,7 @@ def find_similar_notes(
 
 
 @mcp.tool()
-def process_batch_index() -> Dict[str, Union[int, str]]:
+def process_batch_index() -> dict[str, Any]:
     """Process pending batch index tasks."""
     try:
         from minerva.vector.batch_indexer import get_batch_indexer
@@ -954,7 +958,7 @@ def process_batch_index() -> Dict[str, Union[int, str]]:
 
 
 @mcp.tool()
-def get_batch_index_status() -> dict[str, int | str]:
+def get_batch_index_status() -> dict[str, Any]:
     """
     Get the current status of the batch indexing system.
 

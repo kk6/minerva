@@ -5,6 +5,7 @@ Tests for SearchOperations service module.
 import pytest
 from unittest.mock import Mock, patch
 from pathlib import Path
+from typing import Any
 
 from minerva.config import MinervaConfig
 from minerva.frontmatter_manager import FrontmatterManager
@@ -550,7 +551,7 @@ class TestSemanticSearchOperations:
             mock_path = Mock()
             mock_path.exists.return_value = True
             mock_path.stat.return_value.st_size = 1000  # Small file size
-            mock_path.__str__ = Mock(return_value=file_path)
+            mock_path.__str__ = Mock(return_value=file_path)  # type: ignore[method-assign]
             mock_path_class.return_value = mock_path
 
             mock_post = Mock()
@@ -615,7 +616,7 @@ class TestSemanticSearchOperations:
             mock_path = Mock()
             mock_path.exists.return_value = True
             mock_path.stat.return_value.st_size = 1000  # Small file size
-            mock_path.__str__ = Mock(return_value=file_path)
+            mock_path.__str__ = Mock(return_value=file_path)  # type: ignore[method-assign]
             mock_path_class.return_value = mock_path
             mock_post = Mock()
             mock_post.metadata = {
@@ -664,7 +665,7 @@ class TestSemanticSearchOperations:
             mock_path = Mock()
             mock_path.exists.return_value = True
             mock_path.stat.return_value.st_size = 1000  # Small file size
-            mock_path.__str__ = Mock(return_value=file_path)
+            mock_path.__str__ = Mock(return_value=file_path)  # type: ignore[method-assign]
             mock_path_class.return_value = mock_path
             mock_post = Mock()
             mock_post.metadata = {"title": "Test File", "aliases": "Single Alias"}
@@ -706,7 +707,7 @@ class TestSemanticSearchOperations:
             mock_path = Mock()
             mock_path.exists.return_value = True
             mock_path.stat.return_value.st_size = 1000  # Small file size
-            mock_path.__str__ = Mock(return_value=file_path)
+            mock_path.__str__ = Mock(return_value=file_path)  # type: ignore[method-assign]
             mock_path_class.return_value = mock_path
             mock_post = Mock()
             mock_post.metadata = {"title": "Test File", "aliases": []}
@@ -1162,7 +1163,7 @@ class TestSemanticSearchCoverage:
     def test_extract_title_from_filename(self, search_operations_vector_enabled):
         """Test title extraction from filename when no metadata title."""
         # Arrange
-        metadata = {}
+        metadata: dict[str, Any] = {}
         path = Path("/test/my-test_file.md")
 
         # Act
@@ -1476,7 +1477,7 @@ class TestFileSizeValidation:
             mock_path = Mock()
             mock_path.exists.return_value = True
             mock_path.stat.return_value = mock_stat_result
-            mock_path.__str__ = Mock(return_value=file_path)
+            mock_path.__str__ = Mock(return_value=file_path)  # type: ignore[method-assign]
             mock_path_class.return_value = mock_path
 
             # Act

@@ -462,15 +462,15 @@ class SearchOperations(BaseService):
 
         # Validate input parameters
         if not filename and not filepath:
-            error = ValueError("Either filename or filepath must be provided")
-            self._log_operation_error("find_similar_notes", error)
-            raise error
+            param_error = ValueError("Either filename or filepath must be provided")
+            self._log_operation_error("find_similar_notes", param_error)
+            raise param_error
 
         # Validate limit parameter
         if limit <= 0:
-            error = ValueError("Limit must be positive")
-            self._log_operation_error("find_similar_notes", error)
-            raise error
+            limit_error = ValueError("Limit must be positive")
+            self._log_operation_error("find_similar_notes", limit_error)
+            raise limit_error
 
         try:
             from minerva.vector.searcher import VectorSearcher
@@ -482,13 +482,15 @@ class SearchOperations(BaseService):
             )
 
             if not reference_file_path.exists():
-                error = FileNotFoundError(
+                file_error = FileNotFoundError(
                     f"Reference file does not exist: {reference_file_path}"
                 )
-                self._log_operation_error("find_similar_notes", error)
-                raise error
+                self._log_operation_error("find_similar_notes", file_error)
+                raise file_error
 
             # Initialize vector searcher
+            if not self.config.vector_db_path:
+                raise RuntimeError("Vector database path is not configured")
             searcher = VectorSearcher(self.config.vector_db_path)
 
             # Find similar files using vector similarity
@@ -519,12 +521,12 @@ class SearchOperations(BaseService):
 
         except ImportError as e:
             logger.error("Vector search dependencies not available: %s", e)
-            error = ImportError(
+            import_error = ImportError(
                 "Vector search requires additional dependencies. "
                 "Install with: pip install sentence-transformers duckdb"
             )
-            self._log_operation_error("find_similar_notes", error)
-            raise error from e
+            self._log_operation_error("find_similar_notes", import_error)
+            raise import_error from e
 
         except Exception as e:
             logger.error("Find similar notes failed: %s", e)
