@@ -13,7 +13,7 @@ from minerva.vector.batch_indexer import BatchIndexer, IndexingTask, get_batch_i
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 # Mark all tests in this module as requiring vector dependencies
 pytestmark = pytest.mark.vector

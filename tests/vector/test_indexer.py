@@ -9,7 +9,7 @@ from unittest.mock import patch, Mock
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 from minerva.vector.indexer import VectorIndexer
 

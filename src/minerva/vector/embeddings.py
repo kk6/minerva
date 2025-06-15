@@ -7,13 +7,13 @@ from typing import List, Union, Any
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 # Import at module level for proper testing/mocking
 try:
     from sentence_transformers import SentenceTransformer
 except ImportError:
-    SentenceTransformer = None
+    SentenceTransformer = None  # type: ignore[assignment,misc]
 
 
 def _check_numpy_available() -> None:

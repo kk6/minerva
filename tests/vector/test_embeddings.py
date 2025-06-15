@@ -7,7 +7,7 @@ from unittest.mock import patch
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 from minerva.vector.embeddings import EmbeddingProvider, SentenceTransformerProvider
 

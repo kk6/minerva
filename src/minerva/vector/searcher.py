@@ -8,13 +8,13 @@ from typing import List, Tuple, Optional, Any
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 # Import at module level for proper testing/mocking
 try:
     import duckdb
 except ImportError:
-    duckdb = None
+    duckdb = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
