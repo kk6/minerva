@@ -13,6 +13,7 @@ from unittest.mock import patch
 import pytest
 
 
+@pytest.mark.slow
 class TestMCPServerIntegration:
     """Test MCP server integration with service layer."""
 
@@ -181,6 +182,7 @@ class TestMCPServerIntegration:
                 assert note_path2.name.startswith("note2_")
 
 
+@pytest.mark.slow
 class TestMCPServerConfiguration:
     """Test MCP server configuration and setup."""
 
@@ -234,6 +236,7 @@ class TestMCPServerConfiguration:
                     sys.path = original_path
 
 
+@pytest.mark.slow
 class TestMCPServerErrorHandling:
     """Test MCP server error handling."""
 
@@ -301,6 +304,7 @@ class TestMCPServerErrorHandling:
                 assert logger is not None
 
 
+@pytest.mark.slow
 class TestMCPServerWorkflowIntegration:
     """Test complete workflows through server interface."""
 
@@ -599,6 +603,7 @@ class TestMCPServerWorkflowIntegration:
         assert "consistency-tag" in tags
 
 
+@pytest.mark.slow
 class TestMCPServerPerformanceIntegration:
     """Test server performance characteristics in integration scenarios."""
 

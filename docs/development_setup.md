@@ -58,15 +58,19 @@ DEFAULT_VAULT=<デフォルトで使用するvault名>
 # CI/CDや特殊なテスト環境で.envファイルの読み込みを無効化する場合のみ設定
 MINERVA_SKIP_DOTENV=1
 
-# ベクター検索機能（オプション、Phase 1実装済み）
+# セマンティック検索機能（オプション、v0.15.0実装完了）
 VECTOR_SEARCH_ENABLED=false  # "true"でセマンティック検索機能を有効化
-VECTOR_DB_PATH=/custom/path/to/vectors.db  # カスタムベクターDB保存場所（オプション）
-EMBEDDING_MODEL=all-MiniLM-L6-v2  # テキスト埋め込みモデル（オプション）
+VECTOR_DB_PATH=/custom/path/to/vectors.db  # カスタムベクターDB保存場所（省略時: {vault}/.minerva/vectors.db）
+EMBEDDING_MODEL=all-MiniLM-L6-v2  # テキスト埋め込みモデル（384次元、省略時: all-MiniLM-L6-v2）
 ```
 
 **注意**:
 - `MINERVA_SKIP_DOTENV`は通常の開発では設定不要。pytestが自動的にテスト環境を検出し制御します。
-- **ベクター検索機能**はPhase 1が完成しており、オプションで有効化可能です。
+- **セマンティック検索機能**は完全実装済みで、オプションで有効化可能です。機能には以下が含まれます：
+  - 384次元ベクター埋め込みによる意味的類似性検索
+  - DuckDB VSS拡張による高速ベクター検索
+  - コサイン類似度による精密な類似度判定
+  - 柔軟な検索オプション（閾値、件数制限、ディレクトリ指定）
 
 ### 4. pre-commit フックのセットアップ
 

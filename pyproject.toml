@@ -68,7 +68,7 @@ select = ["E", "W", "F", "C901"]
 ignore = [
     "E501",   # line too long (handled by formatter)
 ]
-mccabe = { max-complexity = 10 }
+mccabe = { max-complexity = 10 }  # Ruff's default level is 10
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.

@@ -96,6 +96,28 @@ class SearchResult(BaseModel):
     )
 
 
+class SemanticSearchResult(BaseModel):
+    """
+    Model for semantic search results using vector similarity.
+    """
+
+    file_path: str = Field(description="Path to the file")
+    title: Optional[str] = Field(
+        default=None,
+        description="Title of the note (extracted from frontmatter or filename)",
+    )
+    content_preview: str = Field(description="Preview of the relevant content")
+    similarity_score: float = Field(
+        description="Similarity score between 0.0 and 1.0", ge=0.0, le=1.0
+    )
+    metadata: Optional[dict] = Field(
+        default=None, description="Additional metadata from the note"
+    )
+    aliases: Optional[list[str]] = Field(
+        default=None, description="List of aliases for the note"
+    )
+
+
 def is_binary_file(file_path: Path) -> bool:
     """
     Check if a file is binary.
