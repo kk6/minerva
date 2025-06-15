@@ -1,21 +1,21 @@
-# Optional Dependencies Implementation Guide
+# オプション依存関係実装ガイド
 
-This document outlines the patterns and strategies used in Minerva for implementing optional dependencies, specifically for the vector search feature that requires external libraries like `numpy`, `duckdb`, and `sentence-transformers`.
+このドキュメントでは、Minervaで採用されているオプション依存関係の実装パターンと戦略について説明します。特に、`numpy`、`duckdb`、`sentence-transformers`などの外部ライブラリを必要とするベクトル検索機能を例に、オプション依存関係の適切な管理方法を解説します。
 
-## Overview
+## 概要
 
-Minerva implements a conditional testing and dependency strategy that allows:
-- Core functionality to work without optional dependencies
-- Vector search features to be available when dependencies are installed
-- Clean separation in CI/CD pipelines
-- Proper type checking regardless of dependency availability
+Minervaでは以下を可能にする条件付きテスト・依存関係戦略を実装しています：
+- オプション依存関係なしでのコア機能動作
+- 依存関係インストール時のベクトル検索機能利用
+- CI/CDパイプラインでの明確な分離
+- 依存関係の有無に関わらず適切な型チェック
 
-## Implementation Patterns
+## 実装パターン
 
-### 1. Module-Level Conditional Imports
+### 1. モジュールレベルでの条件付きインポート
 
 ```python
-# At the top of vector modules
+# ベクトルモジュールの先頭で
 try:
     import numpy as np
 except ImportError:
@@ -32,40 +32,40 @@ except ImportError:
     SentenceTransformer = None
 ```
 
-**Benefits:**
-- Clean import failures at module level
-- Allows mocking in tests without complex import patching
-- Module caching doesn't interfere with test isolation
+**利点:**
+- モジュールレベルでのインポート失敗を明確に処理
+- 複雑なインポートパッチなしでテストでのモックが可能
+- モジュールキャッシュがテスト分離に干渉しない
 
-### 2. Dependency Check Functions
+### 2. 依存関係チェック関数
 
 ```python
 def _check_numpy_available() -> None:
-    """Check if numpy is available and raise error if not."""
+    """numpyが利用可能かチェックし、なければエラーを発生させる。"""
     if np is None:
         raise ImportError(
-            "numpy is required for vector operations. "
-            "Install it with: pip install 'minerva[vector]'"
+            "ベクトル操作にはnumpyが必要です。"
+            "次のコマンドでインストールしてください: pip install 'minerva[vector]'"
         )
 ```
 
-**Usage:**
-- Call at the beginning of functions that require the dependency
-- Provides clear error messages with installation instructions
-- Centralizes dependency checking logic
+**使用法:**
+- 依存関係を必要とする関数の開始時に呼び出し
+- インストール手順を含む明確なエラーメッセージを提供
+- 依存関係チェックロジックを一元化
 
-### 3. Type Annotations for Optional Dependencies
+### 3. オプション依存関係に対する型アノテーション
 
 ```python
-# Instead of specific types when dependencies might be missing
-def embed(self, text: Union[str, List[str]]) -> Any:  # Not np.ndarray
+# 依存関係が不足する可能性がある場合は具体的な型を避ける
+def embed(self, text: Union[str, List[str]]) -> Any:  # np.ndarrayではなく
     _check_numpy_available()
-    # ... implementation
+    # ... 実装
 ```
 
-**MyPy Configuration:**
+**MyPy設定:**
 ```toml
-# In pyproject.toml
+# pyproject.toml内
 [[tool.mypy.overrides]]
 module = [
     "numpy.*",
@@ -75,114 +75,114 @@ module = [
 ignore_missing_imports = true
 ```
 
-### 4. Pytest Markers for Dependency-Based Tests
+### 4. 依存関係ベースのテスト用pytestマーカー
 
 ```python
-# Mark individual tests
+# 個別テスト
 @pytest.mark.vector
 def test_vector_functionality():
-    import numpy as np  # Safe to import here
-    # ... test implementation
+    import numpy as np  # ここで安全にインポート
+    # ... テスト実装
 
-# Mark entire test modules
-pytestmark = pytest.mark.vector  # At module level
+# モジュール全体にマーカー
+pytestmark = pytest.mark.vector  # モジュールレベルで記述
 ```
 
-**Configuration:**
+**設定:**
 ```toml
-# In pyproject.toml
+# pyproject.toml内
 [tool.pytest.ini_options]
 markers = [
-    "vector: tests that require vector search dependencies",
+    "vector: ベクトル検索依存関係が必要なテスト",
 ]
 ```
 
-## CI/CD Strategy
+## CI/CD戦略
 
-### Separate Test Jobs
+### 分離されたテストジョブ
 
 ```yaml
 # .github/workflows/ci.yml
 test-core:
-  name: Core Tests (without vector dependencies)
+  name: コアテスト（ベクトル依存関係なし）
   steps:
-    - run: uv sync --dev  # Basic dependencies only
+    - run: uv sync --dev  # 基本依存関係のみ
     - run: uv run pytest -m "not vector"
 
 test-vector:
-  name: Vector Tests (with full dependencies)  
+  name: ベクトルテスト（全依存関係あり）  
   steps:
-    - run: uv sync --dev --extra vector  # Full dependencies
+    - run: uv sync --dev --extra vector  # 全依存関係
     - run: uv run pytest -m "vector"
 ```
 
-**Benefits:**
-- Faster feedback for core functionality
-- Parallel execution reduces total CI time
-- Clear separation of concerns
-- Proper dependency isolation
+**利点:**
+- コア機能のより迅速なフィードバック
+- 並列実行による総CI時間の短縮
+- 関心事の明確な分離
+- 適切な依存関係分離
 
-### Quality Checks with Dependencies
+### 依存関係ありでの品質チェック
 
 ```yaml
 quality-checks:
   steps:
-    - run: uv sync --dev --extra vector  # Install all deps for type checking
-    - run: make check-all  # Includes MyPy type checking
+    - run: uv sync --dev --extra vector  # 型チェック用に全依存関係をインストール
+    - run: make check-all  # MyPy型チェックを含む
 ```
 
-**Rationale:**
-- Type checking requires all dependencies to be available
-- Linting and formatting work regardless of dependencies
-- Quality checks run with full dependency context
+**理由:**
+- 型チェックには全依存関係が必要
+- リンティングとフォーマットは依存関係に関係なく動作
+- 品質チェックは全依存関係のコンテキストで実行
 
-## Development Workflow
+## 開発ワークフロー
 
-### Makefile Targets
+### Makefileターゲット
 
 ```makefile
-install: ## Basic dependencies only
+install: ## 基本依存関係のみ
     uv pip install -e .
     uv sync --group dev
 
-install-vector: ## With vector search dependencies
+install-vector: ## ベクトル検索依存関係あり
     uv pip install -e ".[vector]"
     uv sync --group dev --extra vector
 
-test-core: ## Core tests only (fast)
+test-core: ## コアテストのみ（高速）
     uv run pytest -m "not vector"
 
-test-vector: ## Vector tests only (requires deps)
+test-vector: ## ベクトルテストのみ（依存関係必要）
     uv run pytest -m "vector"
 
-check-all-core: ## Quality checks without vector deps
+check-all-core: ## ベクトル依存関係なしでの品質チェック
     lint type-check test-core
 ```
 
-### Development Commands
+### 開発コマンド
 
 ```bash
-# Daily development (fast)
+# 日常開発（高速）
 make install
-make test-core      # ~2-3 seconds
-make check-all-core # Core quality checks
+make test-core      # ~2-3秒
+make check-all-core # コア品質チェック
 
-# Vector feature development  
+# ベクトル機能開発  
 make install-vector
-make test-vector    # ~17 seconds
-make check-all      # Full quality checks
+make test-vector    # ~17秒
+make check-all      # 全品質チェック
 
-# Full testing before commits
-make test           # All tests (~20 seconds)
+# コミット前の全テスト
+make test           # 全テスト（~20秒）
 ```
 
-## Testing Patterns
+## テストパターン
 
-### 1. Import Error Testing
+### 1. インポートエラーテスト
 
 ```python
 def test_optional_dependency_handling():
-    """Test graceful handling when dependencies unavailable."""
+    """依存関係が利用できない場合の適切な処理をテスト。"""
     from minerva.vector import indexer
     original_duckdb = indexer.duckdb
     indexer.duckdb = None
@@ -195,27 +195,27 @@ def test_optional_dependency_handling():
         indexer.duckdb = original_duckdb
 ```
 
-### 2. Module Cache Clearing
+### 2. モジュールキャッシュクリア
 
 ```python
 def test_with_environment_patch():
     with patch.dict(os.environ, {"VAR": "new_value"}):
-        # Clear relevant modules from cache for fresh imports
+        # 新しいインポートのため関連モジュールをキャッシュからクリア
         sys.modules.pop("minerva.vector.module", None)
         
-        from minerva.vector import module  # Fresh import with new env
+        from minerva.vector import module  # 新しい環境での新しいインポート
 ```
 
-### 3. Mock-Heavy vs Real Dependency Tests
+### 3. モック重視 vs 実依存関係テスト
 
 ```python
-# Fast tests with mocks
+# モックでの高速テスト
 def test_vector_logic_with_mocks():
     mock_provider = Mock()
-    mock_provider.embed.return_value = Mock()  # Don't need real numpy
-    # Test logic without real dependencies
+    mock_provider.embed.return_value = Mock()  # 実際のnumpyは不要
+    # 実依存関係なしでロジックをテスト
 
-# Integration tests with real dependencies  
+# 実依存関係での統合テスト  
 @pytest.mark.vector
 def test_vector_integration_real():
     import numpy as np
@@ -224,17 +224,17 @@ def test_vector_integration_real():
     assert isinstance(result, np.ndarray)
 ```
 
-## Configuration Patterns
+## 設定パターン
 
-### Environment-Based Feature Toggles
+### 環境ベースの機能切り替え
 
 ```python
 @dataclass
 class MinervaConfig:
-    # Core required fields
+    # コア必須フィールド
     vault_path: Path
     
-    # Optional feature fields with safe defaults
+    # 安全なデフォルトを持つオプション機能フィールド
     vector_search_enabled: bool = False
     vector_db_path: Path | None = None
 
@@ -242,7 +242,7 @@ class MinervaConfig:
     def from_env(cls) -> "MinervaConfig":
         vector_enabled = os.getenv("VECTOR_SEARCH_ENABLED", "false").lower() == "true"
         
-        # Smart defaults only when feature is enabled
+        # 機能が有効な場合のみスマートデフォルト
         vector_db_path = None
         if vector_enabled:
             vector_db_path = Path(os.getenv("VECTOR_DB_PATH", f"{vault}/.minerva/vectors.db"))
@@ -253,7 +253,7 @@ class MinervaConfig:
         )
 ```
 
-### Service Layer Integration
+### サービス層統合
 
 ```python
 class ServiceManager:
@@ -262,104 +262,104 @@ class ServiceManager:
         
     def semantic_search(self, query: str) -> List[SearchResult]:
         if not self.config.vector_search_enabled:
-            raise RuntimeError("Vector search is not enabled")
+            raise RuntimeError("ベクトル検索が有効になっていません")
             
-        # Dependency check happens inside vector modules
+        # 依存関係チェックはベクトルモジュール内で発生
         return self._vector_search_impl(query)
 ```
 
-## Performance Considerations
+## パフォーマンス考察
 
-### Test Performance Results
+### テストパフォーマンス結果
 
-- **Before**: 14.32s for all tests (slow feedback loop)
-- **After (core only)**: 2.19s for 575 tests (85% improvement)
-- **After (vector only)**: 16.88s for 73 tests (isolated heavy tests)
+- **変更前**: 全テストで14.32秒（遅いフィードバックループ）
+- **変更後（コアのみ）**: 575テストで2.19秒（85%改善）
+- **変更後（ベクトルのみ）**: 73テストで16.88秒（重いテストを分離）
 
-### Development Impact
+### 開発への影響
 
-- **Daily development**: 85% faster test execution
-- **CI efficiency**: Parallel execution reduces total pipeline time
-- **Debugging**: Clear separation between core and optional feature issues
+- **日常開発**: 85%高速なテスト実行
+- **CI効率**: 並列実行により総パイプライン時間短縮
+- **デバッグ**: コア機能とオプション機能の問題を明確に分離
 
-## Common Pitfalls and Solutions
+## よくある落とし穴と解決策
 
-### 1. Module Caching Issues
+### 1. モジュールキャッシュ問題
 
-**Problem:** Tests that patch environment variables may fail due to cached module imports.
+**問題:** 環境変数をパッチするテストが、キャッシュされたモジュールインポートのため失敗する可能性がある。
 
-**Solution:** Clear module cache before importing in tests that change global state.
+**解決策:** グローバル状態を変更するテストでは、インポート前にモジュールキャッシュをクリアする。
 
-### 2. Import Order in Tests
+### 2. テストでのインポート順序
 
-**Problem:** `E402 Module level import not at top of file` when using conditional imports.
+**問題:** 条件付きインポートを使用する際の `E402 Module level import not at top of file`。
 
-**Solution:** Place conditional imports after standard imports but before pytest markers.
+**解決策:** 条件付きインポートを標準インポートの後、pytestマーカーの前に配置する。
 
 ```python
 import pytest
 from pathlib import Path
 
-from minerva.core import CoreModule  # Standard imports first
+from minerva.core import CoreModule  # 標準インポートを先に
 
-# Conditional imports second
+# 条件付きインポートを次に
 try:
     import numpy as np
 except ImportError:
     np = None
 
-# Pytest markers last
+# pytestマーカーを最後に
 pytestmark = pytest.mark.vector
 ```
 
-### 3. Type Checking vs Runtime Behavior
+### 3. 型チェック vs ランタイム動作
 
-**Problem:** MyPy sees different types than runtime when dependencies are missing.
+**問題:** 依存関係が不足している場合、MyPyがランタイムと異なる型を認識する。
 
-**Solution:** Use `Any` types for optional dependency returns and configure MyPy to ignore missing imports.
+**解決策:** オプション依存関係の戻り値には`Any`型を使用し、不足インポートを無視するようMyPyを設定する。
 
-### 4. CI Dependency Installation
+### 4. CI依存関係インストール
 
-**Problem:** Quality checks fail when dependencies are missing for type checking.
+**問題:** 型チェックに依存関係が不足している場合の品質チェック失敗。
 
-**Solution:** Install full dependencies for quality check jobs, but separate test execution by dependency requirements.
+**解決策:** 品質チェックジョブでは全依存関係をインストールするが、テスト実行は依存関係要件で分離する。
 
-## Best Practices
+## ベストプラクティス
 
-1. **Feature Flags Over Hard Dependencies**: Use configuration to enable/disable features rather than relying on import success/failure.
+1. **ハード依存関係よりも機能フラグ**: インポート成功/失敗に依存するより、設定による機能有効/無効を使用。
 
-2. **Clear Error Messages**: Always provide installation instructions in import error messages.
+2. **明確なエラーメッセージ**: インポートエラーメッセージには常にインストール手順を含める。
 
-3. **Granular Testing**: Create separate test categories for different dependency requirements.
+3. **粒度の細かいテスト**: 異なる依存関係要件用に分離されたテストカテゴリを作成。
 
-4. **Documentation First**: Document the optional nature of features and their dependencies clearly.
+4. **ドキュメント優先**: 機能のオプション性とその依存関係を明確に文書化。
 
-5. **Graceful Degradation**: Core functionality should work perfectly without optional dependencies.
+5. **適切な劣化**: オプション依存関係なしでもコア機能は完璧に動作する。
 
-6. **CI Parallelization**: Separate CI jobs by dependency requirements for optimal performance.
+6. **CI並列化**: 依存関係要件でCIジョブを分離して最適なパフォーマンスを実現。
 
-## Future Considerations
+## 将来の検討事項
 
-### Adding New Optional Dependencies
+### 新しいオプション依存関係の追加
 
-When adding new optional features:
+新しいオプション機能を追加する際は：
 
-1. **Update pyproject.toml**: Add to `[project.optional-dependencies]`
-2. **Create pytest markers**: Add new markers for the feature
-3. **Update CI**: Add separate test jobs if needed
-4. **Document installation**: Update README and docs
-5. **Configure MyPy**: Add ignore rules for new dependencies
+1. **pyproject.toml更新**: `[project.optional-dependencies]`に追加
+2. **pytestマーカー作成**: 機能用の新しいマーカーを追加
+3. **CI更新**: 必要に応じて分離されたテストジョブを追加
+4. **インストール文書化**: READMEとドキュメントを更新
+5. **MyPy設定**: 新しい依存関係の無視ルールを追加
 
-### Dependency Management Evolution
+### 依存関係管理の進化
 
-Consider migrating to more sophisticated dependency management if the project grows:
-- Multiple optional dependency groups
-- Feature-specific CI matrices
-- Conditional documentation building
-- Plugin architecture for optional features
+プロジェクトが成長した場合の、より洗練された依存関係管理への移行を検討：
+- 複数のオプション依存関係グループ
+- 機能固有のCIマトリックス
+- 条件付きドキュメントビルド
+- オプション機能のプラグインアーキテクチャ
 
-## Related Documentation
+## 関連ドキュメント
 
-- [Testing Guidelines](test_guidelines.md) - General testing patterns
-- [CI/CD Workflow](../github_workflow.md) - CI configuration details
-- [Property-Based Testing](property_based_testing.md) - Advanced testing patterns
+- [テストガイドライン](test_guidelines.md) - 一般的なテストパターン
+- [CI/CDワークフロー](../github_workflow.md) - CI設定詳細
+- [Property-Basedテスト](property_based_testing.md) - 高度なテストパターン
