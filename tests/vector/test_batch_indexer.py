@@ -213,25 +213,21 @@ class TestBatchIndexer:
         stats = batch_indexer.get_stats()
         assert stats["errors"] == 1
 
-    @pytest.mark.skip(
-        reason="due to infinite loops or other reasons causing the test to freeze"
-    )
     def test_process_all_pending(self, batch_indexer):
         """Test processing all pending tasks."""
         # Arrange
+        batch_indexer.queue_task("/test/vault/file1.md", "content1", "update")
+        batch_indexer.queue_task("/test/vault/file2.md", "content2", "update")
+        # Simulate processing and emptying the queue
         with patch.object(
-            batch_indexer, "process_batch", return_value=2
-        ) as mock_process:
-            batch_indexer.queue_task("/test/vault/file1.md", "content1", "update")
-            batch_indexer.queue_task("/test/vault/file2.md", "content2", "update")
-
+            batch_indexer, "_process_tasks_batch", return_value=2
+        ) as mock_lowlevel:
             # Act
             total_processed = batch_indexer.process_all_pending()
 
             # Assert
             assert total_processed == 2
-            mock_process.assert_called()
-
+            mock_lowlevel.assert_called_once()
     def test_get_stats(self, batch_indexer):
         """Test getting processing statistics."""
         # Act
