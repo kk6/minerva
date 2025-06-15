@@ -6,6 +6,9 @@ import numpy as np
 from pathlib import Path
 from unittest.mock import Mock
 
+# Abort early when the heavy optional dependency is not installed
+pytest.importorskip("duckdb", reason="duckdb not available")
+
 from minerva.vector.searcher import VectorSearcher
 
 

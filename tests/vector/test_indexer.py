@@ -6,6 +6,9 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch, Mock
 
+# Abort early when the heavy optional dependency is not installed
+pytest.importorskip("duckdb", reason="duckdb not available")
+
 from minerva.vector.indexer import VectorIndexer
 
 pytestmark = pytest.mark.slow

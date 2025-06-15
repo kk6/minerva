@@ -8,6 +8,9 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import tempfile
 
+# Abort early when the heavy optional dependency is not installed
+pytest.importorskip("duckdb", reason="duckdb not available")
+
 from minerva.vector.indexer import VectorIndexer
 
 
