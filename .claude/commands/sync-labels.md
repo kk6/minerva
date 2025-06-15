@@ -14,8 +14,9 @@ Synchronize GitHub labels based on implementation-first analysis: Implementation
 ### Phase 2: Documentation Synchronization
 2. Compare implementation with labels defined in `docs/github_workflow.md`
 3. Identify missing labels that should be documented based on actual implementation
-4. Update documentation to reflect all implemented features
-5. Ensure documentation accuracy matches codebase reality
+4. Update `docs/github_workflow.md` with complete label definitions (master documentation)
+5. Update `docs/label_management.md` if label management process changes
+6. Ensure documentation accuracy matches codebase reality
 
 ### Phase 3: GitHub Labels Creation
 6. Retrieve current GitHub labels list
@@ -27,7 +28,9 @@ Synchronize GitHub labels based on implementation-first analysis: Implementation
 ## Target Files
 
 - **Primary Analysis**: Source code in `src/` directory (implementation)
-- **Documentation**: `docs/github_workflow.md` (label definitions)
+- **Master Documentation**: `docs/github_workflow.md` (complete label definitions)
+- **Supporting Documentation**: `docs/label_management.md` (label management process)
+- **Reference**: `CLAUDE.md` GitHub Labels section (essential info with reference to docs/)
 - **Target**: GitHub repository label settings
 
 ## Implementation-First Approach
