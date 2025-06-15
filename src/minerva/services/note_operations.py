@@ -358,15 +358,15 @@ class NoteOperations(BaseService):
                 if sample_embedding.ndim == 2
                 else len(sample_embedding)
             )
-            indexer.initialize_schema(embedding_dim)
+            try:
+                indexer.initialize_schema(embedding_dim)
 
-            # Generate and store embedding
-            embedding = embedding_provider.embed(content)
-            indexer.store_embedding(str(file_path), embedding, content)
-
-            # Close connections
-            indexer.close()
-
+                # Generate and store embedding
+                embedding = embedding_provider.embed(content)
+                indexer.store_embedding(str(file_path), embedding, content)
+            finally:
+                # Ensure connections are closed
+                indexer.close()
             logger.debug("Vector index updated immediately for file: %s", file_path)
 
         except ImportError:
