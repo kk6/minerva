@@ -17,12 +17,12 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
    - **create_minerva_service()**: デフォルト設定でのServiceManagerファクトリー関数
 
 1.1. **セマンティック検索層** (`vector/`) - **完全実装済み（v0.15.0）**
-   - **EmbeddingProvider**: テキスト埋め込み抽象基底クラス（実装済み）
-   - **SentenceTransformerProvider**: sentence-transformers実装（all-MiniLM-L6-v2モデル、384次元埋め込み、実装済み）
-   - **VectorIndexer**: DuckDB VSS拡張を使用したベクトルインデックス管理（HNSWインデックス対応、実装済み）
-   - **VectorSearcher**: コサイン類似度ベクター検索とフィルタリング（実装済み）
-   - **SearchOperations統合**: セマンティック検索の完全統合（実装済み）
-   - **オプショナル依存関係管理**: 適切なエラーメッセージとlazy loading実装
+- **EmbeddingProvider**: テキスト埋め込み抽象基底クラス（実装済み）
+- **SentenceTransformerProvider**: sentence-transformers実装（all-MiniLM-L6-v2モデル、384次元埋め込み、実装済み）
+- **VectorIndexer**: DuckDB VSS拡張を使用したベクトルインデックス管理（HNSWインデックス対応、実装済み）
+- **VectorSearcher**: コサイン類似度ベクター検索とフィルタリング（実装済み）
+- **SearchOperations統合**: セマンティック検索の完全統合（実装済み）
+- **オプショナル依存関係管理**: 適切なエラーメッセージとlazy loading実装
 
 2. **MCPサーバー層** (`server.py`) - **MCP 1.9対応済み**
    - **FastMCPサーバー**: MCP 1.9.3準拠、`@mcp.tool()` デコレータを使用した直接的なツール登録

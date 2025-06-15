@@ -32,6 +32,7 @@ Property-based tests are now integrated with Minerva's performance optimization 
 
 ```python
 # Most property-based tests are marked as unit tests (fast)
+@pytest.mark.unit
 @given(st.text(min_size=1, max_size=50))
 def test_filename_validation(filename):
     # Fast property-based test

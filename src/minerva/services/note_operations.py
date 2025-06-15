@@ -351,13 +351,8 @@ class NoteOperations(BaseService):
                 raise RuntimeError("Vector database path is not configured")
             indexer = VectorIndexer(self.config.vector_db_path)
 
-            # Ensure schema is initialized
-            sample_embedding = embedding_provider.embed(content[:500])
-            embedding_dim = (
-                sample_embedding.shape[1]
-                if sample_embedding.ndim == 2
-                else len(sample_embedding)
-            )
+            # Ensure schema is initialized - get dimension directly from provider
+            embedding_dim = embedding_provider.embedding_dim
             try:
                 indexer.initialize_schema(embedding_dim)
 

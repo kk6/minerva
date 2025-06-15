@@ -121,7 +121,8 @@ class BatchIndexer:
         try:
             path = Path(file_path).resolve()
             vault_path = Path(self.config.vault_path).resolve()
-            if not path.is_relative_to(vault_path):
+            # Check if path is within vault bounds (compatible with Python < 3.9)
+            if vault_path not in path.parents and path != vault_path:
                 raise ValueError(f"Path traversal detected: {file_path}")
         except (ValueError, OSError) as e:
             raise ValueError(f"Invalid file path: {file_path}") from e

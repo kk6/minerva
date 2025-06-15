@@ -8,6 +8,8 @@ from unittest.mock import patch, Mock
 
 from minerva.vector.indexer import VectorIndexer
 
+pytestmark = pytest.mark.slow
+
 
 class TestVectorIndexer:
     """Test the vector indexer class."""

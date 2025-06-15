@@ -641,20 +641,23 @@ def reset_vector_database() -> dict[str, str]:
         if db_path.exists():
             os.remove(str(db_path))
             return {"status": f"Successfully deleted vector database at {db_path}"}
-        else:
-            return {"status": f"Vector database file does not exist at {db_path}"}
+        return {"status": f"Vector database file does not exist at {db_path}"}
     except Exception as e:
         return {"status": f"Failed to delete vector database: {e}"}
 
 
 def _initialize_batch_schema(
     indexer: Any, embedding_provider: Any, all_files: list[str], force_rebuild: bool
-) -> None:
-    """Helper function to initialize schema for batch processing."""
+) -> Any:
+    """Helper function to initialize schema for batch processing.
+
+    Returns:
+        The indexer instance (may be a new instance if force_rebuild is True)
+    """
     from minerva.vector.indexer import VectorIndexer
 
     if not all_files:
-        return
+        return indexer
 
     with open(all_files[0], "r", encoding="utf-8") as f:
         sample_content = f.read()[:500]
@@ -679,6 +682,7 @@ def _initialize_batch_schema(
         else len(sample_embedding)
     )
     indexer.initialize_schema(embedding_dim)
+    return indexer
 
 
 def _process_batch_files(
@@ -788,7 +792,7 @@ def build_vector_index_batch(
 
         # Initialize schema if needed
         try:
-            _initialize_batch_schema(
+            indexer = _initialize_batch_schema(
                 indexer, embedding_provider, all_files, force_rebuild
             )
         except Exception as e:

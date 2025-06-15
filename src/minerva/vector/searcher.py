@@ -117,18 +117,22 @@ class VectorSearcher:
             # Convert numpy array to list for DuckDB and ensure FLOAT type
             query_vector = [float(x) for x in query_embedding.tolist()]
 
-            # Build SQL query with optional threshold, specifying correct array dimension
+            # Build SQL query with optional threshold, computing similarity once
             embedding_dim = len(query_vector)
             if threshold is not None:
                 sql = f"""
-                    SELECT file_path,
-                           array_cosine_similarity(embedding, ?::FLOAT[{embedding_dim}]) as similarity
-                    FROM vectors
-                    WHERE array_cosine_similarity(embedding, ?::FLOAT[{embedding_dim}]) >= ?
+                    WITH sims AS (
+                        SELECT file_path,
+                               array_cosine_similarity(embedding, ?::FLOAT[{embedding_dim}]) AS similarity
+                        FROM vectors
+                    )
+                    SELECT file_path, similarity
+                    FROM sims
+                    WHERE similarity >= ?
                     ORDER BY similarity DESC
                     LIMIT ?
                 """
-                params = [query_vector, query_vector, threshold, k]
+                params = [query_vector, threshold, k]
             else:
                 sql = f"""
                     SELECT file_path,

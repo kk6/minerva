@@ -228,6 +228,7 @@ class TestBatchIndexer:
             # Assert
             assert total_processed == 2
             mock_lowlevel.assert_called_once()
+
     def test_get_stats(self, batch_indexer):
         """Test getting processing statistics."""
         # Act

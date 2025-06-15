@@ -411,80 +411,91 @@ class VectorIndexer:
             bool: True if file needs to be indexed or re-indexed
         """
         if not self._initialized:
-            # If schema not initialized, everything needs indexing
             return True
 
-        import os
-        from datetime import datetime
-
         try:
-            # Get file modification time
-            file_stat = os.stat(file_path)
-            file_mtime = datetime.fromtimestamp(file_stat.st_mtime)
+            file_info = self._get_file_info(file_path)
+            db_info = self._get_indexed_file_info(file_path)
 
-            conn = self._get_connection()
-
-            # Check if file is tracked in indexed_files
-            result = conn.execute(
-                "SELECT file_modified_at, content_hash FROM indexed_files WHERE file_path = ?",
-                (file_path,),
-            ).fetchone()
-
-            if not result:
-                # File not indexed yet
+            if not db_info:
                 return True
 
-            stored_mtime_str, stored_hash = result
-
-            # Parse stored modification time
-            if stored_mtime_str:
-                try:
-                    stored_mtime = datetime.fromisoformat(
-                        stored_mtime_str.replace("Z", "+00:00")
-                    )
-                    # Remove timezone info for comparison (both are local)
-                    if stored_mtime.tzinfo:
-                        stored_mtime = stored_mtime.replace(tzinfo=None)
-
-                    # Check if file was modified after last indexing
-                    if file_mtime > stored_mtime:
-                        logger.debug("File %s modified since last indexing", file_path)
-                        return True
-                except (ValueError, AttributeError):
-                    # Invalid timestamp, re-index to be safe
-                    logger.debug("Invalid timestamp for %s, re-indexing", file_path)
-                    return True
-            else:
-                # No modification time stored, needs update
-                return True
-
-            # Check if file content has changed (hash comparison)
-            try:
-                with open(file_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-
-                import hashlib
-
-                current_hash = hashlib.sha256(content.encode()).hexdigest()
-
-                if current_hash != stored_hash:
-                    logger.debug("File %s content changed (hash mismatch)", file_path)
-                    return True
-
-            except (IOError, UnicodeDecodeError):
-                # Error reading file, assume it needs update
-                logger.debug("Error reading %s, assuming update needed", file_path)
-                return True
-
-            # File hasn't changed
-            return False
-
+            return self._is_file_modified_since_indexing(
+                file_info, db_info
+            ) or self._has_content_changed(file_path, db_info)
         except Exception as e:
             logger.warning(
                 "Error checking if file needs update for %s: %s", file_path, e
             )
-            # When in doubt, update
             return True
+
+    def _get_file_info(self, file_path: str) -> dict:
+        """Get file modification time and other metadata."""
+        import os
+        from datetime import datetime
+
+        file_stat = os.stat(file_path)
+        return {"mtime": datetime.fromtimestamp(file_stat.st_mtime)}
+
+    def _get_indexed_file_info(self, file_path: str) -> dict | None:
+        """Get indexed file information from database."""
+        conn = self._get_connection()
+        result = conn.execute(
+            "SELECT file_modified_at, content_hash FROM indexed_files WHERE file_path = ?",
+            (file_path,),
+        ).fetchone()
+
+        if not result:
+            return None
+
+        return {"mtime_str": result[0], "content_hash": result[1]}
+
+    def _is_file_modified_since_indexing(self, file_info: dict, db_info: dict) -> bool:
+        """Check if file was modified after last indexing."""
+        from datetime import datetime
+
+        stored_mtime_str = db_info["mtime_str"]
+        if not stored_mtime_str:
+            return True
+
+        try:
+            stored_mtime = datetime.fromisoformat(
+                stored_mtime_str.replace("Z", "+00:00")
+            )
+            # Remove timezone info for comparison (both are local)
+            if stored_mtime.tzinfo:
+                stored_mtime = stored_mtime.replace(tzinfo=None)
+
+            file_mtime = file_info["mtime"]
+            if file_mtime > stored_mtime:
+                logger.debug("File modified since last indexing")
+                return True
+        except (ValueError, AttributeError):
+            logger.debug("Invalid timestamp, re-indexing")
+            return True
+
+        return False
+
+    def _has_content_changed(self, file_path: str, db_info: dict) -> bool:
+        """Check if file content has changed by comparing hashes."""
+        import hashlib
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            current_hash = hashlib.sha256(content.encode()).hexdigest()
+            stored_hash = db_info["content_hash"]
+
+            if current_hash != stored_hash:
+                logger.debug("File content changed (hash mismatch)")
+                return True
+
+        except (IOError, UnicodeDecodeError):
+            logger.debug("Error reading file, assuming update needed")
+            return True
+
+        return False
 
     def update_file_tracking(
         self, file_path: str, content_hash: str, embedding_count: int = 1

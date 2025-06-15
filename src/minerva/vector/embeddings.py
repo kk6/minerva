@@ -63,9 +63,13 @@ class SentenceTransformerProvider(EmbeddingProvider):
                     "Install it with: pip install sentence-transformers"
                 )
             self._model = SentenceTransformer(self._model_name)
-            # Get embedding dimension from a dummy encoding
-            dummy_embedding = self._model.encode("test")
-            self._embedding_dim = len(dummy_embedding)
+            # Get embedding dimension directly from model metadata
+            try:
+                self._embedding_dim = self._model.get_sentence_embedding_dimension()
+            except AttributeError:
+                # Fallback to dummy encoding if method doesn't exist
+                dummy_embedding = self._model.encode("test")
+                self._embedding_dim = len(dummy_embedding)
 
     def embed(self, text: Union[str, List[str]]) -> np.ndarray:
         """

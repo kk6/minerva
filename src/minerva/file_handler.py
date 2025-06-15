@@ -2,7 +2,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, field_validator, Field
 
@@ -110,7 +110,7 @@ class SemanticSearchResult(BaseModel):
     similarity_score: float = Field(
         description="Similarity score between 0.0 and 1.0", ge=0.0, le=1.0
     )
-    metadata: Optional[dict] = Field(
+    metadata: Optional[dict[str, Any]] = Field(
         default=None, description="Additional metadata from the note"
     )
     aliases: Optional[list[str]] = Field(

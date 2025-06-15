@@ -240,7 +240,7 @@ git checkout -b docs/issue-789-update-test-guidelines
 For complex features implemented across multiple phases (like vector search infrastructure), use a hierarchical branch strategy:
 
 **Structure Pattern:**
-```
+```text
 main
  └── feature/issue-88-vector-search-main (parent issue branch)
       ├── feature/issue-89-vector-search-infrastructure (Phase 1)
