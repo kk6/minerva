@@ -2,14 +2,19 @@
 
 import tempfile
 import pytest
-import numpy as np
 from pathlib import Path
 from unittest.mock import Mock
 
-# Abort early when the heavy optional dependency is not installed
-pytest.importorskip("duckdb", reason="duckdb not available")
+# Import numpy conditionally
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 from minerva.vector.searcher import VectorSearcher
+
+# Mark all tests in this module as requiring vector dependencies
+pytestmark = pytest.mark.vector
 
 
 class TestVectorSearcher:

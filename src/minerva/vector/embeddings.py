@@ -1,21 +1,35 @@
 """Embedding providers for text vectorization."""
 
-import numpy as np
 from abc import ABC, abstractmethod
 from typing import List, Union, Any
+
+# Import numpy conditionally
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 # Import at module level for proper testing/mocking
 try:
     from sentence_transformers import SentenceTransformer
 except ImportError:
-    SentenceTransformer = None  # type: ignore[assignment,misc]
+    SentenceTransformer = None
+
+
+def _check_numpy_available() -> None:
+    """Check if numpy is available and raise error if not."""
+    if np is None:
+        raise ImportError(
+            "numpy is required for vector operations. "
+            "Install it with: pip install 'minerva[vector]'"
+        )
 
 
 class EmbeddingProvider(ABC):
     """Abstract base class for embedding providers."""
 
     @abstractmethod
-    def embed(self, text: Union[str, List[str]]) -> np.ndarray:
+    def embed(self, text: Union[str, List[str]]) -> Any:
         """
         Generate embeddings for input text.
 
@@ -71,7 +85,7 @@ class SentenceTransformerProvider(EmbeddingProvider):
                 dummy_embedding = self._model.encode("test")
                 self._embedding_dim = len(dummy_embedding)
 
-    def embed(self, text: Union[str, List[str]]) -> np.ndarray:
+    def embed(self, text: Union[str, List[str]]) -> Any:
         """
         Generate embeddings using sentence-transformers.
 
@@ -81,6 +95,7 @@ class SentenceTransformerProvider(EmbeddingProvider):
         Returns:
             numpy array of embeddings with shape (n_texts, embedding_dim)
         """
+        _check_numpy_available()
         self._ensure_model_loaded()
 
         # Ensure input is a list for consistent processing
@@ -93,7 +108,7 @@ class SentenceTransformerProvider(EmbeddingProvider):
         if embeddings.ndim == 1:
             embeddings = embeddings.reshape(1, -1)
 
-        return embeddings  # type: ignore[no-any-return]
+        return embeddings
 
     @property
     def embedding_dim(self) -> int:

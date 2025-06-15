@@ -1,15 +1,18 @@
 """Tests for embedding providers."""
 
 import pytest
-import numpy as np
 from unittest.mock import patch
 
-# Abort early when the heavy optional dependency is not installed
-pytest.importorskip(
-    "sentence_transformers", reason="sentence-transformers not available"
-)
+# Import numpy conditionally
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 from minerva.vector.embeddings import EmbeddingProvider, SentenceTransformerProvider
+
+# Mark all tests in this module as requiring vector dependencies
+pytestmark = pytest.mark.vector
 
 
 class TestEmbeddingProvider:

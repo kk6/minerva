@@ -3,15 +3,29 @@
 import logging
 from pathlib import Path
 from typing import List, Tuple, Optional, Any
-import numpy as np
+
+# Import numpy conditionally
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 # Import at module level for proper testing/mocking
 try:
     import duckdb
 except ImportError:
-    duckdb = None  # type: ignore[assignment]
+    duckdb = None
 
 logger = logging.getLogger(__name__)
+
+
+def _check_numpy_available() -> None:
+    """Check if numpy is available and raise error if not."""
+    if np is None:
+        raise ImportError(
+            "numpy is required for vector operations. "
+            "Install it with: pip install 'minerva[vector]'"
+        )
 
 
 class VectorSearcher:
@@ -96,7 +110,7 @@ class VectorSearcher:
 
     def search_similar(
         self,
-        query_embedding: np.ndarray,
+        query_embedding: Any,
         k: int = 10,
         threshold: Optional[float] = None,
     ) -> List[Tuple[str, float]]:
@@ -111,6 +125,7 @@ class VectorSearcher:
         Returns:
             List of (file_path, similarity_score) tuples ordered by similarity
         """
+        _check_numpy_available()
         conn = self._get_connection()
 
         try:
@@ -175,6 +190,7 @@ class VectorSearcher:
         Returns:
             List of (file_path, similarity_score) tuples ordered by similarity
         """
+        _check_numpy_available()
         conn = self._get_connection()
 
         try:

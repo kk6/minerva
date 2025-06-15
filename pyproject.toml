@@ -60,6 +60,15 @@ disable_error_code = ["call-arg"]
 module = "frontmatter"
 ignore_missing_imports = true
 
+# Optional vector dependencies - only available when [vector] extra is installed
+[[tool.mypy.overrides]]
+module = [
+    "numpy.*",
+    "sentence_transformers.*",
+    "duckdb.*",
+]
+ignore_missing_imports = true
+
 [tool.ruff]
 # Same as Black.
 line-length = 88
@@ -88,6 +97,7 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "unit: fast unit tests",
     "integration: integration tests",
+    "vector: tests that require vector search dependencies (numpy, duckdb, sentence-transformers)",
 ]
 
 [project.scripts]

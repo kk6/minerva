@@ -1029,6 +1029,7 @@ class TestSemanticSearchCoverage:
         ):
             search_operations_vector_enabled.semantic_search("test query")
 
+    @pytest.mark.vector
     @patch("minerva.vector.embeddings.SentenceTransformerProvider")
     @patch("minerva.vector.searcher.VectorSearcher")
     def test_semantic_search_full_flow(
@@ -1072,6 +1073,7 @@ class TestSemanticSearchCoverage:
             mock_searcher.search_similar.assert_called_once()
             mock_searcher.close.assert_called_once()
 
+    @pytest.mark.vector
     @patch("minerva.vector.embeddings.SentenceTransformerProvider")
     @patch("minerva.vector.searcher.VectorSearcher")
     def test_semantic_search_2d_embedding_handling(

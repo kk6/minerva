@@ -634,6 +634,7 @@ class TestDebugVectorSchemaFunction:
         ):
             server.debug_vector_schema()
 
+    @pytest.mark.vector
     @patch("minerva.server.get_service")
     @patch("minerva.vector.embeddings.SentenceTransformerProvider")
     @patch("minerva.vector.indexer.VectorIndexer")

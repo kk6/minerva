@@ -3,15 +3,29 @@
 import logging
 from pathlib import Path
 from typing import List, Tuple, Any
-import numpy as np
+
+# Import numpy conditionally
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 # Import at module level for proper testing/mocking
 try:
     import duckdb
 except ImportError:
-    duckdb = None  # type: ignore[assignment]
+    duckdb = None
 
 logger = logging.getLogger(__name__)
+
+
+def _check_numpy_available() -> None:
+    """Check if numpy is available and raise error if not."""
+    if np is None:
+        raise ImportError(
+            "numpy is required for vector operations. "
+            "Install it with: pip install 'minerva[vector]'"
+        )
 
 
 class VectorIndexer:
@@ -215,7 +229,7 @@ class VectorIndexer:
             raise
 
     def add_vectors(
-        self, file_path: str, content_hash: str, embeddings: np.ndarray
+        self, file_path: str, content_hash: str, embeddings: Any
     ) -> int:
         """
         Add vectors to the index.
@@ -228,6 +242,7 @@ class VectorIndexer:
         Returns:
             Number of vectors added
         """
+        _check_numpy_available()
         if not self._initialized:
             raise RuntimeError(
                 "Database schema not initialized. Call initialize_schema() first."
@@ -350,7 +365,7 @@ class VectorIndexer:
             return False
 
     def store_embedding(
-        self, file_path: str, embedding: np.ndarray, content: str
+        self, file_path: str, embedding: Any, content: str
     ) -> None:
         """
         Store a single embedding for a file.

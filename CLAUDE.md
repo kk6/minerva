@@ -19,6 +19,8 @@ For a unified development experience, use the Makefile commands:
 - **Testing**:
   - Run all tests: `make test`
   - Run fast tests only (excludes slow integration tests): `make test-fast`
+  - Run core tests only (excludes vector dependency tests): `make test-core`
+  - Run vector tests only (requires vector dependencies): `make test-vector`
   - Run slow integration tests only: `make test-slow`
   - Run tests with coverage: `make test-cov`
   - Run only property-based tests: `uv run pytest tests/*_properties.py`
@@ -40,6 +42,8 @@ If you prefer to use uv commands directly:
 - Install basic dependencies: `uv pip install -e .` then `uv sync --group dev`
 - Install with vector search: `uv pip install -e ".[vector]"` then `uv sync --group dev --extra vector`
 - Run all tests: `uv run pytest`
+- Run core tests only: `uv run pytest -m "not vector"`
+- Run vector tests only: `uv run pytest -m "vector"`
 - Run single test: `uv run pytest tests/path/to/test.py::TestClass::test_method`
 - Run property-based tests: `uv run pytest tests/*_properties.py`
 - Reduce property test examples (for faster CI): `uv run pytest --hypothesis-max-examples=20`

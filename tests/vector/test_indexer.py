@@ -1,17 +1,20 @@
 """Tests for vector indexer functionality."""
 
 import pytest
-import numpy as np
 import tempfile
 from pathlib import Path
 from unittest.mock import patch, Mock
 
-# Abort early when the heavy optional dependency is not installed
-pytest.importorskip("duckdb", reason="duckdb not available")
+# Import numpy conditionally
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 from minerva.vector.indexer import VectorIndexer
 
-pytestmark = pytest.mark.slow
+# Mark all tests in this module as requiring vector dependencies and being slow
+pytestmark = [pytest.mark.vector, pytest.mark.slow]
 
 
 class TestVectorIndexer:

@@ -5,16 +5,18 @@ Tests for batch indexing functionality.
 import pytest
 from unittest.mock import Mock, patch
 from pathlib import Path
-import numpy as np
-
-# Abort early when the heavy optional dependencies are not installed
-pytest.importorskip("duckdb", reason="duckdb not available")
-pytest.importorskip(
-    "sentence_transformers", reason="sentence-transformers not available"
-)
 
 from minerva.config import MinervaConfig
 from minerva.vector.batch_indexer import BatchIndexer, IndexingTask, get_batch_indexer
+
+# Import numpy conditionally
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+# Mark all tests in this module as requiring vector dependencies
+pytestmark = pytest.mark.vector
 
 
 class TestIndexingTask:

@@ -83,6 +83,7 @@ class TestAutoIndexUpdates:
         note_ops = NoteOperations(mock_config_auto_enabled, mock_frontmatter_manager)
         assert note_ops._should_auto_update_index() is False
 
+    @pytest.mark.vector
     @patch("minerva.vector.embeddings.SentenceTransformerProvider")
     @patch("minerva.vector.indexer.VectorIndexer")
     def test_update_vector_index_if_enabled_success(

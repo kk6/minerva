@@ -514,6 +514,7 @@ class TestServiceManagerVectorOperations:
         assert result["skipped"] == 0
         mock_indexer.close.assert_called_once()
 
+    @pytest.mark.vector
     @patch("glob.glob")
     @patch("builtins.open")
     @patch("minerva.vector.embeddings.SentenceTransformerProvider")

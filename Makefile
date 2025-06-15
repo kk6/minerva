@@ -1,7 +1,7 @@
 # Minerva Development Makefile
 # Provides unified interface for common development commands
 
-.PHONY: help install setup-dev test test-fast test-slow test-cov lint type-check format dev clean check-all check-fast fix-whitespace
+.PHONY: help install install-vector setup-dev test test-fast test-core test-vector test-slow test-cov lint type-check format dev clean check-all check-fast fix-whitespace
 
 # Default target
 .DEFAULT_GOAL := help
@@ -71,6 +71,16 @@ test-fast: ## Run fast tests only (excludes slow integration tests)
 	PYTHONPATH=src uv run pytest -m "not slow and not integration"
 	@echo "$(GREEN)Fast tests completed! Use 'make test' for full test suite.$(RESET)"
 
+test-core: ## Run core tests only (excludes vector dependency tests)
+	@echo "$(BLUE)Running core tests (excluding vector tests)...$(RESET)"
+	PYTHONPATH=src uv run pytest -m "not vector"
+	@echo "$(GREEN)Core tests completed! Use 'make test-vector' for vector tests.$(RESET)"
+
+test-vector: ## Run vector tests only (requires vector dependencies)
+	@echo "$(BLUE)Running vector tests...$(RESET)"
+	PYTHONPATH=src uv run pytest -m "vector"
+	@echo "$(GREEN)Vector tests completed!$(RESET)"
+
 test-slow: ## Run slow integration tests only
 	@echo "$(BLUE)Running slow integration tests...$(RESET)"
 	PYTHONPATH=src uv run pytest -m "slow"
@@ -125,3 +135,6 @@ check-fast: lint type-check test-fast ## Run fast quality checks (excludes slow 
 
 check-all: lint type-check test ## Run comprehensive quality checks
 	@echo "$(GREEN)All quality checks passed!$(RESET)"
+
+check-all-core: lint type-check test-core ## Run comprehensive quality checks (core only, no vector deps)
+	@echo "$(GREEN)All core quality checks passed!$(RESET)"
