@@ -172,7 +172,7 @@ uv run mcp dev src/minerva/server.py:mcp
 ### 基本機能のみ
 標準機能のみを使用する場合：
 ```bash
-uv run mcp install src/minerva/server.py:mcp -f .env --with-editable .
+uv run mcp install src/minerva/server.py:mcp -f .env
 ```
 
 ### セマンティック検索機能込み
@@ -182,13 +182,13 @@ uv run mcp install src/minerva/server.py:mcp -f .env --with-editable .
 uv sync --extra vector
 
 # Claude Desktopにインストール
-uv run mcp install src/minerva/server.py:mcp -f .env --with-editable .
+uv run mcp install src/minerva/server.py:mcp -f .env
 ```
 
 **重要**:
-- `--with-editable .` オプションにより、プロジェクトをeditable modeでインストールします
 - セマンティック検索を使用する場合は、事前に`uv sync --extra vector`を実行してください
 - `.env`ファイルで`VECTOR_SEARCH_ENABLED=true`を設定することを忘れずに
+- インストール後は、Claude Desktopを再起動してください
 
 ## Claude Desktop での使い方
 

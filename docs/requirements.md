@@ -237,7 +237,7 @@ Minerva
 1. 必要な環境変数を`.env`ファイルに設定
 2. 依存パッケージのインストール: `uv` パッケージマネージャを使用
 3. MCPサーバーの起動: `uv run mcp dev server.py`
-4. Claude Desktopへのインストール: `uv run mcp install src/minerva/server.py:mcp -f .env --with-editable .`
+4. Claude Desktopへのインストール: `uv run mcp install src/minerva/server.py:mcp -f .env`
 
 ### 5.3 依存関係の管理
 
