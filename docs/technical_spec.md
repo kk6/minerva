@@ -35,6 +35,7 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
      - `add_alias()`, `remove_alias()`, `get_aliases()`, `search_by_alias()` 関数（エイリアス管理）
      - `semantic_search()`, `build_vector_index()`, `get_vector_index_status()` 関数（セマンティック検索）
      - `build_vector_index_batch()`, `reset_vector_database()`, `debug_vector_schema()` 関数（ベクター検索デバッグ・管理）
+     - **📖 詳細**: [vector_search_api.md](vector_search_api.md)で全9個のベクター検索ツールの完全ドキュメント
 
 3. **設定管理層** (`config.py`) - **セマンティック検索対応済み**
    - **MinervaConfig**: 新しい設定データクラス

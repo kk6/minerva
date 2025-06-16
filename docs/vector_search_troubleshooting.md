@@ -2,6 +2,10 @@
 
 このドキュメントは、Minervaのセマンティック検索機能で発生する可能性のある問題と、その解決方法について説明します。
 
+**📖 関連ドキュメント**:
+- **[vector_search_api.md](vector_search_api.md)** - 完全なAPIリファレンスと使用例
+- **[technical_spec.md](technical_spec.md)** - 技術仕様とアーキテクチャ
+
 ## 目次
 
 1. [よくある問題と解決方法](#よくある問題と解決方法)
@@ -292,6 +296,7 @@ make dev
 
 ## 追加リソース
 
+- **[vector_search_api.md](vector_search_api.md)** - 完全なAPIリファレンスと詳細な使用例
 - [CLAUDE.md](../CLAUDE.md) - 開発者向け詳細情報
 - [technical_spec.md](technical_spec.md) - 技術仕様
 - [test_guidelines.md](test_guidelines.md) - テスト作成ガイドライン
