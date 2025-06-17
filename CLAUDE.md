@@ -687,7 +687,9 @@ Start with basic functionality and work up to complex operations:
 
 ### Vector Search Usage Patterns
 
-#### Configuration Setup
+**For complete vector search documentation, see [docs/vector_search_api.md](docs/vector_search_api.md)**
+
+#### Quick Configuration Setup
 ```env
 # Enable vector search
 VECTOR_SEARCH_ENABLED=true
@@ -698,6 +700,17 @@ VECTOR_DB_PATH=/custom/path/vectors.db
 # Optional: Custom embedding model (defaults to all-MiniLM-L6-v2)
 EMBEDDING_MODEL=all-MiniLM-L6-v2
 ```
+
+#### Essential Vector Search Tools
+- `semantic_search()` - Natural language semantic search
+- `find_similar_notes()` - Find notes similar to reference note
+- `build_vector_index()` - Full vault indexing
+- `build_vector_index_batch()` - Batch processing (5-100 files, MCP inspector safe)
+- `get_vector_index_status()` - Index statistics
+- `debug_vector_schema()` - Database debugging
+- `reset_vector_database()` - Database reset
+- `process_batch_index()` - Batch queue processing
+- `get_batch_index_status()` - Batch system status
 
 #### Typical Workflow in Claude Desktop
 1. **Initial Setup**: `build_vector_index()` - Index all markdown files
@@ -718,5 +731,6 @@ semantic_search("meeting notes", directory="work/meetings")
 ```
 
 ### See Also
+- **[docs/vector_search_api.md](docs/vector_search_api.md)** - Complete API reference for all vector search tools
 - `docs/vector_search_troubleshooting.md` for comprehensive troubleshooting guides
 - `docs/claude_code_commands.md` for MCP tool development patterns

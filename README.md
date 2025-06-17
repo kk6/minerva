@@ -231,6 +231,8 @@ search_by_alias 関数を使って「会議メモ」というエイリアスで�
 ```
 
 #### セマンティック検索（v0.15.0以降）
+**📖 詳細**: [ベクター検索 APIリファレンス](docs/vector_search_api.md)で全機能と使用例を確認
+
 ```text
 ベクターインデックスを構築してセマンティック検索を有効にしてください。まず build_vector_index を実行してからsemantic_search で「機械学習」に関連するノートを探してください。
 ```
@@ -324,6 +326,7 @@ Minervaの目標は、Claude Desktopと連携してObsidianの操作を自然言
 - [Issueと PR の効果的な活用ガイド](docs/issue_pr_guide.md) - IssueとPRの効果的な活用方法
 - [GitHub Copilot カスタム指示ガイドライン](docs/copilot_guidelines.md) - GitHub Copilotのカスタム指示を使用した開発ガイドライン
 - [Claude Code カスタムスラッシュコマンドガイドライン](docs/claude_code_commands.md) - Claude Codeのカスタムスラッシュコマンドの使用方法
+- **[ベクター検索 APIリファレンス](docs/vector_search_api.md)** - セマンティック検索機能の完全APIガイド（9つの全ツール）
 - [ベクター検索トラブルシューティング](docs/vector_search_troubleshooting.md) - セマンティック検索機能の問題解決ガイド
 - [リリースプロセス](docs/release_process.md) - リリースプロセスと自動化の詳細
 
