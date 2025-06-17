@@ -115,7 +115,7 @@ BATCH_TIMEOUT=30.0                      # バッチタイムアウト秒数（�
 get_vector_index_status()
 
 # 2. 小規模テスト
-build_vector_index_batch(max_files=5, force_rebuild=true)
+build_vector_index_batch(max_files=5, force_rebuild=True)
 
 # 3. 動作確認
 semantic_search("テストクエリ", limit=3)
