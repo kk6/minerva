@@ -416,7 +416,18 @@ def merge_notes(
     default_path: str | None = None,
 ) -> dict:
     """Merge multiple notes into a single consolidated note."""
-    return service.merge_notes(source_files, target_filename, **kwargs).to_dict()
+    result = service.merge_notes(
+        source_files=source_files,
+        target_filename=target_filename,
+        merge_strategy=merge_strategy,
+        separator=separator,
+        preserve_frontmatter=preserve_frontmatter,
+        delete_sources=delete_sources,
+        create_toc=create_toc,
+        author=author,
+        default_path=default_path,
+    )
+    return result.to_dict()
 
 @mcp.tool()
 def smart_merge_notes(
@@ -427,7 +438,14 @@ def smart_merge_notes(
     default_path: str | None = None,
 ) -> dict:
     """Merge notes using intelligent content analysis."""
-    return service.smart_merge_notes(source_files, target_filename, **kwargs).to_dict()
+    result = service.smart_merge_notes(
+        source_files=source_files,
+        target_filename=target_filename,
+        group_by=group_by,
+        author=author,
+        default_path=default_path,
+    )
+    return result.to_dict()
 ```
 
 ### Testing with Dependency Injection

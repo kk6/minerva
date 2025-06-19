@@ -565,7 +565,7 @@ class NoteOperations(BaseService):
 
         # Process the merge
         try:
-            merged_content, merge_history = processor.process_merge(
+            merged_content, merge_history, merge_warnings = processor.process_merge(
                 note_contents,
                 target_filename,
                 separator=separator,
@@ -597,7 +597,7 @@ class NoteOperations(BaseService):
                 target_file=target_path,
                 merge_strategy=strategy_enum,
                 files_processed=len(note_contents),
-                warnings=[],
+                warnings=merge_warnings,
                 merge_history=merge_history,
             )
 
@@ -680,14 +680,14 @@ class NoteOperations(BaseService):
         """
         if strategy == MergeStrategy.APPEND:
             return AppendMergeProcessor(self.frontmatter_manager)
-        elif strategy == MergeStrategy.BY_HEADING:
+        if strategy == MergeStrategy.BY_HEADING:
             return HeadingMergeProcessor(self.frontmatter_manager)
-        elif strategy == MergeStrategy.BY_DATE:
+        if strategy == MergeStrategy.BY_DATE:
             return DateMergeProcessor(self.frontmatter_manager)
-        elif strategy == MergeStrategy.SMART:
+        if strategy == MergeStrategy.SMART:
             return SmartMergeProcessor(self.frontmatter_manager)
-        else:
-            raise ValueError(f"Unsupported merge strategy: {strategy}")
+
+        raise ValueError(f"Unsupported merge strategy: {strategy}")
 
     def _validate_merge_inputs(
         self, source_files: list[str], merge_strategy: str

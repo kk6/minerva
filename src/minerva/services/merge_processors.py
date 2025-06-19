@@ -42,7 +42,7 @@ class MergeProcessor(ABC):
         note_contents: list[tuple[str, str]],  # (file_path, content)
         target_filename: str,
         **options: Any,
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> tuple[str, dict[str, Any], list[str]]:
         """
         Process the merge operation according to the strategy.
 
@@ -52,32 +52,115 @@ class MergeProcessor(ABC):
             **options: Strategy-specific options
 
         Returns:
-            tuple: (merged_content, merge_history)
+            tuple: (merged_content, merge_history, warnings)
         """
         pass
 
     def _consolidate_frontmatter(
-        self, note_contents: list[tuple[str, str]], target_filename: str
-    ) -> dict[str, Any]:
+        self,
+        note_contents: list[tuple[str, str]],
+        target_filename: str,
+        preserve_frontmatter: bool = True,
+    ) -> tuple[dict[str, Any], list[str]]:
         """
         Consolidate frontmatter from all source notes.
 
         Args:
             note_contents: List of tuples containing (file_path, content)
             target_filename: Name of the target file
+            preserve_frontmatter: Whether to consolidate frontmatter from source files
 
         Returns:
-            dict: Consolidated frontmatter
+            tuple: (consolidated_frontmatter, warnings)
         """
+        if not preserve_frontmatter:
+            # Create minimal frontmatter without source metadata
+            return {
+                "created": datetime.now().isoformat(),
+                "modified": datetime.now().isoformat(),
+                "author": self.frontmatter_manager.default_author,
+            }, []
+
         # Extract metadata from all notes
-        metadata_collection = self._extract_metadata_from_notes(note_contents)
+        metadata_collection, warnings = self._extract_metadata_from_notes(note_contents)
 
         # Build consolidated frontmatter
-        return self._build_consolidated_metadata(metadata_collection)
+        consolidated_metadata = self._build_consolidated_metadata(metadata_collection)
+        return consolidated_metadata, warnings
+
+    def _parse_date_robustly(
+        self, date_value: Any
+    ) -> tuple[datetime | None, str | None]:
+        """
+        Robustly parse various date formats into datetime objects.
+
+        Args:
+            date_value: Date value from frontmatter (str, datetime, or other)
+
+        Returns:
+            tuple: (parsed_datetime, warning_message)
+        """
+        if date_value is None:
+            return None, None
+
+        # If already a datetime object, return as-is
+        if isinstance(date_value, datetime):
+            return date_value, None
+
+        # If not a string, try to convert
+        if not isinstance(date_value, str):
+            try:
+                date_value = str(date_value)
+            except Exception:
+                return (
+                    None,
+                    f"Could not convert date value to string: {type(date_value)}",
+                )
+
+        # List of common date formats to try
+        date_formats = [
+            "%Y-%m-%dT%H:%M:%S.%fZ",  # ISO format with microseconds and Z
+            "%Y-%m-%dT%H:%M:%SZ",  # ISO format with Z
+            "%Y-%m-%dT%H:%M:%S.%f%z",  # ISO format with microseconds and timezone
+            "%Y-%m-%dT%H:%M:%S%z",  # ISO format with timezone
+            "%Y-%m-%dT%H:%M:%S.%f",  # ISO format with microseconds
+            "%Y-%m-%dT%H:%M:%S",  # ISO format
+            "%Y-%m-%d %H:%M:%S",  # Standard datetime
+            "%Y-%m-%d",  # Date only
+            "%Y/%m/%d %H:%M:%S",  # Alternative format
+            "%Y/%m/%d",  # Alternative date only
+            "%d-%m-%Y %H:%M:%S",  # European format
+            "%d-%m-%Y",  # European date only
+            "%d/%m/%Y %H:%M:%S",  # European with slashes
+            "%d/%m/%Y",  # European date with slashes
+        ]
+
+        # Handle Z timezone manually for fromisoformat
+        if date_value.endswith("Z"):
+            try:
+                return datetime.fromisoformat(date_value.replace("Z", "+00:00")), None
+            except ValueError:
+                pass
+
+        # Try fromisoformat first (handles most ISO formats)
+        try:
+            return datetime.fromisoformat(date_value), None
+        except ValueError:
+            pass
+
+        # Try each format
+        for fmt in date_formats:
+            try:
+                return datetime.strptime(date_value, fmt), None
+            except ValueError:
+                continue
+
+        # If all fails, return None with warning
+        return None, f"Could not parse date format: {date_value}"
 
     def _extract_metadata_from_notes(
         self, note_contents: list[tuple[str, str]]
-    ) -> dict[str, Any]:
+    ) -> tuple[dict[str, Any], list[str]]:
         """Extract and collect metadata from all source notes."""
         all_tags: set[str] = set()
         all_aliases: set[str] = set()
@@ -85,34 +168,22 @@ class MergeProcessor(ABC):
         modification_dates: list[Any] = []
         authors: set[str] = set()
         source_files: list[str] = []
+        warnings: list[str] = []
 
         for file_path, content in note_contents:
-            try:
-                post = frontmatter.loads(content)
-                metadata = post.metadata
+            file_warnings = self._process_single_note_metadata(
+                file_path,
+                content,
+                all_tags,
+                all_aliases,
+                creation_dates,
+                modification_dates,
+                authors,
+                source_files,
+            )
+            warnings.extend(file_warnings)
 
-                # Collect tags
-                self._collect_tags(metadata, all_tags)
-
-                # Collect aliases
-                self._collect_aliases(metadata, all_aliases)
-
-                # Collect dates
-                if "created" in metadata:
-                    creation_dates.append(metadata["created"])
-                if "modified" in metadata:
-                    modification_dates.append(metadata["modified"])
-
-                # Collect authors
-                if "author" in metadata:
-                    authors.add(metadata["author"])
-
-                source_files.append(str(file_path))
-
-            except Exception as e:
-                logger.warning("Failed to parse frontmatter from %s: %s", file_path, e)
-
-        return {
+        metadata_collection = {
             "tags": all_tags,
             "aliases": all_aliases,
             "creation_dates": creation_dates,
@@ -120,6 +191,85 @@ class MergeProcessor(ABC):
             "authors": authors,
             "source_files": source_files,
         }
+
+        return metadata_collection, warnings
+
+    def _process_single_note_metadata(
+        self,
+        file_path: str,
+        content: str,
+        all_tags: set[str],
+        all_aliases: set[str],
+        creation_dates: list[Any],
+        modification_dates: list[Any],
+        authors: set[str],
+        source_files: list[str],
+    ) -> list[str]:
+        """Process metadata from a single note file."""
+        warnings: list[str] = []
+
+        try:
+            post = frontmatter.loads(content)
+            metadata = post.metadata
+
+            # Collect tags and aliases
+            self._collect_tags(metadata, all_tags)
+            self._collect_aliases(metadata, all_aliases)
+
+            # Collect dates with robust parsing
+            date_warnings = self._process_note_dates(
+                metadata, file_path, creation_dates, modification_dates
+            )
+            warnings.extend(date_warnings)
+
+            # Collect authors
+            if "author" in metadata:
+                authors.add(metadata["author"])
+            else:
+                warnings.append(f"No author found in {file_path}")
+
+            source_files.append(str(file_path))
+
+        except Exception as e:
+            warning_msg = f"Failed to parse frontmatter from {file_path}: {e}"
+            warnings.append(warning_msg)
+            logger.warning(warning_msg)
+
+        return warnings
+
+    def _process_note_dates(
+        self,
+        metadata: dict[str, Any],
+        file_path: str,
+        creation_dates: list[Any],
+        modification_dates: list[Any],
+    ) -> list[str]:
+        """Process creation and modification dates from note metadata."""
+        warnings: list[str] = []
+        created_parsed = False
+
+        if "created" in metadata:
+            parsed_date, warning = self._parse_date_robustly(metadata["created"])
+            if parsed_date:
+                creation_dates.append(parsed_date)
+                created_parsed = True
+            elif warning:
+                warnings.append(
+                    f"Failed to parse created date in {file_path}: {warning}"
+                )
+
+        if "modified" in metadata:
+            parsed_date, warning = self._parse_date_robustly(metadata["modified"])
+            if parsed_date:
+                modification_dates.append(parsed_date)
+            elif warning:
+                warnings.append(
+                    f"Failed to parse modified date in {file_path}: {warning}"
+                )
+        elif not created_parsed:
+            warnings.append(f"No creation or modification date found in {file_path}")
+
+        return warnings
 
     def _collect_tags(self, metadata: dict, all_tags: set) -> None:
         """Collect tags from metadata into the provided set."""
@@ -190,7 +340,7 @@ class AppendMergeProcessor(MergeProcessor):
         separator: str = "\n\n---\n\n",
         create_toc: bool = True,
         **options: Any,
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> tuple[str, dict[str, Any], list[str]]:
         """
         Process merge by appending all notes with separators.
 
@@ -202,19 +352,22 @@ class AppendMergeProcessor(MergeProcessor):
             **options: Additional options (ignored)
 
         Returns:
-            tuple: (merged_content, merge_history)
+            tuple: (merged_content, merge_history, warnings)
         """
         sections: list[str] = []
         merge_history: dict[str, Any] = {"sections": []}
-        toc_entries: list[str] = []
+        content_warnings: list[str] = []
 
         for file_path, content in note_contents:
             # Extract content without frontmatter
             try:
                 post = frontmatter.loads(content)
                 note_content = post.content
-            except Exception:
+            except Exception as e:
                 note_content = content
+                content_warnings.append(
+                    f"Failed to parse frontmatter from {file_path}, using raw content: {e}"
+                )
 
             # Create section header
             file_name = Path(file_path).stem
@@ -233,32 +386,55 @@ class AppendMergeProcessor(MergeProcessor):
                 }
             )
 
-            # Add to TOC
-            if create_toc:
-                toc_entries.append(
-                    f"- [{file_name}](#{file_name.lower().replace(' ', '-')})"
-                )
-
         # Build final content
         title = f"# {Path(target_filename).stem}"
         content_parts = [title]
 
-        if create_toc and toc_entries:
-            content_parts.extend(["", "## 目次", "", "\n".join(toc_entries), ""])
+        # Add TOC if requested
+        if create_toc:
+            toc_content = self._generate_toc(merge_history["sections"])
+            content_parts.extend(toc_content)
 
         content_parts.append(separator.join(sections))
 
         # Consolidate frontmatter
-        consolidated_frontmatter = self._consolidate_frontmatter(
-            note_contents, target_filename
+        preserve_frontmatter = options.get("preserve_frontmatter", True)
+        consolidated_frontmatter, frontmatter_warnings = self._consolidate_frontmatter(
+            note_contents, target_filename, preserve_frontmatter
         )
+
+        # Combine all warnings
+        all_warnings = content_warnings + frontmatter_warnings
 
         # Create final content with frontmatter
         final_content = frontmatter.dumps(
             frontmatter.Post("\n".join(content_parts), **consolidated_frontmatter)
         )
 
-        return final_content, merge_history
+        return final_content, merge_history, all_warnings
+
+    def _generate_toc(self, sections_info: list[dict[str, Any]]) -> list[str]:
+        """
+        Generate table of contents from sections information.
+
+        Args:
+            sections_info: List of section dictionaries with section_title and other info
+
+        Returns:
+            List of TOC content lines ready to be added to content
+        """
+        if not sections_info:
+            return []
+
+        toc_lines = ["", "## 目次", ""]
+
+        for section in sections_info:
+            section_title = section["section_title"]
+            anchor = section_title.lower().replace(" ", "-")
+            toc_lines.append(f"- [{section_title}](#{anchor})")
+
+        toc_lines.append("")  # Empty line after TOC
+        return toc_lines
 
 
 class HeadingMergeProcessor(MergeProcessor):
@@ -270,7 +446,7 @@ class HeadingMergeProcessor(MergeProcessor):
 
     def process_merge(
         self, note_contents: list[tuple[str, str]], target_filename: str, **options: Any
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> tuple[str, dict[str, Any], list[str]]:
         """
         Process merge by grouping content under headings.
 
@@ -280,18 +456,22 @@ class HeadingMergeProcessor(MergeProcessor):
             **options: Additional options (ignored)
 
         Returns:
-            tuple: (merged_content, merge_history)
+            tuple: (merged_content, merge_history, warnings)
         """
         heading_groups: dict[str, list[str]] = {}
         merge_history: dict[str, Any] = {"heading_groups": {}}
+        content_warnings: list[str] = []
 
         for file_path, content in note_contents:
             # Extract content without frontmatter
             try:
                 post = frontmatter.loads(content)
                 note_content = post.content
-            except Exception:
+            except Exception as e:
                 note_content = content
+                content_warnings.append(
+                    f"Failed to parse frontmatter from {file_path}, using raw content: {e}"
+                )
 
             # Parse headings and content
             sections = self._parse_sections(note_content)
@@ -325,16 +505,20 @@ class HeadingMergeProcessor(MergeProcessor):
                 content_parts.append("")
 
         # Consolidate frontmatter
-        consolidated_frontmatter = self._consolidate_frontmatter(
-            note_contents, target_filename
+        preserve_frontmatter = options.get("preserve_frontmatter", True)
+        consolidated_frontmatter, frontmatter_warnings = self._consolidate_frontmatter(
+            note_contents, target_filename, preserve_frontmatter
         )
+
+        # Combine all warnings
+        all_warnings = content_warnings + frontmatter_warnings
 
         # Create final content with frontmatter
         final_content = frontmatter.dumps(
             frontmatter.Post("\n".join(content_parts), **consolidated_frontmatter)
         )
 
-        return final_content, merge_history
+        return final_content, merge_history, all_warnings
 
     def _parse_sections(self, content: str) -> list[tuple[str, str]]:
         """
@@ -387,7 +571,7 @@ class DateMergeProcessor(MergeProcessor):
         separator: str = "\n\n---\n\n",
         create_toc: bool = True,
         **options: Any,
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> tuple[str, dict[str, Any], list[str]]:
         """
         Process merge by sorting notes by date.
 
@@ -400,7 +584,7 @@ class DateMergeProcessor(MergeProcessor):
             **options: Additional options (ignored)
 
         Returns:
-            tuple: (merged_content, merge_history)
+            tuple: (merged_content, merge_history, warnings)
         """
         # Extract dates and sort
         dated_contents = []
@@ -410,18 +594,23 @@ class DateMergeProcessor(MergeProcessor):
                 post = frontmatter.loads(content)
                 metadata = post.metadata
 
-                # Get date for sorting
-                date_str = metadata.get(sort_by)
-                if date_str:
-                    if isinstance(date_str, str):
-                        try:
-                            sort_date = datetime.fromisoformat(
-                                date_str.replace("Z", "+00:00")
-                            )
-                        except ValueError:
-                            sort_date = datetime.min
+                # Get date for sorting with robust parsing
+                date_value = metadata.get(sort_by)
+                if date_value:
+                    parsed_date, warning = self._parse_date_robustly(date_value)
+                    if parsed_date:
+                        sort_date = parsed_date
                     else:
-                        sort_date = date_str
+                        # Use file modification time as fallback
+                        sort_date = datetime.fromtimestamp(
+                            Path(file_path).stat().st_mtime
+                        )
+                        logger.warning(
+                            "Failed to parse %s date for %s (%s), using file mtime",
+                            sort_by,
+                            file_path,
+                            warning or "unknown format",
+                        )
                 else:
                     # Fallback to file modification time
                     sort_date = datetime.fromtimestamp(Path(file_path).stat().st_mtime)
@@ -443,7 +632,7 @@ class DateMergeProcessor(MergeProcessor):
         ]
 
         append_processor = AppendMergeProcessor(self.frontmatter_manager)
-        merged_content, merge_history = append_processor.process_merge(
+        merged_content, merge_history, warnings = append_processor.process_merge(
             sorted_note_contents,
             target_filename,
             separator=separator,
@@ -457,7 +646,7 @@ class DateMergeProcessor(MergeProcessor):
             for date, file_path, _ in dated_contents
         ]
 
-        return merged_content, merge_history
+        return merged_content, merge_history, warnings
 
 
 class SmartMergeProcessor(MergeProcessor):
@@ -469,7 +658,7 @@ class SmartMergeProcessor(MergeProcessor):
 
     def process_merge(
         self, note_contents: list[tuple[str, str]], target_filename: str, **options: Any
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> tuple[str, dict[str, Any], list[str]]:
         """
         Process merge using intelligent content analysis.
 
@@ -479,10 +668,11 @@ class SmartMergeProcessor(MergeProcessor):
             **options: Additional options
 
         Returns:
-            tuple: (merged_content, merge_history)
+            tuple: (merged_content, merge_history, warnings)
         """
         # Analyze content to determine best strategy
-        strategy = self._analyze_best_strategy(note_contents)
+        group_by_hint = options.get("group_by", "heading")
+        strategy = self._analyze_best_strategy(note_contents, group_by_hint)
 
         # Delegate to appropriate processor
         processor: MergeProcessor
@@ -493,29 +683,41 @@ class SmartMergeProcessor(MergeProcessor):
         else:
             processor = AppendMergeProcessor(self.frontmatter_manager)
 
-        merged_content, merge_history = processor.process_merge(
+        merged_content, merge_history, warnings = processor.process_merge(
             note_contents, target_filename, **options
         )
 
         # Add strategy selection info to merge history
         merge_history["smart_strategy_selected"] = strategy
 
-        return merged_content, merge_history
+        return merged_content, merge_history, warnings
 
-    def _analyze_best_strategy(self, note_contents: list[tuple[str, str]]) -> str:
+    def _analyze_best_strategy(
+        self, note_contents: list[tuple[str, str]], group_by_hint: str = "heading"
+    ) -> str:
         """
         Analyze content to determine the best merging strategy.
 
         Args:
             note_contents: List of tuples containing (file_path, content)
+            group_by_hint: Hint for grouping preference ("heading", "tag", "date")
 
         Returns:
             str: Best strategy ("append", "by_heading", or "by_date")
         """
+        has_consistent_headings, has_dates = self._analyze_content_patterns(
+            note_contents
+        )
+        return self._select_strategy_with_hint(
+            has_consistent_headings, has_dates, len(note_contents), group_by_hint
+        )
+
+    def _analyze_content_patterns(
+        self, note_contents: list[tuple[str, str]]
+    ) -> tuple[int, int]:
+        """Analyze content patterns in notes to determine structure."""
         has_consistent_headings = 0
         has_dates = 0
-        total_notes = len(note_contents)
-
         common_headings = set()
         first_note = True
 
@@ -544,10 +746,26 @@ class SmartMergeProcessor(MergeProcessor):
             except Exception:
                 continue
 
-        # Decision logic
-        if has_consistent_headings >= total_notes * 0.6:  # 60% have common headings
-            return "by_heading"
-        elif has_dates >= total_notes * 0.8:  # 80% have dates
+        return has_consistent_headings, has_dates
+
+    def _select_strategy_with_hint(
+        self,
+        has_consistent_headings: int,
+        has_dates: int,
+        total_notes: int,
+        group_by_hint: str,
+    ) -> str:
+        """Select the best strategy based on analysis and hint."""
+        # If specific hint provided, bias toward that strategy if viable
+        if group_by_hint == "date" and has_dates >= total_notes * 0.5:
             return "by_date"
-        else:
-            return "append"
+        if group_by_hint == "heading" and has_consistent_headings >= total_notes * 0.4:
+            return "by_heading"
+
+        # Default analysis (higher thresholds without specific hint)
+        if has_consistent_headings >= total_notes * 0.6:
+            return "by_heading"
+        if has_dates >= total_notes * 0.8:
+            return "by_date"
+
+        return "append"

@@ -33,6 +33,40 @@ class MergeStrategy(Enum):
 
 
 @dataclass
+class MergeOptions:
+    """
+    Configuration options for note merging operations.
+
+    This dataclass groups related merge parameters to reduce complexity
+    in function signatures and improve maintainability.
+    """
+
+    merge_strategy: str = "append"
+    """Strategy to use for merging ("append", "by_heading", "by_date", "smart")."""
+
+    separator: str = "\n\n---\n\n"
+    """Separator between merged sections (for append strategy)."""
+
+    preserve_frontmatter: bool = True
+    """Whether to consolidate frontmatter from source files."""
+
+    delete_sources: bool = False
+    """Whether to delete source files after successful merge."""
+
+    create_toc: bool = True
+    """Whether to create a table of contents (for applicable strategies)."""
+
+    author: str | None = None
+    """Author name for the merged note."""
+
+    default_path: str | None = None
+    """Subfolder within vault to save the merged note."""
+
+    group_by: str = "heading"
+    """Hint for grouping preference ("heading", "tag", "date") for smart merge."""
+
+
+@dataclass
 class MergeResult:
     """
     Result of a note merging operation.

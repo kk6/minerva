@@ -43,7 +43,7 @@ class TestMergeProcessors:
         """Test the append merge processor."""
         processor = AppendMergeProcessor(frontmatter_manager)
 
-        merged_content, merge_history = processor.process_merge(
+        merged_content, merge_history, warnings = processor.process_merge(
             sample_notes, "merged.md"
         )
 
@@ -53,18 +53,20 @@ class TestMergeProcessors:
         assert "Content 1" in merged_content
         assert "Content 2" in merged_content
         assert "sections" in merge_history
+        assert isinstance(warnings, list)
 
     def test_heading_merge_processor(self, frontmatter_manager, sample_notes):
         """Test the heading merge processor."""
         processor = HeadingMergeProcessor(frontmatter_manager)
 
-        merged_content, merge_history = processor.process_merge(
+        merged_content, merge_history, warnings = processor.process_merge(
             sample_notes, "merged.md"
         )
 
         assert "# merged" in merged_content.lower()
         assert "heading_groups" in merge_history
         assert merged_content  # Should produce some content
+        assert isinstance(warnings, list)
 
     def test_smart_merge_processor_analysis(self, frontmatter_manager, sample_notes):
         """Test the smart merge processor content analysis."""
@@ -77,7 +79,9 @@ class TestMergeProcessors:
     def test_consolidate_frontmatter(self, frontmatter_manager, sample_notes):
         """Test frontmatter consolidation."""
         processor = AppendMergeProcessor(frontmatter_manager)
-        consolidated = processor._consolidate_frontmatter(sample_notes, "merged.md")
+        consolidated, warnings = processor._consolidate_frontmatter(
+            sample_notes, "merged.md"
+        )
 
         assert "created" in consolidated
         assert "modified" in consolidated
@@ -85,6 +89,7 @@ class TestMergeProcessors:
         assert "tags" in consolidated
         assert "merged_from" in consolidated
         assert consolidated["author"] == "Test Author"
+        assert isinstance(warnings, list)
 
 
 class TestNoteOperationsMerge:
