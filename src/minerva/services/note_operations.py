@@ -8,7 +8,10 @@ and deletion functionality for the Minerva application.
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from minerva.services.merge_processors import MergeProcessor
 
 from minerva.error_handler import (
     handle_file_operations,
@@ -23,7 +26,7 @@ from minerva.file_handler import (
     read_file,
     delete_file,
 )
-from minerva.models import MergeResult, MergeStrategy
+from minerva.models import MergeResult, MergeStrategy, MergeOptions
 from minerva.services.core.base_service import BaseService
 from minerva.services.core.file_operations import (
     validate_filename,
@@ -516,6 +519,8 @@ class NoteOperations(BaseService):
         self,
         source_files: list[str],
         target_filename: str,
+        merge_options: MergeOptions | None = None,
+        # Legacy parameters for backward compatibility
         merge_strategy: str = "append",
         separator: str = "\n\n---\n\n",
         preserve_frontmatter: bool = True,
@@ -531,13 +536,14 @@ class NoteOperations(BaseService):
         Args:
             source_files: List of source file paths to merge
             target_filename: Name of the target merged file
-            merge_strategy: Strategy to use ("append", "by_heading", "by_date", "smart")
-            separator: Separator between merged sections (for append strategy)
-            preserve_frontmatter: Whether to consolidate frontmatter from source files
-            delete_sources: Whether to delete source files after successful merge
-            create_toc: Whether to create a table of contents (for applicable strategies)
-            author: Author name for the merged note
-            default_path: Directory to save the merged note
+            merge_options: Configuration options for merge operation (preferred)
+            merge_strategy: Strategy to use (legacy, use merge_options instead)
+            separator: Separator between sections (legacy, use merge_options instead)
+            preserve_frontmatter: Whether to consolidate frontmatter (legacy)
+            delete_sources: Whether to delete source files (legacy)
+            create_toc: Whether to create table of contents (legacy)
+            author: Author name for merged note (legacy)
+            default_path: Directory to save merged note (legacy)
             **options: Additional strategy-specific options
 
         Returns:
@@ -548,17 +554,35 @@ class NoteOperations(BaseService):
             FileNotFoundError: If any source files don't exist
             FileExistsError: If target file already exists
         """
+        # Resolve options: prioritize merge_options over individual parameters
+        if merge_options is None:
+            merge_options = MergeOptions(
+                merge_strategy=merge_strategy,
+                separator=separator,
+                preserve_frontmatter=preserve_frontmatter,
+                delete_sources=delete_sources,
+                create_toc=create_toc,
+                author=author,
+                default_path=default_path,
+            )
+
         self._log_operation_start(
             "merge_notes",
             source_files=source_files,
             target_filename=target_filename,
-            merge_strategy=merge_strategy,
+            merge_strategy=merge_options.merge_strategy,
         )
 
         # Validate inputs and prepare for merge
-        strategy_enum = self._validate_merge_inputs(source_files, merge_strategy)
-        note_contents = self._read_and_validate_source_files(source_files, default_path)
-        self._check_target_file_availability(target_filename, default_path)
+        strategy_enum = self._validate_merge_inputs(
+            source_files, merge_options.merge_strategy
+        )
+        note_contents = self._read_and_validate_source_files(
+            source_files, merge_options.default_path
+        )
+        self._check_target_file_availability(
+            target_filename, merge_options.default_path
+        )
 
         # Select merge processor based on strategy
         processor = self._get_merge_processor(strategy_enum)
@@ -568,20 +592,23 @@ class NoteOperations(BaseService):
             merged_content, merge_history, merge_warnings = processor.process_merge(
                 note_contents,
                 target_filename,
-                separator=separator,
-                create_toc=create_toc,
-                preserve_frontmatter=preserve_frontmatter,
+                separator=merge_options.separator,
+                create_toc=merge_options.create_toc,
+                preserve_frontmatter=merge_options.preserve_frontmatter,
                 **options,
             )
 
             # Create the merged note
             target_path = self.create_note(
-                merged_content, target_filename, author, default_path
+                merged_content,
+                target_filename,
+                merge_options.author,
+                merge_options.default_path,
             )
 
             # Optionally delete source files
             deleted_files = []
-            if delete_sources:
+            if merge_options.delete_sources:
                 for source_file, _ in note_contents:
                     try:
                         deleted_path = self.perform_note_delete(filepath=source_file)
@@ -609,7 +636,7 @@ class NoteOperations(BaseService):
                 "Successfully merged %d files into %s using %s strategy",
                 len(source_files),
                 target_path,
-                merge_strategy,
+                merge_options.merge_strategy,
             )
 
             self._log_operation_success("merge_notes", result.to_dict())
@@ -661,18 +688,21 @@ class NoteOperations(BaseService):
         )
 
         # Use smart merge strategy with group_by hint
-        options["group_by"] = group_by
-        return self.merge_notes(
-            source_files=source_files,
-            target_filename=target_filename,
+        merge_options = MergeOptions(
             merge_strategy="smart",
             preserve_frontmatter=preserve_frontmatter,
             author=author,
             default_path=default_path,
+            group_by=group_by,
+        )
+        return self.merge_notes(
+            source_files=source_files,
+            target_filename=target_filename,
+            merge_options=merge_options,
             **options,
         )
 
-    def _get_merge_processor(self, strategy: MergeStrategy) -> Any:
+    def _get_merge_processor(self, strategy: MergeStrategy) -> "MergeProcessor":
         """
         Get the appropriate merge processor for the given strategy.
 
@@ -682,16 +712,18 @@ class NoteOperations(BaseService):
         Returns:
             MergeProcessor: Processor instance for the strategy
         """
-        if strategy == MergeStrategy.APPEND:
-            return AppendMergeProcessor(self.frontmatter_manager)
-        if strategy == MergeStrategy.BY_HEADING:
-            return HeadingMergeProcessor(self.frontmatter_manager)
-        if strategy == MergeStrategy.BY_DATE:
-            return DateMergeProcessor(self.frontmatter_manager)
-        if strategy == MergeStrategy.SMART:
-            return SmartMergeProcessor(self.frontmatter_manager)
+        processors = {
+            MergeStrategy.APPEND: AppendMergeProcessor,
+            MergeStrategy.BY_HEADING: HeadingMergeProcessor,
+            MergeStrategy.BY_DATE: DateMergeProcessor,
+            MergeStrategy.SMART: SmartMergeProcessor,
+        }
 
-        raise ValueError(f"Unsupported merge strategy: {strategy}")
+        processor_class = processors.get(strategy)
+        if processor_class is None:
+            raise ValueError(f"Unsupported merge strategy: {strategy}")
+
+        return processor_class(self.frontmatter_manager)  # type: ignore[abstract]
 
     def _validate_merge_inputs(
         self, source_files: list[str], merge_strategy: str
