@@ -637,6 +637,7 @@ class DateMergeProcessor(MergeProcessor):
             target_filename,
             separator=separator,
             create_toc=create_toc,
+            **options,
         )
 
         # Add date sorting information to merge history

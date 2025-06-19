@@ -570,6 +570,7 @@ class NoteOperations(BaseService):
                 target_filename,
                 separator=separator,
                 create_toc=create_toc,
+                preserve_frontmatter=preserve_frontmatter,
                 **options,
             )
 
@@ -624,6 +625,7 @@ class NoteOperations(BaseService):
         source_files: list[str],
         target_filename: str,
         group_by: str = "heading",
+        preserve_frontmatter: bool = True,
         author: str | None = None,
         default_path: str | None = None,
         **options: Any,
@@ -638,6 +640,7 @@ class NoteOperations(BaseService):
             source_files: List of source file paths to merge
             target_filename: Name of the target merged file
             group_by: Hint for grouping preference ("heading", "tag", "date")
+            preserve_frontmatter: Whether to consolidate frontmatter from source files
             author: Author name for the merged note
             default_path: Directory to save the merged note
             **options: Additional options passed to the merge processor
@@ -663,6 +666,7 @@ class NoteOperations(BaseService):
             source_files=source_files,
             target_filename=target_filename,
             merge_strategy="smart",
+            preserve_frontmatter=preserve_frontmatter,
             author=author,
             default_path=default_path,
             **options,

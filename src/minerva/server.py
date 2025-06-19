@@ -1103,6 +1103,7 @@ def smart_merge_notes(
     source_files: list[str],
     target_filename: str,
     group_by: str = "heading",
+    preserve_frontmatter: bool = True,
     author: str | None = None,
     default_path: str | None = None,
 ) -> dict:
@@ -1121,6 +1122,7 @@ def smart_merge_notes(
         source_files: List of source file paths to merge
         target_filename: Name of the target merged file
         group_by: Hint for grouping preference ("heading", "tag", "date")
+        preserve_frontmatter: Whether to consolidate frontmatter from source files
         author: Author name for the merged note (optional)
         default_path: Subfolder within your vault to save the merged note (optional)
 
@@ -1136,6 +1138,7 @@ def smart_merge_notes(
         source_files=source_files,
         target_filename=target_filename,
         group_by=group_by,
+        preserve_frontmatter=preserve_frontmatter,
         author=author,
         default_path=default_path,
     )
