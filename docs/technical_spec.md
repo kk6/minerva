@@ -9,7 +9,7 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
 1. **サービス層** (`services/`) - **モジュール化済み**
    - **ServiceManager**: 全サービス操作の統一インターフェース（ファサードパターン）
    - **専門化されたサービスモジュール**: 機能別に分離されたサービスクラス群
-     - **NoteOperations**: ノート作成・編集・削除・読み込み操作
+     - **NoteOperations**: ノート作成・編集・削除・読み込み・マージ操作
      - **TagOperations**: タグ追加・削除・一括変更・検索機能
      - **AliasOperations**: エイリアス管理と競合検出
      - **SearchOperations**: 全文検索とフィルタリング機能
@@ -24,6 +24,15 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
 - **SearchOperations統合**: セマンティック検索の完全統合（実装済み）
 - **オプショナル依存関係管理**: 適切なエラーメッセージとlazy loading実装
 
+1.2. **ノートマージ層** (`services/merge_processors.py`) - **新規実装済み（v0.16.0）**
+- **MergeProcessor**: ノートマージの抽象基底クラス（戦略パターン実装）
+- **AppendMergeProcessor**: 順次追記戦略（ファイル順での単純結合）
+- **ByHeadingMergeProcessor**: 見出しベース統合戦略（見出し別グループ化）
+- **ByDateMergeProcessor**: 日付順ソート戦略（フロントマター日付基準）
+- **SmartMergeProcessor**: 自動戦略選択（コンテンツ分析による最適化）
+- **フロントマター統合**: タグ・エイリアス・メタデータの自動マージ
+- **マージ履歴追跡**: 戦略別の詳細な操作履歴記録
+
 2. **MCPサーバー層** (`server.py`) - **MCP 1.9対応済み**
    - **FastMCPサーバー**: MCP 1.9.3準拠、`@mcp.tool()` デコレータを使用した直接的なツール登録
    - **ダイレクトサービス統合**: ラッパー関数を排除し、サービスメソッドを直接呼び出し
@@ -31,6 +40,7 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
      - `read_note()`, `search_notes()` 関数（読み取り操作）
      - `create_note()`, `edit_note()` 関数（状態変更操作）
      - `get_note_delete_confirmation()`, `perform_note_delete()` 関数（2段階削除プロセス）
+     - `merge_notes()`, `smart_merge_notes()` 関数（ノート統合機能）
      - `add_tag()`, `remove_tag()`, `rename_tag()`, `get_tags()`, `list_all_tags()`, `find_notes_with_tag()` 関数（タグ管理）
      - `add_alias()`, `remove_alias()`, `get_aliases()`, `search_by_alias()` 関数（エイリアス管理）
      - `semantic_search()`, `build_vector_index()`, `get_vector_index_status()` 関数（セマンティック検索）
@@ -181,6 +191,33 @@ class SearchResult(BaseModel):
     file_path: str
     line_number: int
     context: str
+```
+
+#### 3.2.6 MergeStrategy
+
+ノートマージ戦略の列挙型です。
+
+```python
+class MergeStrategy(Enum):
+    APPEND = "append"           # 順次追記
+    BY_HEADING = "by_heading"   # 見出しベース統合
+    BY_DATE = "by_date"         # 日付順ソート
+    SMART = "smart"             # 自動戦略選択
+```
+
+#### 3.2.7 MergeResult
+
+ノートマージ操作の結果データクラスです。
+
+```python
+@dataclass
+class MergeResult:
+    target_file: Path               # 作成されたマージファイルのパス
+    source_files: list[str]         # マージ元ファイルのリスト
+    merge_strategy: str             # 使用されたマージ戦略
+    files_processed: int            # 処理されたファイル数
+    merge_history: dict[str, Any]   # マージ履歴の詳細情報
+    warnings: list[str]             # 警告メッセージ
 ```
 
 ### 3.2 file_handler.py

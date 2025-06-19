@@ -16,6 +16,11 @@ Claude Desktopを通じて、以下の操作が可能です：
 - Markdownファイル内のキーワード検索（search_notes）
 - Markdownファイルの削除（2段階プロセス: get_note_delete_confirmation, perform_note_delete）
 
+### ノートマージ機能（v0.16.0以降）
+- 複数ノートのマージ（merge_notes）- 4種類の戦略で複数のMarkdownファイルを統合
+- スマートマージ（smart_merge_notes）- コンテンツ分析による自動戦略選択
+- フロントマター統合とマージ履歴の自動記録
+
 ### タグ管理機能
 - タグの追加（add_tag）
 - タグの削除（remove_tag）
@@ -91,6 +96,10 @@ MINERVA_SKIP_DOTENV=1
 VECTOR_SEARCH_ENABLED=false  # "true"でセマンティック検索機能を有効化
 VECTOR_DB_PATH=/custom/path/to/vectors.db  # カスタムベクターDB保存場所（省略時: {vault}/.minerva/vectors.db）
 EMBEDDING_MODEL=all-MiniLM-L6-v2  # テキスト埋め込みモデル（384次元、省略時: all-MiniLM-L6-v2）
+
+# 自動インデックス機能（オプション）
+AUTO_INDEX_ENABLED=true  # "true"でノート変更時の自動ベクターインデックス更新を有効化
+AUTO_INDEX_STRATEGY=immediate  # 自動インデックス戦略: immediate（即座）/ batch（バッチ）/ background（バックグラウンド）
 ```
 
 ### pre-commit フックの設定

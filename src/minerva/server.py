@@ -1040,3 +1040,106 @@ def get_batch_index_status() -> dict[str, Any]:
             "vector_search_enabled": False,
             "error": f"Failed to get batch status: {e}",
         }
+
+
+@mcp.tool()
+def merge_notes(
+    source_files: list[str],
+    target_filename: str,
+    merge_strategy: str = "append",
+    separator: str = "\n\n---\n\n",
+    preserve_frontmatter: bool = True,
+    delete_sources: bool = False,
+    create_toc: bool = True,
+    author: str | None = None,
+    default_path: str | None = None,
+) -> dict:
+    """
+    Merge multiple notes into a single consolidated note.
+
+    This combines multiple notes using various strategies such as simple
+    concatenation, grouping by headings, sorting by dates, or intelligent
+    content analysis.
+
+    Example:
+        merge_notes(["meeting1.md", "meeting2.md"], "monthly_summary.md")
+        merge_notes(["note1.md", "note2.md"], "combined.md", "by_heading", create_toc=True)
+
+    Args:
+        source_files: List of source file paths to merge
+        target_filename: Name of the target merged file
+        merge_strategy: Strategy to use ("append", "by_heading", "by_date", "smart")
+        separator: Separator between merged sections (for append strategy)
+        preserve_frontmatter: Whether to consolidate frontmatter from source files
+        delete_sources: Whether to delete source files after successful merge
+        create_toc: Whether to create a table of contents (for applicable strategies)
+        author: Author name for the merged note (optional)
+        default_path: Subfolder within your vault to save the merged note (optional)
+
+    Returns:
+        dict: Merge result with source files, target file, strategy used, and merge history
+
+    Note:
+        The merge operation will fail if the target file already exists or if any
+        source files cannot be found. Use different merge strategies for different
+        content organization needs.
+    """
+    result = get_service().merge_notes(
+        source_files=source_files,
+        target_filename=target_filename,
+        merge_strategy=merge_strategy,
+        separator=separator,
+        preserve_frontmatter=preserve_frontmatter,
+        delete_sources=delete_sources,
+        create_toc=create_toc,
+        author=author,
+        default_path=default_path,
+    )
+    return result.to_dict()
+
+
+@mcp.tool()
+def smart_merge_notes(
+    source_files: list[str],
+    target_filename: str,
+    group_by: str = "heading",
+    preserve_frontmatter: bool = True,
+    author: str | None = None,
+    default_path: str | None = None,
+) -> dict:
+    """
+    Merge notes using intelligent content analysis.
+
+    This tool analyzes the content structure of your notes and automatically
+    selects the best merging strategy. It's ideal when you're unsure which
+    merge strategy would work best for your content.
+
+    Example:
+        smart_merge_notes(["research1.md", "research2.md"], "research_summary.md")
+        smart_merge_notes(["daily1.md", "daily2.md"], "weekly.md", "date")
+
+    Args:
+        source_files: List of source file paths to merge
+        target_filename: Name of the target merged file
+        group_by: Hint for grouping preference ("heading", "tag", "date")
+        preserve_frontmatter: Whether to consolidate frontmatter from source files
+        author: Author name for the merged note (optional)
+        default_path: Subfolder within your vault to save the merged note (optional)
+
+    Returns:
+        dict: Merge result with source files, target file, selected strategy, and merge history
+
+    Note:
+        The smart merge analyzes content patterns like common headings, date metadata,
+        and content structure to automatically choose between append, heading-based,
+        or date-based merging strategies.
+    """
+    result = get_service().smart_merge_notes(
+        source_files=source_files,
+        target_filename=target_filename,
+        group_by=group_by,
+        preserve_frontmatter=preserve_frontmatter,
+        author=author,
+        default_path=default_path,
+    )
+    return result.to_dict()

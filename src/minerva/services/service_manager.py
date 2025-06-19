@@ -8,7 +8,7 @@ maintaining backward compatibility with the existing API.
 
 import logging
 from pathlib import Path
-from typing import ParamSpec, TypeVar, TYPE_CHECKING
+from typing import ParamSpec, TypeVar, TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from minerva.vector.indexer import VectorIndexer
@@ -18,6 +18,7 @@ from minerva.config import MinervaConfig
 from minerva.error_handler import MinervaErrorHandler
 from minerva.file_handler import SearchResult
 from minerva.frontmatter_manager import FrontmatterManager
+from minerva.models import MergeResult
 from minerva.services.alias_operations import AliasOperations
 from minerva.services.core.file_operations import (
     build_file_path,
@@ -250,6 +251,95 @@ class ServiceManager:
         """
         return self.note_operations.perform_note_delete(
             filename, filepath, default_path
+        )
+
+    def merge_notes(
+        self,
+        source_files: list[str],
+        target_filename: str,
+        merge_strategy: str = "append",
+        separator: str = "\n\n---\n\n",
+        preserve_frontmatter: bool = True,
+        delete_sources: bool = False,
+        create_toc: bool = True,
+        author: str | None = None,
+        default_path: str | None = None,
+        **options: Any,
+    ) -> MergeResult:
+        """
+        Merge multiple notes into a single consolidated note.
+
+        Args:
+            source_files: List of source file paths to merge
+            target_filename: Name of the target merged file
+            merge_strategy: Strategy to use ("append", "by_heading", "by_date", "smart")
+            separator: Separator between merged sections (for append strategy)
+            preserve_frontmatter: Whether to consolidate frontmatter from source files
+            delete_sources: Whether to delete source files after successful merge
+            create_toc: Whether to create a table of contents (for applicable strategies)
+            author: Author name for the merged note
+            default_path: Directory to save the merged note
+            **options: Additional strategy-specific options
+
+        Returns:
+            MergeResult: Result of the merge operation
+
+        Raises:
+            ValueError: If invalid parameters or merge strategy
+            FileNotFoundError: If any source files don't exist
+            FileExistsError: If target file already exists
+        """
+        return self.note_operations.merge_notes(
+            source_files=source_files,
+            target_filename=target_filename,
+            merge_strategy=merge_strategy,
+            separator=separator,
+            preserve_frontmatter=preserve_frontmatter,
+            delete_sources=delete_sources,
+            create_toc=create_toc,
+            author=author,
+            default_path=default_path,
+            **options,
+        )
+
+    def smart_merge_notes(
+        self,
+        source_files: list[str],
+        target_filename: str,
+        group_by: str = "heading",
+        author: str | None = None,
+        default_path: str | None = None,
+        **options: Any,
+    ) -> MergeResult:
+        """
+        Merge notes using intelligent content analysis.
+
+        This method analyzes the content of source files and automatically
+        selects the best merging strategy based on content structure.
+
+        Args:
+            source_files: List of source file paths to merge
+            target_filename: Name of the target merged file
+            group_by: Hint for grouping preference ("heading", "tag", "date")
+            author: Author name for the merged note
+            default_path: Directory to save the merged note
+            **options: Additional options passed to the merge processor
+
+        Returns:
+            MergeResult: Result of the smart merge operation
+
+        Raises:
+            ValueError: If invalid parameters
+            FileNotFoundError: If any source files don't exist
+            FileExistsError: If target file already exists
+        """
+        return self.note_operations.smart_merge_notes(
+            source_files=source_files,
+            target_filename=target_filename,
+            group_by=group_by,
+            author=author,
+            default_path=default_path,
+            **options,
         )
 
     # Search operations delegation methods

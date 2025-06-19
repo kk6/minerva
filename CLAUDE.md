@@ -77,10 +77,11 @@ If you need a label that doesn't exist, ask for permission before creating it.
   - Tool functions directly call service methods without wrapper layer
 - **Service Layer**: Modular service architecture (`services/`) with dependency injection pattern
   - `ServiceManager`: Central facade coordinating all service operations
-  - `NoteOperations`: Note CRUD operations and content management
+  - `NoteOperations`: Note CRUD operations, content management, and note merging functionality
   - `TagOperations`: Comprehensive tag management functionality
   - `AliasOperations`: Alias management and conflict detection
   - `SearchOperations`: Full-text search across markdown files
+  - `MergeProcessors`: Strategy-based note merging (append, by-heading, by-date, smart)
   - `create_minerva_service()`: Factory function for ServiceManager creation
 - **File Handler**: Low-level file operations (`file_handler.py`)
 - **Frontmatter Manager**: Centralized frontmatter processing (`frontmatter_manager.py`)
@@ -98,6 +99,7 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - Tag management (add, remove, rename, search by tag)
 - Two-phase deletion process for safety
 - Automatic frontmatter generation with metadata
+- **Note merging functionality** - Combine multiple notes using various strategies (append, by-heading, by-date, smart)
 - **Semantic search functionality** (Phase 2 complete) - Full vector search implementation with DuckDB VSS and sentence transformers
 - **Modular service architecture** with dependency injection for improved testability and extensibility
 - **ServiceManager facade pattern** providing unified access to specialized service modules
@@ -400,6 +402,50 @@ def create_note(
 ) -> Path:
     """Create a new markdown note in your Obsidian vault."""
     return service.create_note(text, filename, author, default_path)
+
+@mcp.tool()
+def merge_notes(
+    source_files: list[str],
+    target_filename: str,
+    merge_strategy: str = "append",
+    separator: str = "\n\n---\n\n",
+    preserve_frontmatter: bool = True,
+    delete_sources: bool = False,
+    create_toc: bool = True,
+    author: str | None = None,
+    default_path: str | None = None,
+) -> dict:
+    """Merge multiple notes into a single consolidated note."""
+    result = service.merge_notes(
+        source_files=source_files,
+        target_filename=target_filename,
+        merge_strategy=merge_strategy,
+        separator=separator,
+        preserve_frontmatter=preserve_frontmatter,
+        delete_sources=delete_sources,
+        create_toc=create_toc,
+        author=author,
+        default_path=default_path,
+    )
+    return result.to_dict()
+
+@mcp.tool()
+def smart_merge_notes(
+    source_files: list[str],
+    target_filename: str,
+    group_by: str = "heading",
+    author: str | None = None,
+    default_path: str | None = None,
+) -> dict:
+    """Merge notes using intelligent content analysis."""
+    result = service.smart_merge_notes(
+        source_files=source_files,
+        target_filename=target_filename,
+        group_by=group_by,
+        author=author,
+        default_path=default_path,
+    )
+    return result.to_dict()
 ```
 
 ### Testing with Dependency Injection

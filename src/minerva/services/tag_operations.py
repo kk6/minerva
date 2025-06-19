@@ -78,7 +78,7 @@ class TagOperations(BaseService):
 
         return file_path
 
-    # テストとの互換性のために_resolve_note_fileメソッドも追加
+    # Added _resolve_note_file method for test compatibility
     def _resolve_note_file(
         self,
         filename: str | None = None,

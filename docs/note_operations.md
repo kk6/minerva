@@ -584,3 +584,341 @@ results = search_by_alias(
 - エイリアスは標準的なYAMLフロントマターの`aliases`フィールドに保存されます
 - Obsidianで作成されたエイリアスもMinervaで正常に読み取り・操作できます
 - Minervaで作成されたエイリアスもObsidianで正常に認識されます
+
+## 9. ノートマージ機能
+
+### 9.1 概要
+
+ノートマージ機能は、複数のノートを1つのファイルに統合する機能です。散在したメモの整理、関連トピックの統合、月次レポートの作成などに活用できます。
+
+提供される機能：
+- `merge_notes`: 詳細なオプション指定によるノートマージ
+- `smart_merge_notes`: 内容を自動分析してマージ戦略を選択する賢いマージ
+
+### 9.2 マージ戦略
+
+#### 9.2.1 append（単純追加）
+- ファイルを指定された順序で単純に連結
+- 各ノートにファイル名ベースのセクションヘッダーを追加
+- オプションで目次を自動生成
+- セパレーターで各セクションを区切り
+
+#### 9.2.2 by_heading（見出しベース）
+- Markdownの見出し（# ## ###）を基準にコンテンツをグループ化
+- 同じ見出しの下にあるコンテンツを統合
+- 見出しの階層構造を保持
+
+#### 9.2.3 by_date（日付ベース）
+- フロントマターの作成日時または更新日時でソート
+- 時系列順に整理されたマージ結果を生成
+- 日付情報がない場合はファイルの更新時刻を使用
+
+#### 9.2.4 smart（スマートマージ）
+- ノートの内容を自動分析して最適な戦略を選択
+- 共通の見出しが多い場合：by_heading
+- 日付情報が豊富な場合：by_date
+- その他の場合：append
+
+### 9.3 merge_notes関数
+
+#### 機能概要
+複数のノートを指定された戦略とオプションでマージし、新しいノートを作成します。
+
+#### パラメータ
+
+| パラメータ | 型 | デフォルト | 説明 |
+|-----------|---|----------|------|
+| `source_files` | `list[str]` | (必須) | マージするソースファイルのパスリスト |
+| `target_filename` | `str` | (必須) | 作成するマージファイルの名前 |
+| `merge_strategy` | `str` | `"append"` | マージ戦略（"append", "by_heading", "by_date", "smart"） |
+| `separator` | `str` | `"\n\n---\n\n"` | セクション間のセパレーター（append戦略用） |
+| `preserve_frontmatter` | `bool` | `True` | ソースファイルのフロントマターを統合するか |
+| `delete_sources` | `bool` | `False` | マージ後にソースファイルを削除するか |
+| `create_toc` | `bool` | `True` | 目次を自動生成するか（対応戦略のみ） |
+| `author` | `str \| None` | `None` | マージファイルの著者名 |
+| `default_path` | `str \| None` | `None` | 保存先のサブフォルダ |
+
+#### 戻り値
+- `dict`: マージ結果の詳細情報
+  - `source_files`: マージされたソースファイルのリスト
+  - `target_file`: 作成されたマージファイルのパス
+  - `merge_strategy`: 使用されたマージ戦略
+  - `files_processed`: 処理されたファイル数
+  - `warnings`: 警告メッセージのリスト
+  - `merge_history`: マージ履歴の詳細情報
+
+#### 使用例
+
+```python
+# 基本的なマージ
+result = merge_notes(
+    source_files=["meeting1.md", "meeting2.md"],
+    target_filename="monthly_summary.md"
+)
+
+# 日付順でマージし、ソースファイルを削除
+result = merge_notes(
+    source_files=["daily1.md", "daily2.md", "daily3.md"],
+    target_filename="weekly_report.md",
+    merge_strategy="by_date",
+    delete_sources=True
+)
+
+# カスタムセパレーターを使用
+result = merge_notes(
+    source_files=["note1.md", "note2.md"],
+    target_filename="combined.md",
+    separator="\n\n🔗 ────────────────\n\n"
+)
+```
+
+#### 例外
+
+- `ValueError`: ソースファイルが2つ未満、無効なマージ戦略、ファイル読み取りエラー
+- `FileNotFoundError`: ソースファイルが存在しない
+- `FileExistsError`: ターゲットファイルが既に存在する
+
+### 9.4 smart_merge_notes関数
+
+#### 機能概要
+ノートの内容を自動分析し、最適なマージ戦略を選択してマージを実行します。
+
+#### パラメータ
+
+| パラメータ | 型 | デフォルト | 説明 |
+|-----------|---|----------|------|
+| `source_files` | `list[str]` | (必須) | マージするソースファイルのパスリスト |
+| `target_filename` | `str` | (必須) | 作成するマージファイルの名前 |
+| `group_by` | `str` | `"heading"` | グループ化のヒント（"heading", "tag", "date"） |
+| `author` | `str \| None` | `None` | マージファイルの著者名 |
+| `default_path` | `str \| None` | `None` | 保存先のサブフォルダ |
+
+#### 戻り値
+- `dict`: マージ結果（merge_notesと同じ形式）+ 選択された戦略の情報
+
+#### 使用例
+
+```python
+# スマートマージ（自動戦略選択）
+result = smart_merge_notes(
+    source_files=["research1.md", "research2.md", "research3.md"],
+    target_filename="research_summary.md"
+)
+
+# 日付を重視したヒント付きスマートマージ
+result = smart_merge_notes(
+    source_files=["diary1.md", "diary2.md"],
+    target_filename="week_summary.md",
+    group_by="date"
+)
+```
+
+### 9.5 フロントマター統合
+
+マージ時に各ソースファイルのフロントマターは以下のルールで統合されます：
+
+#### 9.5.1 統合されるフィールド
+
+- **`tags`**: 全ソースファイルのタグを重複排除してマージ
+- **`aliases`**: 全ソースファイルのエイリアスを統合
+- **`created`**: 新しいマージファイルの作成日時
+- **`modified`**: 新しいマージファイルの更新日時
+- **`author`**: 指定された著者名またはデフォルト設定
+
+#### 9.5.2 保存される元情報
+
+- **`original_created`**: ソースファイルの最も古い作成日時
+- **`original_modified`**: ソースファイルの最も新しい更新日時
+- **`original_authors`**: ソースファイルの全著者のリスト
+- **`merged_from`**: ソースファイルのパスリスト
+- **`merge_date`**: マージ実行日時
+
+### 9.6 マージ履歴
+
+各マージ操作では詳細な履歴情報が記録されます：
+
+#### 9.6.1 基本情報
+- マージに使用された戦略
+- 処理されたファイル数
+- エラーや警告の詳細
+
+#### 9.6.2 戦略別の詳細情報
+
+**append戦略の場合:**
+```json
+{
+  "sections": [
+    {
+      "source_file": "/path/to/file1.md",
+      "section_title": "file1",
+      "content_length": 256
+    }
+  ]
+}
+```
+
+**by_heading戦略の場合:**
+```json
+{
+  "heading_groups": {
+    "プロジェクトA": [
+      {
+        "source_file": "/path/to/file1.md",
+        "content_length": 128
+      }
+    ]
+  }
+}
+```
+
+**by_date戦略の場合:**
+```json
+{
+  "sort_strategy": "created",
+  "date_order": [
+    {
+      "file": "/path/to/file1.md",
+      "date": "2024-01-01T10:00:00"
+    }
+  ]
+}
+```
+
+**smart戦略の場合:**
+```json
+{
+  "smart_strategy_selected": "by_heading",
+  "sections": [...],
+  "heading_groups": [...]
+}
+```
+
+### 9.7 ベストプラクティス
+
+#### 9.7.1 マージ前の準備
+- ソースファイルのバックアップを作成
+- 関連性のあるファイルのみをマージ対象に選択
+- フロントマターのタグやメタデータを事前に整理
+
+#### 9.7.2 戦略の選択指針
+
+**append戦略を使用する場合:**
+- 会議録の時系列まとめ
+- 異なるトピックの単純な結合
+- 元のファイル構造を保持したい場合
+
+**by_heading戦略を使用する場合:**
+- 同じプロジェクトの異なる観点のメモ
+- 構造化された研究ノート
+- カテゴリ別に整理したい場合
+
+**by_date戦略を使用する場合:**
+- 日記やログの統合
+- 時系列が重要なドキュメント
+- 進捗レポートの作成
+
+**smart戦略を使用する場合:**
+- 最適な戦略が不明な場合
+- 混在したコンテンツタイプ
+- 自動化されたワークフロー
+
+#### 9.7.3 注意事項
+
+- `delete_sources=True`は慎重に使用（取り消し不可）
+- 大量ファイルのマージ時はメモリ使用量に注意
+- ファイル参照（リンクや画像）は手動で調整が必要な場合がある
+- マージ結果は必ず内容を確認してから使用する
+
+### 9.8 エラー処理
+
+#### 9.8.1 一般的なエラー
+
+**入力値エラー:**
+- マージ対象ファイルが2つ未満
+- 無効なマージ戦略の指定
+- 空のファイル名や無効なパス
+
+**ファイルエラー:**
+- ソースファイルが存在しない
+- ターゲットファイルが既に存在
+- ファイル読み取り権限がない
+- ディスク容量不足
+
+#### 9.8.2 エラー対処法
+
+**FileNotFoundError:**
+```python
+try:
+    result = merge_notes(source_files, target_filename)
+except FileNotFoundError as e:
+    print(f"ファイルが見つかりません: {e}")
+    # ファイルパスを確認し、再試行
+```
+
+**FileExistsError:**
+```python
+try:
+    result = merge_notes(source_files, target_filename)
+except FileExistsError as e:
+    print(f"ターゲットファイルが既に存在します: {e}")
+    # 別のファイル名を選択するか、既存ファイルを削除
+```
+
+### 9.9 実用的な使用例
+
+#### 9.9.1 月次会議録の統合
+
+```python
+# 2024年12月の全会議録をマージ
+meeting_files = [
+    "meetings/2024-12-05-weekly.md",
+    "meetings/2024-12-12-weekly.md",
+    "meetings/2024-12-19-weekly.md",
+    "meetings/2024-12-26-weekly.md"
+]
+
+result = merge_notes(
+    source_files=meeting_files,
+    target_filename="2024-12-summary.md",
+    merge_strategy="by_date",
+    create_toc=True,
+    default_path="summaries"
+)
+```
+
+#### 9.9.2 プロジェクト資料の統合
+
+```python
+# プロジェクトの各種メモを見出しベースで統合
+project_files = [
+    "project/requirements.md",
+    "project/design_notes.md",
+    "project/meeting_notes.md",
+    "project/issues.md"
+]
+
+result = smart_merge_notes(
+    source_files=project_files,
+    target_filename="project_overview.md",
+    group_by="heading"
+)
+```
+
+#### 9.9.3 研究ノートの整理
+
+```python
+# 関連する研究ノートを統合し、元ファイルを削除
+research_files = [
+    "research/ai_models.md",
+    "research/benchmarks.md",
+    "research/related_work.md"
+]
+
+result = merge_notes(
+    source_files=research_files,
+    target_filename="ai_research_summary.md",
+    merge_strategy="by_heading",
+    delete_sources=True,  # 慎重に使用
+    author="研究者名"
+)
+```
