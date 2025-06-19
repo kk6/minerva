@@ -1,6 +1,161 @@
 # CHANGELOG
 
 
+## v0.17.0 (2025-06-19)
+
+### Bug Fixes
+
+- Address PR #100 code review feedback and resolve complexity warnings
+  ([`bd5651b`](https://github.com/kk6/minerva/commit/bd5651b4e743b5557a6918430f5ddce3eb92c9aa))
+
+- Fix preserve_frontmatter parameter functionality in merge processors - Implement group_by hint
+  usage in SmartMergeProcessor with bias logic - Populate warnings list in MergeResult for
+  comprehensive error reporting - Fix CLAUDE.md documentation mismatch with actual tool signatures -
+  Create MergeOptions dataclass for future parameter consolidation - Extract helper methods to
+  reduce complexity below threshold (C901): - Split _extract_metadata_from_notes into focused helper
+  functions - Split _analyze_best_strategy into pattern analysis and strategy selection - Improve
+  date parsing robustness with 13+ format support - Simplify control flow by removing unnecessary
+  elif statements - All 673 tests pass, mypy clean, ruff compliance achieved
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Ensure preserve_frontmatter parameter propagation in merge operations
+  ([`ce4c6e7`](https://github.com/kk6/minerva/commit/ce4c6e73f11214b52568079a416e8e7e19c0ee5e))
+
+- Add preserve_frontmatter parameter to smart_merge_notes method signature - Fix parameter
+  propagation in note_operations.py merge methods - Update server.py tool signature to include
+  preserve_frontmatter - Ensure DateMergeProcessor passes all options to AppendMergeProcessor
+
+This completes the fix for the preserve_frontmatter functionality identified in PR #100 code review
+  feedback.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Handle mixed types in date aggregation for merge operations
+  ([`2e51f7d`](https://github.com/kk6/minerva/commit/2e51f7d45a07eb870c5ab97d743c302a667d1a63))
+
+Filter creation_dates and modification_dates lists to only include valid datetime objects before
+  applying min() and max() functions. This prevents runtime errors when lists contain None values or
+  mixed types from failed date parsing.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Documentation
+
+- Complete vector search API documentation for issue #98
+  ([`d1b3e28`](https://github.com/kk6/minerva/commit/d1b3e285cccc3b80c60a2f95d18dabaed4f98fae))
+
+- Add comprehensive vector_search_api.md with complete API reference - Document all 9 vector search
+  MCP tools with parameters and examples: * semantic_search, find_similar_notes (search functions) *
+  build_vector_index, build_vector_index_batch (indexing) * get_vector_index_status (status
+  monitoring) * process_batch_index, get_batch_index_status (batch processing) *
+  debug_vector_schema, reset_vector_database (debugging/maintenance) - Add detailed configuration
+  options including future batch settings - Include comprehensive workflow examples and error
+  handling - Update existing documentation to reference new API guide: * CLAUDE.md: Add quick
+  reference and essential tools list * README.md: Highlight API reference in semantic search section
+  * technical_spec.md: Reference complete tool documentation * vector_search_troubleshooting.md:
+  Link to API reference
+
+Resolves 64% → 100% documentation coverage for vector search functionality
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Enhance documentation gap analysis process and update review instructions
+  ([`aa0b6e4`](https://github.com/kk6/minerva/commit/aa0b6e476244599dc9623857a96a535d14ba2ed0))
+
+- Implement hierarchical documentation strategy and reduce CLAUDE.md size
+  ([`2eeb332`](https://github.com/kk6/minerva/commit/2eeb3329b0f63d950b7896974870139bc24a900a))
+
+- Reduce CLAUDE.md from 64,686 to 28,887 characters (55% reduction, well under 40k target) -
+  Establish docs/ as master documentation source with CLAUDE.md as essential reference - Major
+  section reductions with references to comprehensive docs/ files: * Testing Strategy: 20,076 → 800
+  chars (96% reduction) → docs/test_guidelines.md * Optional Features: 11,651 → 1,500 chars (87%
+  reduction) → docs/optional_dependencies.md * MCP Debugging: 5,507 → 1,200 chars (78% reduction) →
+  docs/vector_search_troubleshooting.md * Development Workflow: 4,880 → 800 chars (84% reduction) →
+  docs/development_workflow.md * MyPy Solutions: 4,041 → 600 chars (85% reduction) - Update custom
+  slash commands to follow hierarchical strategy: * check-documentation.md: prioritize docs/ →
+  CLAUDE.md → README.md * update-knowledge.md: target docs/ for comprehensive info, CLAUDE.md for
+  essentials * sync-labels.md: reference docs/github_workflow.md as master source - Preserve Claude
+  Code-specific essentials in CLAUDE.md: * Build/test commands, GitHub labels, key features,
+  environment setup * Critical workflows and pitfalls with references to detailed documentation
+
+Closes #95
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Update installation instructions for Claude Desktop by removing editable mode option
+  ([`db204b2`](https://github.com/kk6/minerva/commit/db204b2fd8dca7fadef785b1d8bbf6c785edffba))
+
+### Features
+
+- Implement complete note merging functionality for issue #36
+  ([`98cc1ff`](https://github.com/kk6/minerva/commit/98cc1fff480a809ad9cac2d15059f2c54d62c6d1))
+
+This implementation provides comprehensive note merging capabilities with:
+
+**Core Features:** - 4 merge strategies: append, by_heading, by_date, smart - 2 MCP tools:
+  merge_notes(), smart_merge_notes() - Frontmatter consolidation with metadata preservation - Merge
+  history tracking with strategy-specific details - Automatic table of contents generation - Source
+  file deletion option
+
+**Architecture Components:** - MergeStrategy enum and MergeResult dataclass (src/minerva/models.py)
+  - Strategy pattern implementation with MergeProcessor base class - 4 concrete processors:
+  AppendMergeProcessor, ByHeadingMergeProcessor, ByDateMergeProcessor, SmartMergeProcessor -
+  NoteOperations integration with input validation and error handling - ServiceManager delegation
+  methods
+
+**Documentation Updates:** - Comprehensive Section 9 in docs/note_operations.md covering all
+  functionality - Updated technical_spec.md with new architecture components - Updated README.md
+  with feature overview and environment variables - Updated CLAUDE.md with merge layer documentation
+
+**Testing:** - 11 comprehensive tests covering all merge processors and operations - Input
+  validation, error handling, and data model testing - All existing tests continue to pass (629/629)
+
+**Quality Assurance:** - Passes all linting and type checking - Follows established code style and
+  complexity guidelines - Maintains backward compatibility
+
+Resolves GitHub issue #36 with full implementation as specified.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Refactoring
+
+- Address nitpick comments from PR review
+  ([`b10ee80`](https://github.com/kk6/minerva/commit/b10ee80471fcd6e3ee2c6be22a9bc0a3c87b6b4e))
+
+- Improve type hint: change return type from Any to MergeProcessor - Reduce parameter complexity:
+  integrate MergeOptions dataclass with backward compatibility - Simplify control flow: replace if
+  chains with dictionary-based processor lookup
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Replace hardcoded Japanese text with English
+  ([`828c78a`](https://github.com/kk6/minerva/commit/828c78a552ee762653a221cd3f83e7ffe339e8f1))
+
+- Replace "## 目次" with "## Table of Contents" in merge processor - Replace "その他" with "Others" for
+  default section heading - Replace Japanese comment with English in tag operations
+
+Aligns with language usage rules for source code internationalization.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.16.0 (2025-06-15)
 
 ### Bug Fixes
