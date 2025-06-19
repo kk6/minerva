@@ -305,14 +305,24 @@ class MergeProcessor(ABC):
             consolidated["aliases"] = sorted(list(metadata_collection["aliases"]))
 
         if metadata_collection["creation_dates"]:
-            consolidated["original_created"] = min(
-                metadata_collection["creation_dates"]
-            )
+            # Filter to only valid datetime objects before finding min
+            valid_creation_dates = [
+                dt
+                for dt in metadata_collection["creation_dates"]
+                if isinstance(dt, datetime)
+            ]
+            if valid_creation_dates:
+                consolidated["original_created"] = min(valid_creation_dates)
 
         if metadata_collection["modification_dates"]:
-            consolidated["original_modified"] = max(
-                metadata_collection["modification_dates"]
-            )
+            # Filter to only valid datetime objects before finding max
+            valid_modification_dates = [
+                dt
+                for dt in metadata_collection["modification_dates"]
+                if isinstance(dt, datetime)
+            ]
+            if valid_modification_dates:
+                consolidated["original_modified"] = max(valid_modification_dates)
 
         if metadata_collection["authors"]:
             consolidated["original_authors"] = sorted(
