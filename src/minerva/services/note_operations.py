@@ -8,6 +8,7 @@ and deletion functionality for the Minerva application.
 import logging
 import os
 from pathlib import Path
+from typing import Any
 
 from minerva.error_handler import (
     handle_file_operations,
@@ -22,12 +23,19 @@ from minerva.file_handler import (
     read_file,
     delete_file,
 )
+from minerva.models import MergeResult, MergeStrategy
 from minerva.services.core.base_service import BaseService
 from minerva.services.core.file_operations import (
     validate_filename,
     validate_text_content,
     assemble_complete_note,
     resolve_note_file,
+)
+from minerva.services.merge_processors import (
+    AppendMergeProcessor,
+    HeadingMergeProcessor,
+    DateMergeProcessor,
+    SmartMergeProcessor,
 )
 
 logger = logging.getLogger(__name__)
@@ -500,3 +508,242 @@ class NoteOperations(BaseService):
             and self.config.auto_index_enabled
             and self.config.vector_db_path is not None
         )
+
+    @log_performance(threshold_ms=1000)
+    @validate_inputs(validate_filename)
+    @handle_file_operations()
+    def merge_notes(
+        self,
+        source_files: list[str],
+        target_filename: str,
+        merge_strategy: str = "append",
+        separator: str = "\n\n---\n\n",
+        preserve_frontmatter: bool = True,
+        delete_sources: bool = False,
+        create_toc: bool = True,
+        author: str | None = None,
+        default_path: str | None = None,
+        **options: Any,
+    ) -> MergeResult:
+        """
+        Merge multiple notes into a single consolidated note.
+
+        Args:
+            source_files: List of source file paths to merge
+            target_filename: Name of the target merged file
+            merge_strategy: Strategy to use ("append", "by_heading", "by_date", "smart")
+            separator: Separator between merged sections (for append strategy)
+            preserve_frontmatter: Whether to consolidate frontmatter from source files
+            delete_sources: Whether to delete source files after successful merge
+            create_toc: Whether to create a table of contents (for applicable strategies)
+            author: Author name for the merged note
+            default_path: Directory to save the merged note
+            **options: Additional strategy-specific options
+
+        Returns:
+            MergeResult: Result of the merge operation
+
+        Raises:
+            ValueError: If invalid parameters or merge strategy
+            FileNotFoundError: If any source files don't exist
+            FileExistsError: If target file already exists
+        """
+        self._log_operation_start(
+            "merge_notes",
+            source_files=source_files,
+            target_filename=target_filename,
+            merge_strategy=merge_strategy,
+        )
+
+        # Validate inputs and prepare for merge
+        strategy_enum = self._validate_merge_inputs(source_files, merge_strategy)
+        note_contents = self._read_and_validate_source_files(source_files, default_path)
+        self._check_target_file_availability(target_filename, default_path)
+
+        # Select merge processor based on strategy
+        processor = self._get_merge_processor(strategy_enum)
+
+        # Process the merge
+        try:
+            merged_content, merge_history = processor.process_merge(
+                note_contents,
+                target_filename,
+                separator=separator,
+                create_toc=create_toc,
+                **options,
+            )
+
+            # Create the merged note
+            target_path = self.create_note(
+                merged_content, target_filename, author, default_path
+            )
+
+            # Optionally delete source files
+            deleted_files = []
+            if delete_sources:
+                for source_file, _ in note_contents:
+                    try:
+                        deleted_path = self.perform_note_delete(filepath=source_file)
+                        deleted_files.append(str(deleted_path))
+                        logger.info("Deleted source file: %s", deleted_path)
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to delete source file %s: %s", source_file, e
+                        )
+
+            # Build result
+            result = MergeResult(
+                source_files=[path for path, _ in note_contents],
+                target_file=target_path,
+                merge_strategy=strategy_enum,
+                files_processed=len(note_contents),
+                warnings=[],
+                merge_history=merge_history,
+            )
+
+            if deleted_files:
+                result.merge_history["deleted_source_files"] = deleted_files
+
+            logger.info(
+                "Successfully merged %d files into %s using %s strategy",
+                len(source_files),
+                target_path,
+                merge_strategy,
+            )
+
+            self._log_operation_success("merge_notes", result.to_dict())
+            return result
+
+        except Exception as e:
+            error = RuntimeError(f"Failed to merge notes: {e}")
+            self._log_operation_error("merge_notes", error)
+            raise error
+
+    def smart_merge_notes(
+        self,
+        source_files: list[str],
+        target_filename: str,
+        group_by: str = "heading",
+        author: str | None = None,
+        default_path: str | None = None,
+        **options: Any,
+    ) -> MergeResult:
+        """
+        Merge notes using intelligent content analysis.
+
+        This method analyzes the content of source files and automatically
+        selects the best merging strategy based on content structure.
+
+        Args:
+            source_files: List of source file paths to merge
+            target_filename: Name of the target merged file
+            group_by: Hint for grouping preference ("heading", "tag", "date")
+            author: Author name for the merged note
+            default_path: Directory to save the merged note
+            **options: Additional options passed to the merge processor
+
+        Returns:
+            MergeResult: Result of the smart merge operation
+
+        Raises:
+            ValueError: If invalid parameters
+            FileNotFoundError: If any source files don't exist
+            FileExistsError: If target file already exists
+        """
+        self._log_operation_start(
+            "smart_merge_notes",
+            source_files=source_files,
+            target_filename=target_filename,
+            group_by=group_by,
+        )
+
+        # Use smart merge strategy with group_by hint
+        options["group_by"] = group_by
+        return self.merge_notes(
+            source_files=source_files,
+            target_filename=target_filename,
+            merge_strategy="smart",
+            author=author,
+            default_path=default_path,
+            **options,
+        )
+
+    def _get_merge_processor(self, strategy: MergeStrategy) -> Any:
+        """
+        Get the appropriate merge processor for the given strategy.
+
+        Args:
+            strategy: The merge strategy to use
+
+        Returns:
+            MergeProcessor: Processor instance for the strategy
+        """
+        if strategy == MergeStrategy.APPEND:
+            return AppendMergeProcessor(self.frontmatter_manager)
+        elif strategy == MergeStrategy.BY_HEADING:
+            return HeadingMergeProcessor(self.frontmatter_manager)
+        elif strategy == MergeStrategy.BY_DATE:
+            return DateMergeProcessor(self.frontmatter_manager)
+        elif strategy == MergeStrategy.SMART:
+            return SmartMergeProcessor(self.frontmatter_manager)
+        else:
+            raise ValueError(f"Unsupported merge strategy: {strategy}")
+
+    def _validate_merge_inputs(
+        self, source_files: list[str], merge_strategy: str
+    ) -> MergeStrategy:
+        """Validate merge inputs and return parsed strategy enum."""
+        if not source_files:
+            raise ValueError("At least one source file must be provided")
+
+        if len(source_files) < 2:
+            raise ValueError("At least two source files are required for merging")
+
+        # Parse merge strategy
+        try:
+            return MergeStrategy(merge_strategy)
+        except ValueError:
+            raise ValueError(
+                f"Invalid merge strategy: {merge_strategy}. "
+                f"Valid options: {[s.value for s in MergeStrategy]}"
+            )
+
+    def _read_and_validate_source_files(
+        self, source_files: list[str], default_path: str | None
+    ) -> list[tuple[str, str]]:
+        """Read and validate all source files, returning their content."""
+        note_contents = []
+        for source_file in source_files:
+            try:
+                # Resolve file path
+                file_path = resolve_note_file(
+                    self.config, None, source_file, default_path
+                )
+                if not file_path.exists():
+                    raise FileNotFoundError(f"Source file not found: {source_file}")
+
+                # Read content
+                content = self.read_note(str(file_path))
+                note_contents.append((str(file_path), content))
+
+            except Exception as e:
+                error = ValueError(f"Failed to read source file {source_file}: {e}")
+                self._log_operation_error("merge_notes", error)
+                raise error
+        return note_contents
+
+    def _check_target_file_availability(
+        self, target_filename: str, default_path: str | None
+    ) -> None:
+        """Check if target file already exists and raise error if so."""
+        try:
+            target_path = resolve_note_file(
+                self.config, target_filename, None, default_path
+            )
+            if target_path.exists():
+                error = FileExistsError(f"Target file already exists: {target_path}")
+                self._log_operation_error("merge_notes", error)
+                raise error
+        except ValueError:
+            # This is expected if the file doesn't exist yet
+            pass
