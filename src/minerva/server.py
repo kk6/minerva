@@ -1143,3 +1143,44 @@ def smart_merge_notes(
         default_path=default_path,
     )
     return result.to_dict()
+
+
+@mcp.tool()
+def find_duplicate_notes(
+    similarity_threshold: float = 0.85,
+    directory: str | None = None,
+    min_content_length: int = 100,
+    exclude_frontmatter: bool = True,
+) -> dict:
+    """
+    Find notes with similar content that may be duplicates.
+
+    This tool analyzes all notes in your vault using semantic similarity to detect
+    potential duplicates. It groups similar notes together with similarity scores
+    to help you identify content that might need consolidation.
+
+    Example:
+        find_duplicate_notes()  # Find all duplicates with default settings
+        find_duplicate_notes(0.9, directory="meetings")  # High threshold in specific directory
+        find_duplicate_notes(0.75, min_content_length=50)  # Lower threshold, shorter content
+
+    Args:
+        similarity_threshold: Similarity threshold for duplicate detection (0.0-1.0, default: 0.85)
+        directory: Directory to search in (None for entire vault)
+        min_content_length: Minimum content length to consider (default: 100 bytes)
+        exclude_frontmatter: Whether to exclude frontmatter from analysis (default: True)
+
+    Returns:
+        dict: Complete duplicate detection results including groups, statistics, and analysis time
+
+    Note:
+        Requires vector search to be enabled (VECTOR_SEARCH_ENABLED=true) and
+        notes to be indexed first. Install dependencies: sentence-transformers, duckdb
+    """
+    result = get_service().search_operations.find_duplicate_notes(
+        similarity_threshold=similarity_threshold,
+        directory=directory,
+        min_content_length=min_content_length,
+        exclude_frontmatter=exclude_frontmatter,
+    )
+    return result.to_dict()

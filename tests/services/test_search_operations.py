@@ -10,6 +10,7 @@ from typing import Any
 from minerva.config import MinervaConfig
 from minerva.frontmatter_manager import FrontmatterManager
 from minerva.file_handler import SearchResult, SemanticSearchResult
+from minerva.models import DuplicateDetectionResult, DuplicateGroup, DuplicateFile
 from minerva.services.search_operations import SearchOperations
 
 
@@ -1547,3 +1548,208 @@ class TestFileSizeValidation:
         # Assert
         assert content == "日本語コンテンツ"
         assert metadata == {"title": "日本語タイトル"}
+
+
+class TestDuplicateDetection:
+    """Test cases for duplicate detection functionality."""
+
+    @pytest.fixture
+    def mock_config_with_vector_search(self):
+        """Create a mock configuration with vector search enabled."""
+        config = Mock(spec=MinervaConfig)
+        config.vault_path = Path("/test/vault")
+        config.default_note_dir = "notes"
+        config.default_author = "Test Author"
+        config.vector_search_enabled = True
+        config.vector_db_path = Path("/test/vault/.minerva/vectors.db")
+        config.embedding_model = "all-MiniLM-L6-v2"
+        return config
+
+    @pytest.fixture
+    def mock_frontmatter_manager(self):
+        """Create a mock frontmatter manager."""
+        return Mock(spec=FrontmatterManager)
+
+    @pytest.fixture
+    def search_operations_with_vector(
+        self, mock_config_with_vector_search, mock_frontmatter_manager
+    ):
+        """Create a SearchOperations instance with vector search enabled."""
+        return SearchOperations(
+            mock_config_with_vector_search, mock_frontmatter_manager
+        )
+
+    def test_find_duplicate_notes_vector_search_disabled(self):
+        """Test that find_duplicate_notes raises error when vector search is disabled."""
+        # Create search operations with vector search disabled
+        config = Mock(spec=MinervaConfig)
+        config.vector_search_enabled = False
+        config.vault_path = Path("/test/vault")
+        frontmatter_manager = Mock(spec=FrontmatterManager)
+        search_operations = SearchOperations(config, frontmatter_manager)
+
+        # Act & Assert
+        with pytest.raises(RuntimeError, match="Vector search is not enabled"):
+            search_operations.find_duplicate_notes()
+
+    def test_find_duplicate_notes_invalid_threshold(
+        self, search_operations_with_vector
+    ):
+        """Test that find_duplicate_notes validates similarity threshold."""
+        # Act & Assert
+        with pytest.raises(
+            ValueError, match="Similarity threshold must be between 0.0 and 1.0"
+        ):
+            search_operations_with_vector.find_duplicate_notes(similarity_threshold=1.5)
+
+        with pytest.raises(
+            ValueError, match="Similarity threshold must be between 0.0 and 1.0"
+        ):
+            search_operations_with_vector.find_duplicate_notes(
+                similarity_threshold=-0.1
+            )
+
+    def test_find_duplicate_notes_invalid_min_content_length(
+        self, search_operations_with_vector
+    ):
+        """Test that find_duplicate_notes validates min_content_length."""
+        # Act & Assert
+        with pytest.raises(
+            ValueError, match="Minimum content length must be non-negative"
+        ):
+            search_operations_with_vector.find_duplicate_notes(min_content_length=-1)
+
+    @patch("minerva.vector.searcher.VectorSearcher")
+    def test_find_duplicate_notes_success(
+        self, mock_vector_searcher_class, search_operations_with_vector
+    ):
+        """Test successful duplicate detection."""
+        # Arrange
+        mock_searcher = Mock()
+        mock_vector_searcher_class.return_value = mock_searcher
+
+        # Mock indexed files
+        mock_searcher.get_indexed_files.return_value = [
+            "/test/vault/note1.md",
+            "/test/vault/note2.md",
+            "/test/vault/note3.md",
+        ]
+
+        # Mock similar files results
+        def mock_find_similar_to_file(file_path, k, exclude_self):
+            if file_path == "/test/vault/note1.md":
+                return [
+                    ("/test/vault/note1.md", 1.0),
+                    ("/test/vault/note2.md", 0.9),
+                    ("/test/vault/note3.md", 0.5),
+                ]
+            elif file_path == "/test/vault/note2.md":
+                return [
+                    ("/test/vault/note2.md", 1.0),
+                    ("/test/vault/note1.md", 0.9),
+                    ("/test/vault/note3.md", 0.5),
+                ]
+            else:
+                return [
+                    ("/test/vault/note3.md", 1.0),
+                    ("/test/vault/note1.md", 0.5),
+                    ("/test/vault/note2.md", 0.5),
+                ]
+
+        mock_searcher.find_similar_to_file.side_effect = mock_find_similar_to_file
+
+        # Mock file content filtering and processing
+        with patch.object(
+            search_operations_with_vector, "_filter_files_by_content_length"
+        ) as mock_filter:
+            mock_filter.return_value = [
+                "/test/vault/note1.md",
+                "/test/vault/note2.md",
+                "/test/vault/note3.md",
+            ]
+
+            with patch.object(
+                search_operations_with_vector, "_create_duplicate_file"
+            ) as mock_create_file:
+                mock_create_file.side_effect = [
+                    DuplicateFile(
+                        file_path="/test/vault/note1.md",
+                        title="Note 1",
+                        similarity_score=1.0,
+                        content_preview="Content of note 1",
+                        file_size=100,
+                        modified_date="2023-01-01 12:00:00",
+                    ),
+                    DuplicateFile(
+                        file_path="/test/vault/note2.md",
+                        title="Note 2",
+                        similarity_score=0.9,
+                        content_preview="Content of note 2",
+                        file_size=150,
+                        modified_date="2023-01-02 12:00:00",
+                    ),
+                ]
+
+                # Act
+                result = search_operations_with_vector.find_duplicate_notes(
+                    similarity_threshold=0.85
+                )
+
+                # Assert
+                assert isinstance(result, DuplicateDetectionResult)
+                assert result.total_files_analyzed == 3
+                assert result.total_groups_found == 1
+                assert result.similarity_threshold == 0.85
+                assert len(result.duplicate_groups) == 1
+
+                group = result.duplicate_groups[0]
+                assert isinstance(group, DuplicateGroup)
+                assert group.file_count == 2
+                assert len(group.files) == 2
+
+    def test_filter_files_by_content_length(self, search_operations_with_vector):
+        """Test content length filtering functionality."""
+        # Mock file operations
+        with patch("pathlib.Path.exists", return_value=True):
+            with patch.object(
+                search_operations_with_vector, "_read_and_parse_file"
+            ) as mock_read:
+                # Mock file contents
+                mock_post_1 = Mock()
+                mock_post_1.content = "Short content"
+
+                mock_post_2 = Mock()
+                mock_post_2.content = "This is a much longer content that exceeds the minimum length requirement"
+
+                mock_read.side_effect = [
+                    ("Short content", mock_post_1, {}),
+                    (
+                        "This is a much longer content that exceeds the minimum length requirement",
+                        mock_post_2,
+                        {},
+                    ),
+                ]
+
+                # Act
+                result = search_operations_with_vector._filter_files_by_content_length(
+                    ["/test/file1.md", "/test/file2.md"],
+                    min_content_length=50,
+                    exclude_frontmatter=True,
+                )
+
+                # Assert
+                assert len(result) == 1
+                assert "/test/file2.md" in result
+
+    def test_create_duplicate_file(self, search_operations_with_vector):
+        """Test DuplicateFile creation."""
+        # This test verifies error handling when file doesn't exist
+        # which causes _create_duplicate_file to return None
+
+        # Act
+        result = search_operations_with_vector._create_duplicate_file(
+            "/nonexistent/file.md", 0.9
+        )
+
+        # Assert
+        assert result is None  # File doesn't exist, so should return None

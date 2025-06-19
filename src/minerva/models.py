@@ -108,3 +108,137 @@ class MergeResult:
             "warnings": self.warnings,
             "merge_history": self.merge_history,
         }
+
+
+@dataclass
+class DuplicateFile:
+    """
+    Represents a single file in a duplicate detection result.
+
+    Contains information about a file that is similar to other files
+    in the same duplicate group.
+    """
+
+    file_path: str
+    """Path to the file relative to vault root."""
+
+    title: str | None = None
+    """Title of the note (from frontmatter or filename)."""
+
+    similarity_score: float = 0.0
+    """Similarity score with other files in the group (0.0-1.0)."""
+
+    content_preview: str = ""
+    """Preview of the file content (first few lines)."""
+
+    file_size: int = 0
+    """Size of the file in bytes."""
+
+    modified_date: str | None = None
+    """Last modification date of the file."""
+
+
+@dataclass
+class DuplicateGroup:
+    """
+    Represents a group of similar files detected as potential duplicates.
+
+    Groups files that have similarity scores above the specified threshold
+    and provides aggregate information about the group.
+    """
+
+    group_id: int
+    """Unique identifier for this duplicate group."""
+
+    files: list[DuplicateFile]
+    """List of files in this duplicate group."""
+
+    average_similarity: float
+    """Average similarity score between all files in the group."""
+
+    max_similarity: float
+    """Maximum similarity score found within the group."""
+
+    min_similarity: float
+    """Minimum similarity score found within the group."""
+
+    file_count: int
+    """Number of files in this group."""
+
+    total_size: int
+    """Total size of all files in the group (bytes)."""
+
+    def to_dict(self) -> dict:
+        """
+        Convert DuplicateGroup to dictionary for serialization.
+
+        Returns:
+            dict: Dictionary representation suitable for JSON serialization
+        """
+        return {
+            "group_id": self.group_id,
+            "file_count": self.file_count,
+            "average_similarity": self.average_similarity,
+            "max_similarity": self.max_similarity,
+            "min_similarity": self.min_similarity,
+            "total_size": self.total_size,
+            "files": [
+                {
+                    "file_path": file.file_path,
+                    "title": file.title,
+                    "similarity_score": file.similarity_score,
+                    "content_preview": file.content_preview,
+                    "file_size": file.file_size,
+                    "modified_date": file.modified_date,
+                }
+                for file in self.files
+            ],
+        }
+
+
+@dataclass
+class DuplicateDetectionResult:
+    """
+    Result of a duplicate detection operation.
+
+    Contains all duplicate groups found and summary information
+    about the detection process.
+    """
+
+    duplicate_groups: list[DuplicateGroup]
+    """List of duplicate groups found."""
+
+    total_files_analyzed: int
+    """Total number of files that were analyzed."""
+
+    total_groups_found: int
+    """Number of duplicate groups identified."""
+
+    similarity_threshold: float
+    """Similarity threshold used for detection."""
+
+    directory_searched: str | None = None
+    """Directory that was searched (None for entire vault)."""
+
+    min_content_length: int = 100
+    """Minimum content length used for filtering."""
+
+    analysis_time_seconds: float = 0.0
+    """Time taken to complete the analysis."""
+
+    def to_dict(self) -> dict:
+        """
+        Convert DuplicateDetectionResult to dictionary for serialization.
+
+        Returns:
+            dict: Dictionary representation suitable for JSON serialization
+        """
+        return {
+            "total_files_analyzed": self.total_files_analyzed,
+            "total_groups_found": self.total_groups_found,
+            "similarity_threshold": self.similarity_threshold,
+            "directory_searched": self.directory_searched,
+            "min_content_length": self.min_content_length,
+            "analysis_time_seconds": self.analysis_time_seconds,
+            "duplicate_groups": [group.to_dict() for group in self.duplicate_groups],
+        }

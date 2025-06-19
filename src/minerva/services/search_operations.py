@@ -7,9 +7,13 @@ including semantic search using vector embeddings.
 """
 
 import logging
+import time
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 import frontmatter
+
+if TYPE_CHECKING:
+    from minerva.vector.searcher import VectorSearcher
 
 from minerva.error_handler import log_performance
 from minerva.file_handler import (
@@ -17,6 +21,11 @@ from minerva.file_handler import (
     SearchResult,
     SemanticSearchResult,
     search_keyword_in_files,
+)
+from minerva.models import (
+    DuplicateDetectionResult,
+    DuplicateGroup,
+    DuplicateFile,
 )
 from minerva.services.core.base_service import BaseService
 
@@ -532,3 +541,299 @@ class SearchOperations(BaseService):
             logger.error("Find similar notes failed: %s", e)
             self._log_operation_error("find_similar_notes", e)
             raise
+
+    @log_performance(threshold_ms=5000)
+    def find_duplicate_notes(
+        self,
+        similarity_threshold: float = 0.85,
+        directory: str | None = None,
+        min_content_length: int = 100,
+        exclude_frontmatter: bool = True,
+    ) -> DuplicateDetectionResult:
+        """
+        Find duplicate notes by analyzing similarity between all notes in the vault.
+
+        This method uses vector embeddings to detect semantically similar content
+        and groups files that exceed the similarity threshold.
+
+        Args:
+            similarity_threshold: Similarity threshold for duplicate detection (0.0-1.0)
+            directory: Directory to search in (None for entire vault)
+            min_content_length: Minimum content length to consider (bytes)
+            exclude_frontmatter: Whether to exclude frontmatter from analysis
+
+        Returns:
+            DuplicateDetectionResult: Complete duplicate detection results
+
+        Raises:
+            RuntimeError: If vector search is not enabled
+            ValueError: If parameters are invalid
+            ImportError: If vector search dependencies are not available
+        """
+        start_time = time.time()
+        self._log_operation_start(
+            "find_duplicate_notes",
+            similarity_threshold=similarity_threshold,
+            directory=directory,
+            min_content_length=min_content_length,
+        )
+
+        # Validate configuration
+        if not self.config.vector_search_enabled:
+            error = RuntimeError("Vector search is not enabled in configuration")
+            self._log_operation_error("find_duplicate_notes", error)
+            raise error
+
+        if not self.config.vector_db_path:
+            error = RuntimeError("Vector database path is not configured")
+            self._log_operation_error("find_duplicate_notes", error)
+            raise error
+
+        # Validate parameters
+        if not (0.0 <= similarity_threshold <= 1.0):
+            param_error = ValueError("Similarity threshold must be between 0.0 and 1.0")
+            self._log_operation_error("find_duplicate_notes", param_error)
+            raise param_error
+
+        if min_content_length < 0:
+            param_error = ValueError("Minimum content length must be non-negative")
+            self._log_operation_error("find_duplicate_notes", param_error)
+            raise param_error
+
+        try:
+            from minerva.vector.searcher import VectorSearcher
+
+            # Initialize vector searcher
+            searcher = VectorSearcher(self.config.vector_db_path)
+
+            # Get all indexed files
+            all_indexed_files = searcher.get_indexed_files()
+
+            # Filter files by directory if specified
+            if directory:
+                directory_path = Path(directory)
+                filtered_files = [
+                    f
+                    for f in all_indexed_files
+                    if Path(f).is_relative_to(directory_path)
+                ]
+            else:
+                filtered_files = all_indexed_files
+
+            # Filter files by content length
+            eligible_files = self._filter_files_by_content_length(
+                filtered_files, min_content_length, exclude_frontmatter
+            )
+
+            logger.info(
+                "Analyzing %d files for duplicates (threshold: %.2f)",
+                len(eligible_files),
+                similarity_threshold,
+            )
+
+            # Find duplicate groups
+            duplicate_groups = self._find_duplicate_groups(
+                searcher, eligible_files, similarity_threshold
+            )
+
+            # Close searcher connection
+            searcher.close()
+
+            # Calculate analysis time
+            analysis_time = time.time() - start_time
+
+            # Create result
+            result = DuplicateDetectionResult(
+                duplicate_groups=duplicate_groups,
+                total_files_analyzed=len(eligible_files),
+                total_groups_found=len(duplicate_groups),
+                similarity_threshold=similarity_threshold,
+                directory_searched=directory,
+                min_content_length=min_content_length,
+                analysis_time_seconds=analysis_time,
+            )
+
+            logger.info(
+                "Duplicate detection completed: %d groups found from %d files in %.2fs",
+                len(duplicate_groups),
+                len(eligible_files),
+                analysis_time,
+            )
+
+            self._log_operation_success("find_duplicate_notes", result)
+            return result
+
+        except ImportError as e:
+            logger.error("Vector search dependencies not available: %s", e)
+            import_error = ImportError(
+                "Vector search requires additional dependencies. "
+                "Install with: pip install sentence-transformers duckdb"
+            )
+            self._log_operation_error("find_duplicate_notes", import_error)
+            raise import_error from e
+
+        except Exception as e:
+            logger.error("Duplicate detection failed: %s", e)
+            self._log_operation_error("find_duplicate_notes", e)
+            raise
+
+    def _filter_files_by_content_length(
+        self, files: list[str], min_content_length: int, exclude_frontmatter: bool
+    ) -> list[str]:
+        """
+        Filter files based on content length requirements.
+
+        Args:
+            files: List of file paths to filter
+            min_content_length: Minimum content length in bytes
+            exclude_frontmatter: Whether to exclude frontmatter from length calculation
+
+        Returns:
+            List of file paths that meet the content length requirement
+        """
+        eligible_files = []
+
+        for file_path in files:
+            try:
+                path = Path(file_path)
+                if not path.exists():
+                    logger.warning("File no longer exists: %s", file_path)
+                    continue
+
+                # Read file content
+                content, post, _ = self._read_and_parse_file(path)
+
+                # Calculate content length
+                if exclude_frontmatter and hasattr(post, "content"):
+                    content_to_measure = post.content
+                else:
+                    content_to_measure = content
+
+                if len(content_to_measure.encode("utf-8")) >= min_content_length:
+                    eligible_files.append(file_path)
+
+            except Exception as e:
+                logger.warning("Failed to process file %s: %s", file_path, e)
+                continue
+
+        return eligible_files
+
+    def _find_duplicate_groups(
+        self, searcher: "VectorSearcher", files: list[str], threshold: float
+    ) -> list[DuplicateGroup]:
+        """
+        Find groups of duplicate files using vector similarity.
+
+        Args:
+            searcher: Vector searcher instance
+            files: List of file paths to analyze
+            threshold: Similarity threshold for grouping
+
+        Returns:
+            List of duplicate groups found
+        """
+        # Track processed files to avoid duplicates
+        processed_files = set()
+        duplicate_groups = []
+        group_id = 1
+
+        for file_path in files:
+            if file_path in processed_files:
+                continue
+
+            # Find similar files for this file
+            similar_files = searcher.find_similar_to_file(
+                file_path, k=len(files), exclude_self=False
+            )
+
+            # Filter by threshold and exclude already processed files
+            group_candidates = []
+            for similar_file_path, similarity_score in similar_files:
+                if (
+                    similarity_score >= threshold
+                    and similar_file_path in files
+                    and similar_file_path not in processed_files
+                ):
+                    group_candidates.append((similar_file_path, similarity_score))
+
+            # Create group if we have multiple files
+            if len(group_candidates) >= 2:
+                duplicate_files = []
+                similarities = []
+
+                for candidate_path, similarity_score in group_candidates:
+                    duplicate_file = self._create_duplicate_file(
+                        candidate_path, similarity_score
+                    )
+                    if duplicate_file:
+                        duplicate_files.append(duplicate_file)
+                        similarities.append(similarity_score)
+                        processed_files.add(candidate_path)
+
+                if len(duplicate_files) >= 2:
+                    # Calculate group statistics
+                    avg_similarity = sum(similarities) / len(similarities)
+                    max_similarity = max(similarities)
+                    min_similarity = min(similarities)
+                    total_size = sum(df.file_size for df in duplicate_files)
+
+                    group = DuplicateGroup(
+                        group_id=group_id,
+                        files=duplicate_files,
+                        average_similarity=avg_similarity,
+                        max_similarity=max_similarity,
+                        min_similarity=min_similarity,
+                        file_count=len(duplicate_files),
+                        total_size=total_size,
+                    )
+                    duplicate_groups.append(group)
+                    group_id += 1
+
+        return duplicate_groups
+
+    def _create_duplicate_file(
+        self, file_path: str, similarity_score: float
+    ) -> DuplicateFile | None:
+        """
+        Create a DuplicateFile object from file path and similarity score.
+
+        Args:
+            file_path: Path to the file
+            similarity_score: Similarity score for this file
+
+        Returns:
+            DuplicateFile object or None if file cannot be processed
+        """
+        try:
+            path = Path(file_path)
+            if not path.exists():
+                return None
+
+            # Get file information
+            stat = path.stat()
+            file_size = stat.st_size
+            modified_date = stat.st_mtime
+
+            # Read file content for preview
+            content, post, metadata = self._read_and_parse_file(path)
+
+            # Extract title
+            title = self._extract_title(metadata, path)
+
+            # Create content preview (exclude frontmatter)
+            content_preview = self._create_content_preview(post, content)
+
+            return DuplicateFile(
+                file_path=str(path),
+                title=title,
+                similarity_score=similarity_score,
+                content_preview=content_preview,
+                file_size=file_size,
+                modified_date=time.strftime(
+                    "%Y-%m-%d %H:%M:%S", time.localtime(modified_date)
+                ),
+            )
+
+        except Exception as e:
+            logger.warning("Failed to create DuplicateFile for %s: %s", file_path, e)
+            return None
