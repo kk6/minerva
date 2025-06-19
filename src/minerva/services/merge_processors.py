@@ -436,7 +436,7 @@ class AppendMergeProcessor(MergeProcessor):
         if not sections_info:
             return []
 
-        toc_lines = ["", "## 目次", ""]
+        toc_lines = ["", "## Table of Contents", ""]
 
         for section in sections_info:
             section_title = section["section_title"]
@@ -542,7 +542,7 @@ class HeadingMergeProcessor(MergeProcessor):
         """
         lines = content.split("\n")
         sections: list[tuple[str, str]] = []
-        current_heading = "その他"
+        current_heading = "Others"
         current_content: list[str] = []
 
         for line in lines:
