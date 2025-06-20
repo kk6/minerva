@@ -5,7 +5,7 @@ Tests for incremental indexing functionality in VectorIndexer.
 import pytest
 from unittest.mock import Mock, patch, mock_open
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import timedelta
 import tempfile
 
 # Abort early when the heavy optional dependency is not installed
@@ -43,13 +43,15 @@ class TestIncrementalIndexing:
         yield indexer
         indexer.close()
 
-    def test_needs_update_file_not_indexed(self, indexer):
+    def test_needs_update_file_not_indexed(
+        self, indexer, mock_incremental_time, incremental_test_time
+    ):
         """Test needs_update returns True for files not yet indexed."""
         # Arrange
         test_file = "/test/file.md"
 
         with patch("os.stat") as mock_stat:
-            mock_stat.return_value.st_mtime = datetime.now().timestamp()
+            mock_stat.return_value.st_mtime = incremental_test_time.timestamp()
 
             # Act
             result = indexer.needs_update(test_file)
@@ -57,7 +59,9 @@ class TestIncrementalIndexing:
             # Assert
             assert result is True
 
-    def test_needs_update_file_modified(self, indexer):
+    def test_needs_update_file_modified(
+        self, indexer, mock_incremental_time, incremental_test_time
+    ):
         """Test needs_update returns True for files modified since indexing."""
         # Arrange
         test_file = "/test/file.md"
@@ -65,14 +69,13 @@ class TestIncrementalIndexing:
 
         # First, add the file to tracking
         with patch("os.stat") as mock_stat:
-            # Original modification time
-            old_time = datetime.now() - timedelta(hours=1)
+            # Original modification time (1 hour before current time)
+            old_time = incremental_test_time - timedelta(hours=1)
             mock_stat.return_value.st_mtime = old_time.timestamp()
             indexer.update_file_tracking(test_file, content_hash, 1)
 
-            # Now simulate file being modified
-            new_time = datetime.now()
-            mock_stat.return_value.st_mtime = new_time.timestamp()
+            # Now simulate file being modified (use current fixed time)
+            mock_stat.return_value.st_mtime = incremental_test_time.timestamp()
 
             # Act
             result = indexer.needs_update(test_file)
@@ -80,15 +83,17 @@ class TestIncrementalIndexing:
             # Assert
             assert result is True
 
-    def test_needs_update_file_unchanged(self, indexer):
+    def test_needs_update_file_unchanged(
+        self, indexer, mock_incremental_time, incremental_test_time
+    ):
         """Test needs_update returns False for unchanged files."""
         # Arrange
         test_file = "/test/file.md"
         content = "test content"
         content_hash = "abc123"
 
-        # Set up a specific time for consistency
-        file_time = datetime(2023, 1, 1, 12, 0, 0)
+        # Use consistent test time
+        file_time = incremental_test_time
 
         with (
             patch("os.stat") as mock_stat,
@@ -121,7 +126,9 @@ class TestIncrementalIndexing:
             # Assert
             assert result is False
 
-    def test_needs_update_content_changed(self, indexer):
+    def test_needs_update_content_changed(
+        self, indexer, mock_incremental_time, incremental_test_time
+    ):
         """Test needs_update returns True when file content changed."""
         # Arrange
         test_file = "/test/file.md"
@@ -134,8 +141,8 @@ class TestIncrementalIndexing:
             patch("builtins.open", mock_open(read_data=new_content)),
             patch("hashlib.sha256") as mock_hash,
         ):
-            # Setup file modification time (same time)
-            file_time = datetime.now()
+            # Setup file modification time (use consistent test time)
+            file_time = incremental_test_time
             mock_stat.return_value.st_mtime = file_time.timestamp()
 
             # Setup hash calculation to return new hash
@@ -152,7 +159,9 @@ class TestIncrementalIndexing:
             # Assert
             assert result is True
 
-    def test_update_file_tracking_success(self, indexer):
+    def test_update_file_tracking_success(
+        self, indexer, mock_incremental_time, incremental_test_time
+    ):
         """Test successful file tracking update."""
         # Arrange
         test_file = "/test/file.md"
@@ -160,7 +169,7 @@ class TestIncrementalIndexing:
         embedding_count = 2
 
         with patch("os.stat") as mock_stat:
-            file_time = datetime.now()
+            file_time = incremental_test_time
             mock_stat.return_value.st_mtime = file_time.timestamp()
 
             # Act
@@ -223,7 +232,9 @@ class TestIncrementalIndexing:
             assert len(outdated_files) == 3
             assert set(outdated_files) == set(files)
 
-    def test_store_embedding_updates_tracking(self, indexer):
+    def test_store_embedding_updates_tracking(
+        self, indexer, mock_incremental_time, incremental_test_time
+    ):
         """Test that store_embedding automatically updates file tracking."""
         # Arrange
         test_file = "/test/file.md"
@@ -239,7 +250,7 @@ class TestIncrementalIndexing:
             patch.object(indexer, "add_vectors", return_value=1) as mock_add_vectors,
         ):
             # Setup file stats
-            file_time = datetime.now()
+            file_time = incremental_test_time
             mock_stat.return_value.st_mtime = file_time.timestamp()
 
             # Setup hash calculation
@@ -264,7 +275,9 @@ class TestIncrementalIndexing:
             assert result is not None
             assert result[0] == content_hash
 
-    def test_needs_update_file_read_error(self, indexer):
+    def test_needs_update_file_read_error(
+        self, indexer, mock_incremental_time, incremental_test_time
+    ):
         """Test needs_update handles file read errors gracefully."""
         # Arrange
         test_file = "/test/unreadable.md"
@@ -274,7 +287,7 @@ class TestIncrementalIndexing:
             patch("os.stat") as mock_stat,
             patch("builtins.open", side_effect=IOError("Permission denied")),
         ):
-            file_time = datetime.now()
+            file_time = incremental_test_time
             mock_stat.return_value.st_mtime = file_time.timestamp()
 
             # Add file to tracking first
@@ -286,7 +299,9 @@ class TestIncrementalIndexing:
             # Assert
             assert result is True
 
-    def test_needs_update_invalid_timestamp(self, indexer):
+    def test_needs_update_invalid_timestamp(
+        self, indexer, mock_incremental_time, incremental_test_time
+    ):
         """Test needs_update handles invalid stored timestamps."""
         # Arrange
         test_file = "/test/file.md"
@@ -297,7 +312,7 @@ class TestIncrementalIndexing:
             patch("builtins.open", mock_open(read_data=content)),
             patch("hashlib.sha256") as mock_hash,
         ):
-            file_time = datetime.now()
+            file_time = incremental_test_time
             mock_stat.return_value.st_mtime = file_time.timestamp()
 
             # Setup hash calculation

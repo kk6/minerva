@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 from hypothesis import given, assume, strategies as st
 import frontmatter
 
@@ -51,6 +52,7 @@ class TestFrontmatterManagerProperties:
         assert "author" in result.metadata
         assert result.metadata["author"] == author_name
 
+    @pytest.mark.usefixtures("mock_frontmatter_time")
     @given(st.text(min_size=1, max_size=100))
     def test_generate_metadata_new_note_gets_created_timestamp(self, content: str):
         """Property: new notes should always get a 'created' timestamp."""
@@ -65,8 +67,11 @@ class TestFrontmatterManagerProperties:
         # Should be a valid ISO format timestamp
         created_value = result.metadata["created"]
         assert isinstance(created_value, str)
-        datetime.fromisoformat(created_value)
+        # With time-machine, datetime.now() returns the mocked time
+        # which should be consistent across test runs
+        datetime.fromisoformat(created_value)  # Verify it's a valid timestamp
 
+    @pytest.mark.usefixtures("mock_frontmatter_time")
     @given(st.text(min_size=1, max_size=100))
     def test_generate_metadata_existing_note_gets_updated_timestamp(self, content: str):
         """Property: existing notes should always get an 'updated' timestamp."""
@@ -81,7 +86,9 @@ class TestFrontmatterManagerProperties:
         # Should be a valid ISO format timestamp
         updated_value = result.metadata["updated"]
         assert isinstance(updated_value, str)
-        datetime.fromisoformat(updated_value)
+        # With time-machine, datetime.now() returns the mocked time
+        # which should be consistent across test runs
+        datetime.fromisoformat(updated_value)  # Verify it's a valid timestamp
 
     @given(
         st.lists(
@@ -209,6 +216,7 @@ class TestFrontmatterManagerProperties:
             alphabet=string.ascii_letters + string.digits + "-_",
         )
     )
+    @pytest.mark.usefixtures("mock_frontmatter_time")
     def test_add_tag_creates_file_operations(self, tag: str):
         """Property: add_tag should work with any valid tag."""
         # Arrange
@@ -259,6 +267,7 @@ class TestFrontmatterManagerProperties:
             max_size=5,
         )
     )
+    @pytest.mark.usefixtures("mock_frontmatter_time")
     def test_update_tags_replaces_all_tags(self, tags: list[str]):
         """Property: update_tags should replace all existing tags."""
         # Arrange
