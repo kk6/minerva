@@ -1809,3 +1809,152 @@ class TestDuplicateDetection:
                             )
                             assert result.file_size == 1024
                             assert result.modified_date is not None
+
+    @patch("minerva.services.search_operations.logger")
+    def test_create_duplicate_file_stat_error(
+        self, mock_logger, search_operations_with_vector
+    ):
+        """Test _create_duplicate_file when file.stat() raises an exception."""
+        # Arrange
+        test_file = "/fake/path/test.md"
+        similarity_score = 0.9
+
+        # Mock Path to raise exception on stat()
+        with patch("minerva.services.search_operations.Path") as mock_path:
+            mock_path_instance = Mock()
+            mock_path_instance.exists.return_value = True
+            mock_path_instance.stat.side_effect = OSError("Permission denied")
+            mock_path.return_value = mock_path_instance
+
+            # Act
+            result = search_operations_with_vector._create_duplicate_file(
+                test_file, similarity_score
+            )
+
+            # Assert
+            assert result is None
+            mock_logger.warning.assert_called_once()
+            warning_call = mock_logger.warning.call_args[0]
+            assert "Failed to create DuplicateFile for" in warning_call[0]
+            assert test_file in warning_call[1]
+
+    @patch("minerva.services.search_operations.logger")
+    def test_create_duplicate_file_read_error(
+        self, mock_logger, search_operations_with_vector
+    ):
+        """Test _create_duplicate_file when _read_and_parse_file raises an exception."""
+        # Arrange
+        test_file = "/fake/path/test.md"
+        similarity_score = 0.8
+
+        # Mock successful path operations but failed file reading
+        with patch("minerva.services.search_operations.Path") as mock_path:
+            mock_path_instance = Mock()
+            mock_path_instance.exists.return_value = True
+            mock_stat = Mock()
+            mock_stat.st_size = 500
+            mock_stat.st_mtime = 1234567890
+            mock_path_instance.stat.return_value = mock_stat
+            mock_path.return_value = mock_path_instance
+
+            # Mock _read_and_parse_file to raise exception
+            search_operations_with_vector._read_and_parse_file = Mock(
+                side_effect=IOError("File cannot be read")
+            )
+
+            # Act
+            result = search_operations_with_vector._create_duplicate_file(
+                test_file, similarity_score
+            )
+
+            # Assert
+            assert result is None
+            mock_logger.warning.assert_called_once()
+            warning_call = mock_logger.warning.call_args[0]
+            assert "Failed to create DuplicateFile for" in warning_call[0]
+            assert test_file in warning_call[1]
+
+    @patch("minerva.services.search_operations.logger")
+    def test_create_duplicate_file_title_extraction_error(
+        self, mock_logger, search_operations_with_vector
+    ):
+        """Test _create_duplicate_file when _extract_title raises an exception."""
+        # Arrange
+        test_file = "/fake/path/test.md"
+        similarity_score = 0.7
+
+        # Mock successful path and file operations
+        with patch("minerva.services.search_operations.Path") as mock_path:
+            mock_path_instance = Mock()
+            mock_path_instance.exists.return_value = True
+            mock_stat = Mock()
+            mock_stat.st_size = 800
+            mock_stat.st_mtime = 1234567890
+            mock_path_instance.stat.return_value = mock_stat
+            mock_path.return_value = mock_path_instance
+
+            # Mock successful file reading
+            search_operations_with_vector._read_and_parse_file = Mock(
+                return_value=("content", Mock(), {"title": "Test"})
+            )
+
+            # Mock _extract_title to raise exception
+            search_operations_with_vector._extract_title = Mock(
+                side_effect=ValueError("Invalid title data")
+            )
+
+            # Act
+            result = search_operations_with_vector._create_duplicate_file(
+                test_file, similarity_score
+            )
+
+            # Assert
+            assert result is None
+            mock_logger.warning.assert_called_once()
+            warning_call = mock_logger.warning.call_args[0]
+            assert "Failed to create DuplicateFile for" in warning_call[0]
+            assert test_file in warning_call[1]
+
+    @patch("minerva.services.search_operations.logger")
+    def test_create_duplicate_file_content_preview_error(
+        self, mock_logger, search_operations_with_vector
+    ):
+        """Test _create_duplicate_file when _create_content_preview raises an exception."""
+        # Arrange
+        test_file = "/fake/path/test.md"
+        similarity_score = 0.6
+
+        # Mock successful path and file operations
+        with patch("minerva.services.search_operations.Path") as mock_path:
+            mock_path_instance = Mock()
+            mock_path_instance.exists.return_value = True
+            mock_stat = Mock()
+            mock_stat.st_size = 600
+            mock_stat.st_mtime = 1234567890
+            mock_path_instance.stat.return_value = mock_stat
+            mock_path.return_value = mock_path_instance
+
+            # Mock successful file reading and title extraction
+            search_operations_with_vector._read_and_parse_file = Mock(
+                return_value=("content", Mock(), {"title": "Test"})
+            )
+            search_operations_with_vector._extract_title = Mock(
+                return_value="Test Title"
+            )
+
+            # Mock _create_content_preview to raise exception
+            search_operations_with_vector._create_content_preview = Mock(
+                side_effect=AttributeError("Content processing error")
+            )
+
+            # Act
+            result = search_operations_with_vector._create_duplicate_file(
+                test_file, similarity_score
+            )
+
+            # Assert
+            assert result is None
+            mock_logger.warning.assert_called_once()
+            warning_call = mock_logger.warning.call_args[0]
+            assert "Failed to create DuplicateFile for" in warning_call[0]
+            assert test_file in warning_call[1]

@@ -542,7 +542,7 @@ class SearchOperations(BaseService):
             self._log_operation_error("find_similar_notes", e)
             raise
 
-    @log_performance(threshold_ms=5000)
+    @log_performance(threshold_ms=3000)
     def find_duplicate_notes(
         self,
         similarity_threshold: float = 0.85,
@@ -559,7 +559,7 @@ class SearchOperations(BaseService):
         Args:
             similarity_threshold: Similarity threshold for duplicate detection (0.0-1.0)
             directory: Directory to search in (None for entire vault)
-            min_content_length: Minimum content length to consider (bytes)
+            min_content_length: Minimum content length to consider (in bytes)
             exclude_frontmatter: Whether to exclude frontmatter from analysis
 
         Returns:
@@ -610,15 +610,9 @@ class SearchOperations(BaseService):
             all_indexed_files = searcher.get_indexed_files()
 
             # Filter files by directory if specified
-            if directory:
-                directory_path = Path(directory)
-                filtered_files = [
-                    f
-                    for f in all_indexed_files
-                    if Path(f).is_relative_to(directory_path)
-                ]
-            else:
-                filtered_files = all_indexed_files
+            filtered_files = self._filter_files_by_directory(
+                all_indexed_files, directory
+            )
 
             # Filter files by content length
             eligible_files = self._filter_files_by_content_length(
@@ -685,7 +679,7 @@ class SearchOperations(BaseService):
 
         Args:
             files: List of file paths to filter
-            min_content_length: Minimum content length in bytes
+            min_content_length: Minimum content length (in bytes)
             exclude_frontmatter: Whether to exclude frontmatter from length calculation
 
         Returns:
@@ -718,6 +712,107 @@ class SearchOperations(BaseService):
 
         return eligible_files
 
+    def _filter_files_by_directory(
+        self, files: list[str], directory: str | None
+    ) -> list[str]:
+        """
+        Filter files by directory if specified.
+
+        Args:
+            files: List of file paths to filter
+            directory: Directory to filter by (None for no filtering)
+
+        Returns:
+            List of file paths within the specified directory
+        """
+        if not directory:
+            return files
+
+        directory_path = Path(directory)
+        return [f for f in files if Path(f).is_relative_to(directory_path)]
+
+    def _filter_similarity_candidates(
+        self,
+        similar_files: list[tuple[str, float]],
+        threshold: float,
+        files_set: set[str],
+        processed_files: set[str],
+    ) -> list[tuple[str, float]]:
+        """
+        Filter similarity candidates by threshold and processing status.
+
+        Args:
+            similar_files: List of (file_path, similarity_score) tuples
+            threshold: Minimum similarity threshold
+            files_set: Set of eligible files for O(1) lookup
+            processed_files: Set of already processed files
+
+        Returns:
+            List of filtered candidates meeting all criteria
+        """
+        return [
+            (file_path, score)
+            for file_path, score in similar_files
+            if (
+                score >= threshold
+                and file_path in files_set
+                and file_path not in processed_files
+            )
+        ]
+
+    def _calculate_group_statistics(
+        self, similarities: list[float]
+    ) -> tuple[float, float, float]:
+        """
+        Calculate statistics for a duplicate group.
+
+        Args:
+            similarities: List of similarity scores
+
+        Returns:
+            Tuple of (average, maximum, minimum) similarity scores
+        """
+        if not similarities:
+            return 0.0, 0.0, 0.0
+
+        return (
+            sum(similarities) / len(similarities),
+            max(similarities),
+            min(similarities),
+        )
+
+    def _create_duplicate_group(
+        self,
+        group_id: int,
+        duplicate_files: list[DuplicateFile],
+        similarities: list[float],
+    ) -> DuplicateGroup:
+        """
+        Create a DuplicateGroup with calculated statistics.
+
+        Args:
+            group_id: Unique identifier for the group
+            duplicate_files: List of files in the group
+            similarities: List of similarity scores
+
+        Returns:
+            Configured DuplicateGroup instance
+        """
+        avg_similarity, max_similarity, min_similarity = (
+            self._calculate_group_statistics(similarities)
+        )
+        total_size = sum(df.file_size for df in duplicate_files)
+
+        return DuplicateGroup(
+            group_id=group_id,
+            files=duplicate_files,
+            average_similarity=avg_similarity,
+            max_similarity=max_similarity,
+            min_similarity=min_similarity,
+            file_count=len(duplicate_files),
+            total_size=total_size,
+        )
+
     def _find_duplicate_groups(
         self, searcher: "VectorSearcher", files: list[str], threshold: float
     ) -> list[DuplicateGroup]:
@@ -736,7 +831,7 @@ class SearchOperations(BaseService):
         files_set = set(files)
 
         # Track processed files to avoid duplicates
-        processed_files = set()
+        processed_files: set[str] = set()
         duplicate_groups = []
         group_id = 1
 
@@ -750,14 +845,9 @@ class SearchOperations(BaseService):
             )
 
             # Filter by threshold and exclude already processed files
-            group_candidates = []
-            for similar_file_path, similarity_score in similar_files:
-                if (
-                    similarity_score >= threshold
-                    and similar_file_path in files_set
-                    and similar_file_path not in processed_files
-                ):
-                    group_candidates.append((similar_file_path, similarity_score))
+            group_candidates = self._filter_similarity_candidates(
+                similar_files, threshold, files_set, processed_files
+            )
 
             # Create group if we have multiple files
             if len(group_candidates) >= 2:
@@ -774,20 +864,8 @@ class SearchOperations(BaseService):
                         processed_files.add(candidate_path)
 
                 if len(duplicate_files) >= 2:
-                    # Calculate group statistics
-                    avg_similarity = sum(similarities) / len(similarities)
-                    max_similarity = max(similarities)
-                    min_similarity = min(similarities)
-                    total_size = sum(df.file_size for df in duplicate_files)
-
-                    group = DuplicateGroup(
-                        group_id=group_id,
-                        files=duplicate_files,
-                        average_similarity=avg_similarity,
-                        max_similarity=max_similarity,
-                        min_similarity=min_similarity,
-                        file_count=len(duplicate_files),
-                        total_size=total_size,
+                    group = self._create_duplicate_group(
+                        group_id, duplicate_files, similarities
                     )
                     duplicate_groups.append(group)
                     group_id += 1
