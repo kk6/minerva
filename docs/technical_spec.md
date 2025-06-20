@@ -465,6 +465,10 @@ class FrontmatterOperations(BaseService):
                   filepath: str | None = None, default_path: str | None = None) -> Path:
         """Set specific frontmatter field value in a note."""
 
+    def update_field(self, field_name: str, value: Any, filename: str | None = None,
+                     filepath: str | None = None, default_path: str | None = None) -> Path:
+        """Update a specific frontmatter field in a note."""
+
     def remove_field(self, field_name: str, filename: str | None = None,
                      filepath: str | None = None, default_path: str | None = None) -> Path:
         """Remove specific frontmatter field from a note."""
@@ -492,6 +496,10 @@ frontmatter_ops.set_field("categories", ["work", "urgent"], filename="task.md")
 # フィールド値の取得
 priority = frontmatter_ops.get_field("priority", filename="task.md")
 all_fields = frontmatter_ops.get_all_fields(filename="task.md")
+
+# フィールドの更新
+frontmatter_ops.update_field("priority", "urgent", filename="task.md")
+frontmatter_ops.update_field("status", "in_progress", filename="task.md")
 
 # フィールドの削除
 frontmatter_ops.remove_field("draft", filename="published.md")

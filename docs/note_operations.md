@@ -808,6 +808,86 @@ add_review_data(
 )
 ```
 
+### 9.7 フロントマターフィールドの更新 (update_frontmatter_field)
+
+#### 機能概要
+指定されたノートのフロントマターで特定のフィールドを更新します。この機能は、既存のフィールド値を新しい値で上書きし、フィールドが存在しない場合は新規作成します。
+
+#### パラメータ
+- `field_name`: 更新するフィールド名（例: "author", "priority", "custom_field"）
+- `value`: 設定する新しい値（文字列、数値、リスト、辞書など）
+- `filename` または `filepath`: 対象ノートを特定します
+- `default_path` (オプション): サブディレクトリが指定されていない場合に使用するデフォルトディレクトリ
+
+#### 戻り値
+- 更新されたノートファイルのパス（Path オブジェクト）
+
+#### 使用例
+
+##### 9.7.1 基本的な使用例
+```python
+from minerva.tools import update_frontmatter_field
+
+# 著者フィールドを更新
+update_frontmatter_field("author", "田中太郎", filename="my_note.md")
+
+# 優先度フィールドを更新
+update_frontmatter_field("priority", "high", filename="task_note.md")
+
+# 数値フィールドを更新
+update_frontmatter_field("version", 2.1, filename="document.md")
+```
+
+##### 9.7.2 複雑なデータ型の更新
+```python
+# リストフィールドを更新
+tags = ["プロジェクト", "重要", "進行中"]
+update_frontmatter_field("tags", tags, filename="project_note.md")
+
+# 辞書フィールドを更新
+metadata = {
+    "status": "review",
+    "reviewer": "山田花子",
+    "due_date": "2024-01-15"
+}
+update_frontmatter_field("metadata", metadata, filename="report.md")
+```
+
+##### 9.7.3 カスタムフィールドの管理
+```python
+# 進捗状況の更新
+def update_progress(filename, progress_percentage):
+    """ノートの進捗状況を更新"""
+    update_frontmatter_field("progress", progress_percentage, filename=filename)
+
+    # 100%完了時にステータスも更新
+    if progress_percentage == 100:
+        update_frontmatter_field("status", "completed", filename=filename)
+
+# 使用例
+update_progress("task_list.md", 75)
+```
+
+##### 9.7.4 実践的な活用例
+```python
+# プロジェクト管理での使用
+def update_task_status(filename, new_status, assignee=None):
+    """タスクのステータスを更新し、必要に応じて担当者も更新"""
+    update_frontmatter_field("status", new_status, filename=filename)
+
+    if assignee:
+        update_frontmatter_field("assignee", assignee, filename=filename)
+
+    # 完了時に完了日時を記録
+    if new_status == "completed":
+        from datetime import datetime
+        update_frontmatter_field("completed_at", datetime.now().isoformat(), filename=filename)
+
+# 使用例
+update_task_status("feature_development.md", "in_progress", "開発者A")
+update_task_status("feature_development.md", "completed")
+```
+
 ## 10. ノートマージ機能
 
 ### 10.1 概要
