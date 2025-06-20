@@ -631,6 +631,8 @@ For features with optional dependencies (e.g., vector search):
 - `VECTOR_SEARCH_ENABLED`: Set to "true" to enable vector search functionality
 - `VECTOR_DB_PATH`: Custom path for vector database (defaults to `{vault}/.minerva/vectors.db`)
 - `EMBEDDING_MODEL`: Model name for text embeddings (defaults to `all-MiniLM-L6-v2`)
+- `AUTO_INDEX_ENABLED`: Set to "true" to enable automatic vector index updates (defaults to "true")
+- `AUTO_INDEX_STRATEGY`: Strategy for auto-indexing: "immediate", "batch", "background" (defaults to "immediate")
 
 **Configuration Pattern for Optional Features:**
 ```python
@@ -661,6 +663,16 @@ class MinervaConfig:
                 # Default to vault directory if not specified
                 vector_db_path = Path(vault_root) / default_vault / ".minerva" / "vectors.db"
 ```
+
+**Auto-Indexing Configuration Details:**
+- **`AUTO_INDEX_ENABLED`**: Controls automatic vector index updates when notes are created, edited, or deleted
+  - When `true`: Note operations automatically trigger vector index updates
+  - When `false`: Vector index must be manually rebuilt using `build_vector_index()` tools
+  - Requires `VECTOR_SEARCH_ENABLED=true` to have any effect
+- **`AUTO_INDEX_STRATEGY`**: Determines how auto-indexing is performed
+  - `"immediate"`: Index updates happen synchronously during note operations (real-time but slower)
+  - `"batch"`: Index updates are queued for batch processing (faster note operations, delayed search updates)
+  - `"background"`: Index updates happen asynchronously in background threads (best performance, may miss rapid changes)
 
 **Testing Optional Configuration:**
 - Test default values when feature is disabled
