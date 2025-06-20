@@ -1,6 +1,139 @@
 # CHANGELOG
 
 
+## v0.20.0 (2025-06-20)
+
+### Documentation
+
+- Complete frontmatter management documentation
+  ([`2b092f3`](https://github.com/kk6/minerva/commit/2b092f393bd65a93eb40fb1006b513cc8562f9ae))
+
+- Add subsection 9.7 for update_frontmatter_field operation in note_operations.md - Include
+  comprehensive examples for basic and advanced usage patterns - Add missing update_field method to
+  FrontmatterOperations class in technical_spec.md - Ensure documentation coverage for all
+  frontmatter management functions
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Comprehensive documentation update after gap analysis
+  ([`f80a827`](https://github.com/kk6/minerva/commit/f80a8277e39cca8a0764641bc1267b77d033fede))
+
+- Add complete find_duplicate_notes documentation to vector_search_api.md - Document auto-indexing
+  system integration in technical_spec.md - Add SearchOperations semantic search methods to
+  technical_spec.md - Update README.md with duplicate detection feature - Update CLAUDE.md with new
+  MCP tools count and service descriptions - Remove unused OBSIDIAN_VAULT_NAMES from .env.example -
+  Add detailed duplicate detection workflow examples - Include similarity threshold guidelines and
+  best practices
+
+Gap analysis results: 96% MCP tools coverage (28/29 → 29/29) All implemented features now have
+  comprehensive user documentation.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Improve auto-indexing configuration section formatting
+  ([`71d0063`](https://github.com/kk6/minerva/commit/71d0063dd83e72f5c21f84e91626dd060e903074))
+
+- Change bold text to proper Markdown heading (### Auto-Indexing Configuration Details) - Fix
+  grammar in background strategy description ("in the background threads")
+
+Improves documentation consistency and readability.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Resolve critical implementation vs documentation gaps
+  ([`edd6db5`](https://github.com/kk6/minerva/commit/edd6db5e5ab3ca63bf8bd25f08ac2d78a211ad5e))
+
+- Add comprehensive frontmatter tools documentation to docs/note_operations.md * Document 4
+  previously undocumented MCP tools (get/set/remove/get_all_frontmatter_field) * Include parameters,
+  return values, examples, and best practices * Add practical use cases for task management and
+  document versioning
+
+- Document FrontmatterOperations service in docs/technical_spec.md * Add complete service module
+  documentation with API methods * Document integration patterns and Obsidian Properties
+  compatibility * Explain architectural context and unified interface design
+
+- Add auto-indexing configuration documentation to CLAUDE.md * Document AUTO_INDEX_ENABLED and
+  AUTO_INDEX_STRATEGY options * Explain immediate/batch/background strategies and performance
+  implications * Clarify relationship with VECTOR_SEARCH_ENABLED configuration
+
+- Update README.md with frontmatter tools * Add frontmatter management section to feature overview *
+  Include usage examples for get/set field operations * Maintain consistency with existing
+  documentation style
+
+Resolves automated gap analysis findings: - 4 MCP tools (12.5%) were completely undocumented → now
+  100% coverage - FrontmatterOperations service was missing from architecture docs - Auto-indexing
+  behavior was undocumented despite significant impact - Configuration options lacked detailed
+  explanations
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Features
+
+- Implement generic frontmatter operations service
+  ([`68db2b9`](https://github.com/kk6/minerva/commit/68db2b9b991144a3730c8c4f78484e2d9062d8c2))
+
+- Add FrontmatterOperations service with unified field operations (get, set, update, remove,
+  get_all) - Refactor TagOperations and AliasOperations to use FrontmatterOperations - Add 4 new MCP
+  tools for generic frontmatter editing: - get_frontmatter_field() - set_frontmatter_field() -
+  remove_frontmatter_field() - get_all_frontmatter_fields() - Update ServiceManager to include
+  frontmatter operations - Reduce code duplication between tag and alias operations - Improve
+  extensibility for future frontmatter field types - Update documentation to reflect new
+  architecture
+
+Resolves #104
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Refactoring
+
+- Extract common parameter handling in frontmatter operations
+  ([`755a62e`](https://github.com/kk6/minerva/commit/755a62e25f81642671c854bed9faf734dda53a56))
+
+Add _prepare_operation helper method to reduce code duplication across all public frontmatter
+  operation methods. This consolidates the repetitive pattern of operation logging and file path
+  resolution.
+
+Changes: - Add _prepare_operation() helper for unified setup - Refactor all 5 public methods to use
+  the helper - Remove ~35-40 lines of duplicated code - Improve maintainability with single point of
+  change - Clean up unused imports (TypeVar)
+
+Benefits: - Reduced code duplication from 7-9 lines per method to 6 lines - Consistent parameter
+  handling across all methods - Single point of maintenance for logging and file resolution
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Testing
+
+- Update tests for frontmatter operations refactoring
+  ([`adb47bb`](https://github.com/kk6/minerva/commit/adb47bb83e39939aac042bc5e2ca1314e4adc688))
+
+Updates test suite to work with the new unified FrontmatterOperations service:
+
+- Fix AliasOperations tests to use _load_note_with_frontmatter instead of _load_note_with_tags -
+  Update TagOperations tests to mock the unified FrontmatterOperations service - Add comprehensive
+  test suite for FrontmatterOperations service (9 test methods) - Fix type annotations and linting
+  issues (23 formatting fixes) - Add safe_operation decorators to FrontmatterOperations methods
+
+All 601 fast tests and 620 core tests now pass. The refactoring successfully eliminates code
+  duplication while maintaining full test coverage.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.19.0 (2025-06-20)
 
 ### Bug Fixes
