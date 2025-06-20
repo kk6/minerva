@@ -1184,3 +1184,148 @@ def find_duplicate_notes(
         exclude_frontmatter=exclude_frontmatter,
     )
     return result.to_dict()
+
+
+# Generic frontmatter editing tools
+
+
+@mcp.tool()
+def get_frontmatter_field(
+    field_name: str,
+    filename: str | None = None,
+    filepath: str | None = None,
+    default_path: str | None = None,
+) -> Any:
+    """
+    Get a specific field value from a note's frontmatter.
+
+    This allows you to retrieve any field from a note's YAML frontmatter,
+    providing flexible access to metadata beyond just tags and aliases.
+
+    Example:
+        get_frontmatter_field("status", filename="project.md")
+        get_frontmatter_field("priority", filepath="/full/path/to/note.md")
+        get_frontmatter_field("due_date", filename="task.md", default_path="work")
+
+    Args:
+        field_name: Name of the frontmatter field to retrieve
+        filename: Name of the file to read from (provide this OR filepath)
+        filepath: Full path to the file to read from (provide this OR filename)
+        default_path: Subfolder to look for the file (optional)
+
+    Returns:
+        The field value, or None if field doesn't exist
+
+    Note:
+        You must provide either filename or filepath.
+        The field name is case-sensitive.
+    """
+    return get_service().get_frontmatter_field(
+        field_name, filename, filepath, default_path
+    )
+
+
+@mcp.tool()
+def set_frontmatter_field(
+    field_name: str,
+    value: Any,
+    filename: str | None = None,
+    filepath: str | None = None,
+    default_path: str | None = None,
+) -> Path:
+    """
+    Set a specific field value in a note's frontmatter.
+
+    This allows you to set any field in a note's YAML frontmatter,
+    providing flexible metadata management beyond just tags and aliases.
+
+    Example:
+        set_frontmatter_field("status", "in-progress", filename="project.md")
+        set_frontmatter_field("priority", "high", filepath="/full/path/to/note.md")
+        set_frontmatter_field("due_date", "2024-12-31", filename="task.md")
+
+    Args:
+        field_name: Name of the frontmatter field to set
+        value: Value to set for the field (can be string, number, list, etc.)
+        filename: Name of the file to modify (provide this OR filepath)
+        filepath: Full path to the file to modify (provide this OR filename)
+        default_path: Subfolder to look for the file (optional)
+
+    Returns:
+        Path to the modified note file
+
+    Note:
+        You must provide either filename or filepath.
+        If the field already exists, it will be updated.
+        The note's 'updated' timestamp will be automatically refreshed.
+    """
+    return get_service().set_frontmatter_field(
+        field_name, value, filename, filepath, default_path
+    )
+
+
+@mcp.tool()
+def remove_frontmatter_field(
+    field_name: str,
+    filename: str | None = None,
+    filepath: str | None = None,
+    default_path: str | None = None,
+) -> Path:
+    """
+    Remove a specific field from a note's frontmatter.
+
+    This allows you to remove any field from a note's YAML frontmatter,
+    providing flexible metadata cleanup.
+
+    Example:
+        remove_frontmatter_field("draft", filename="published-post.md")
+        remove_frontmatter_field("temporary_flag", filepath="/full/path/to/note.md")
+
+    Args:
+        field_name: Name of the frontmatter field to remove
+        filename: Name of the file to modify (provide this OR filepath)
+        filepath: Full path to the file to modify (provide this OR filename)
+        default_path: Subfolder to look for the file (optional)
+
+    Returns:
+        Path to the modified note file
+
+    Note:
+        You must provide either filename or filepath.
+        If the field doesn't exist, no error occurs.
+        The note's 'updated' timestamp will be automatically refreshed.
+    """
+    return get_service().remove_frontmatter_field(
+        field_name, filename, filepath, default_path
+    )
+
+
+@mcp.tool()
+def get_all_frontmatter_fields(
+    filename: str | None = None,
+    filepath: str | None = None,
+    default_path: str | None = None,
+) -> dict[str, Any]:
+    """
+    Get all frontmatter fields from a note.
+
+    This retrieves the complete YAML frontmatter as a dictionary,
+    allowing you to see all metadata fields at once.
+
+    Example:
+        get_all_frontmatter_fields(filename="project.md")
+        get_all_frontmatter_fields(filepath="/full/path/to/note.md")
+
+    Args:
+        filename: Name of the file to read from (provide this OR filepath)
+        filepath: Full path to the file to read from (provide this OR filename)
+        default_path: Subfolder to look for the file (optional)
+
+    Returns:
+        Dictionary containing all frontmatter fields and their values
+
+    Note:
+        You must provide either filename or filepath.
+        Returns an empty dict if the note has no frontmatter.
+    """
+    return get_service().get_all_frontmatter_fields(filename, filepath, default_path)

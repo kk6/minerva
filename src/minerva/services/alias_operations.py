@@ -7,6 +7,7 @@ retrieving, and searching aliases for notes in the Obsidian vault.
 
 import logging
 from pathlib import Path
+from typing import Any, TYPE_CHECKING
 
 import frontmatter
 
@@ -15,12 +16,12 @@ from minerva.error_handler import (
     safe_operation,
 )
 from minerva.exceptions import NoteNotFoundError
-from minerva.file_handler import (
-    FileWriteRequest,
-    write_file,
-)
 from minerva.services.core.base_service import BaseService
 from minerva.services.core.file_operations import resolve_note_file
+
+if TYPE_CHECKING:
+    from minerva.config import MinervaConfig
+    from minerva.frontmatter_manager import FrontmatterManager
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,23 @@ class AliasOperations(BaseService):
     This class handles adding, removing, retrieving, and searching aliases
     in notes within the Obsidian vault, using the core infrastructure utilities.
     """
+
+    def __init__(
+        self, config: "MinervaConfig", frontmatter_manager: "FrontmatterManager"
+    ) -> None:
+        """
+        Initialize AliasOperations with FrontmatterOperations dependency.
+
+        Args:
+            config: Configuration instance
+            frontmatter_manager: Frontmatter manager instance
+        """
+        super().__init__(config, frontmatter_manager)
+
+        # Initialize frontmatter operations for unified frontmatter handling
+        from minerva.services.frontmatter_operations import FrontmatterOperations
+
+        self._frontmatter_ops = FrontmatterOperations(config, frontmatter_manager)
 
     def _validate_alias(self, alias: str) -> str:
         """
@@ -76,24 +94,12 @@ class AliasOperations(BaseService):
         """
         return alias.strip().lower()
 
-    def _load_note_with_tags(
+    def _load_note_with_frontmatter(
         self, file_path: Path
-    ) -> tuple["frontmatter.Post", list[str]]:
-        """Load note and extract current tags."""
-        if not file_path.exists():
-            raise FileNotFoundError(f"File {file_path} does not exist")
-
-        # Import here to avoid circular imports
-        from minerva.services.note_operations import NoteOperations
-
-        # Create a temporary note operations instance to read the file
-        note_ops = NoteOperations(self.config, self.frontmatter_manager)
-        content = note_ops.read_note(str(file_path))
-
-        post = frontmatter.loads(content)
-        tags_value = post.metadata.get("tags", [])
-        tags = list(tags_value) if isinstance(tags_value, list) else []
-        return post, tags
+    ) -> tuple["frontmatter.Post", dict[str, Any]]:
+        """Load note and extract current frontmatter using FrontmatterOperations."""
+        # Use the unified frontmatter operations
+        return self._frontmatter_ops._load_note_with_frontmatter(file_path)
 
     def _get_aliases_from_file(self, file_path: Path) -> list[str]:
         """
@@ -105,15 +111,15 @@ class AliasOperations(BaseService):
         Returns:
             list[str]: List of aliases (preserves original casing)
         """
-        post, _ = self._load_note_with_tags(file_path)
-        aliases_value = post.metadata.get("aliases", [])
+        _, frontmatter_dict = self._load_note_with_frontmatter(file_path)
+        aliases_value = frontmatter_dict.get("aliases", [])
         return list(aliases_value) if isinstance(aliases_value, list) else []
 
     def _save_note_with_updated_aliases(
         self, file_path: Path, post: "frontmatter.Post", aliases: list[str]
     ) -> Path:
         """
-        Save note with updated aliases.
+        Save note with updated aliases using FrontmatterOperations.
 
         Args:
             file_path: Path to the note file
@@ -123,43 +129,18 @@ class AliasOperations(BaseService):
         Returns:
             Path: Path to the saved file
         """
-        # Get current metadata
-        current_metadata = dict(post.metadata)
-
-        # Update aliases in metadata
+        # Update frontmatter with new aliases
+        frontmatter_dict = dict(post.metadata)
         if aliases:
-            current_metadata["aliases"] = aliases
+            frontmatter_dict["aliases"] = aliases
         else:
             # Remove aliases field if no aliases remain
-            current_metadata.pop("aliases", None)
+            frontmatter_dict.pop("aliases", None)
 
-        # Get author
-        author_value = current_metadata.get("author")
-        author_str = str(author_value) if author_value is not None else None
-
-        # Generate updated metadata (preserving existing fields)
-        updated_post = self.frontmatter_manager.generate_metadata(
-            text=post.content,
-            author=author_str,
-            is_new_note=False,
-            existing_frontmatter=current_metadata,
+        # Use the unified frontmatter operations
+        return self._frontmatter_ops._save_note_with_updated_frontmatter(
+            file_path, post, frontmatter_dict
         )
-
-        # Ensure aliases are preserved (generate_metadata might not handle custom fields)
-        if aliases:
-            updated_post.metadata["aliases"] = aliases
-        else:
-            updated_post.metadata.pop("aliases", None)
-
-        content = frontmatter.dumps(updated_post)
-        file_write_request = FileWriteRequest(
-            directory=str(file_path.parent),
-            filename=file_path.name,
-            content=content,
-            overwrite=True,
-        )
-
-        return write_file(file_write_request)
 
     def _check_alias_conflicts(
         self, alias: str, exclude_file: Path | None = None
@@ -260,7 +241,7 @@ class AliasOperations(BaseService):
         # Add alias if not already present
         if normalized_new not in normalized_current:
             current_aliases.append(alias)
-            post, _ = self._load_note_with_tags(file_path)
+            post, _ = self._load_note_with_frontmatter(file_path)
             written_path = self._save_note_with_updated_aliases(
                 file_path, post, current_aliases
             )
@@ -316,7 +297,7 @@ class AliasOperations(BaseService):
 
         # Save updated aliases only if an alias was actually removed
         if alias_was_removed:
-            post, _ = self._load_note_with_tags(file_path)
+            post, _ = self._load_note_with_frontmatter(file_path)
             written_path = self._save_note_with_updated_aliases(
                 file_path, post, new_aliases
             )

@@ -4,6 +4,7 @@ Tests for AliasOperations service module.
 
 import re
 import pytest
+from typing import Any
 from unittest.mock import Mock, patch
 from pathlib import Path
 
@@ -90,86 +91,83 @@ class TestAliasOperations:
     # Note: _resolve_note_file was removed and replaced with resolve_note_file from core.file_operations
     # File resolution is now tested in tests/services/core/test_file_operations.py
 
-    @patch("minerva.services.note_operations.NoteOperations")
-    @patch("frontmatter.loads")
-    @patch("pathlib.Path.exists")
-    def test_load_note_with_tags_success(
-        self, mock_exists, mock_loads, mock_note_ops_class, alias_operations
-    ):
-        """Test successfully loading note with tags."""
+    def test_load_note_with_frontmatter_success(self, alias_operations):
+        """Test successfully loading note with frontmatter."""
         # Arrange
         file_path = Path("/test/vault/notes/test.md")
-        mock_exists.return_value = True
 
-        mock_note_ops = Mock()
-        mock_note_ops.read_note.return_value = (
-            "---\naliases: [alias1, alias2]\n---\nContent"
-        )
-        mock_note_ops_class.return_value = mock_note_ops
-
+        # Mock the FrontmatterOperations method
         mock_post = Mock()
-        mock_post.metadata = {"aliases": ["alias1", "alias2"], "tags": ["tag1", "tag2"]}
-        mock_loads.return_value = mock_post
+        mock_frontmatter: dict[str, Any] = {
+            "aliases": ["alias1", "alias2"],
+            "tags": ["tag1", "tag2"],
+        }
 
-        # Act
-        post, tags = alias_operations._load_note_with_tags(file_path)
+        with patch.object(
+            alias_operations._frontmatter_ops,
+            "_load_note_with_frontmatter",
+            return_value=(mock_post, mock_frontmatter),
+        ):
+            # Act
+            post, frontmatter_dict = alias_operations._load_note_with_frontmatter(
+                file_path
+            )
 
         # Assert
         assert post == mock_post
-        assert tags == ["tag1", "tag2"]
-        mock_note_ops.read_note.assert_called_once_with(str(file_path))
+        assert frontmatter_dict == mock_frontmatter
 
-    @patch("pathlib.Path.exists")
-    def test_load_note_with_tags_file_not_found(self, mock_exists, alias_operations):
+    def test_load_note_with_frontmatter_file_not_found(self, alias_operations):
         """Test loading note when file doesn't exist."""
         file_path = Path("/test/vault/notes/nonexistent.md")
-        mock_exists.return_value = False
 
-        with pytest.raises(FileNotFoundError, match="File .* does not exist"):
-            alias_operations._load_note_with_tags(file_path)
+        # Mock the FrontmatterOperations method to raise FileNotFoundError
+        with patch.object(
+            alias_operations._frontmatter_ops,
+            "_load_note_with_frontmatter",
+            side_effect=FileNotFoundError(f"File {file_path} does not exist"),
+        ):
+            with pytest.raises(FileNotFoundError, match="File .* does not exist"):
+                alias_operations._load_note_with_frontmatter(file_path)
 
-    @patch.object(AliasOperations, "_load_note_with_tags")
+    @patch.object(AliasOperations, "_load_note_with_frontmatter")
     def test_get_aliases_from_file_success(self, mock_load, alias_operations):
         """Test successfully getting aliases from file."""
         file_path = Path("/test/vault/notes/test.md")
         mock_post = Mock()
-        mock_post.metadata = {"aliases": ["alias1", "alias2"]}
-        mock_load.return_value = (mock_post, [])
+        mock_frontmatter: dict[str, Any] = {"aliases": ["alias1", "alias2"]}
+        mock_load.return_value = (mock_post, mock_frontmatter)
 
         result = alias_operations._get_aliases_from_file(file_path)
 
         assert result == ["alias1", "alias2"]
         mock_load.assert_called_once_with(file_path)
 
-    @patch.object(AliasOperations, "_load_note_with_tags")
+    @patch.object(AliasOperations, "_load_note_with_frontmatter")
     def test_get_aliases_from_file_no_aliases(self, mock_load, alias_operations):
         """Test getting aliases from file with no aliases."""
         file_path = Path("/test/vault/notes/test.md")
         mock_post = Mock()
-        mock_post.metadata = {}
-        mock_load.return_value = (mock_post, [])
+        mock_frontmatter: dict[str, Any] = {}
+        mock_load.return_value = (mock_post, mock_frontmatter)
 
         result = alias_operations._get_aliases_from_file(file_path)
 
         assert result == []
 
-    @patch.object(AliasOperations, "_load_note_with_tags")
+    @patch.object(AliasOperations, "_load_note_with_frontmatter")
     def test_get_aliases_from_file_non_list_aliases(self, mock_load, alias_operations):
         """Test getting aliases from file with non-list aliases value."""
         file_path = Path("/test/vault/notes/test.md")
         mock_post = Mock()
-        mock_post.metadata = {"aliases": "single_alias"}
-        mock_load.return_value = (mock_post, [])
+        mock_frontmatter: dict[str, Any] = {"aliases": "single_alias"}
+        mock_load.return_value = (mock_post, mock_frontmatter)
 
         result = alias_operations._get_aliases_from_file(file_path)
 
         assert result == []
 
-    @patch("minerva.services.alias_operations.write_file")
-    @patch("frontmatter.dumps")
-    def test_save_note_with_updated_aliases(
-        self, mock_dumps, mock_write, alias_operations
-    ):
+    def test_save_note_with_updated_aliases(self, alias_operations):
         """Test saving note with updated aliases."""
         # Arrange
         file_path = Path("/test/vault/notes/test.md")
@@ -178,34 +176,26 @@ class TestAliasOperations:
         mock_post.content = "Test content"
         aliases = ["alias1", "alias2"]
 
-        mock_updated_post = Mock()
-        mock_updated_post.metadata = {}  # Make metadata a real dict
-        alias_operations.frontmatter_manager.generate_metadata.return_value = (
-            mock_updated_post
-        )
-        mock_dumps.return_value = "updated content"
-        mock_write.return_value = file_path
-
-        # Act
-        result = alias_operations._save_note_with_updated_aliases(
-            file_path, mock_post, aliases
-        )
+        # Mock the FrontmatterOperations method
+        with patch.object(
+            alias_operations._frontmatter_ops,
+            "_save_note_with_updated_frontmatter",
+            return_value=file_path,
+        ) as mock_save:
+            # Act
+            result = alias_operations._save_note_with_updated_aliases(
+                file_path, mock_post, aliases
+            )
 
         # Assert
         assert result == file_path
-        alias_operations.frontmatter_manager.generate_metadata.assert_called_once_with(
-            text="Test content",
-            author="Test Author",
-            is_new_note=False,
-            existing_frontmatter={"author": "Test Author", "aliases": aliases},
-        )
-        mock_write.assert_called_once()
+        mock_save.assert_called_once()
+        call_args = mock_save.call_args[0]
+        updated_frontmatter = call_args[2]  # Third argument is frontmatter dict
+        assert updated_frontmatter["aliases"] == aliases
+        assert updated_frontmatter["author"] == "Test Author"
 
-    @patch("minerva.services.alias_operations.write_file")
-    @patch("frontmatter.dumps")
-    def test_save_note_with_updated_aliases_empty_list(
-        self, mock_dumps, mock_write, alias_operations
-    ):
+    def test_save_note_with_updated_aliases_empty_list(self, alias_operations):
         """Test saving note with empty aliases list."""
         # Arrange
         file_path = Path("/test/vault/notes/test.md")
@@ -214,31 +204,25 @@ class TestAliasOperations:
         mock_post.content = "Test content"
         aliases: list[str] = []
 
-        mock_updated_post = Mock()
-        mock_updated_post.metadata = {
-            "author": "Test Author"
-        }  # Make metadata a real dict
-        alias_operations.frontmatter_manager.generate_metadata.return_value = (
-            mock_updated_post
-        )
-        mock_dumps.return_value = "updated content"
-        mock_write.return_value = file_path
-
-        # Act
-        result = alias_operations._save_note_with_updated_aliases(
-            file_path, mock_post, aliases
-        )
+        # Mock the FrontmatterOperations method
+        with patch.object(
+            alias_operations._frontmatter_ops,
+            "_save_note_with_updated_frontmatter",
+            return_value=file_path,
+        ) as mock_save:
+            # Act
+            result = alias_operations._save_note_with_updated_aliases(
+                file_path, mock_post, aliases
+            )
 
         # Assert
         assert result == file_path
         # Verify aliases were removed from metadata
-        expected_metadata = {"author": "Test Author"}
-        alias_operations.frontmatter_manager.generate_metadata.assert_called_once_with(
-            text="Test content",
-            author="Test Author",
-            is_new_note=False,
-            existing_frontmatter=expected_metadata,
-        )
+        mock_save.assert_called_once()
+        call_args = mock_save.call_args[0]
+        updated_frontmatter = call_args[2]  # Third argument is frontmatter dict
+        assert "aliases" not in updated_frontmatter
+        assert updated_frontmatter["author"] == "Test Author"
 
     @patch.object(AliasOperations, "_get_aliases_from_file")
     @patch.object(AliasOperations, "_normalize_alias")
@@ -313,7 +297,7 @@ class TestAliasOperations:
             assert result == []
 
     @patch.object(AliasOperations, "_save_note_with_updated_aliases")
-    @patch.object(AliasOperations, "_load_note_with_tags")
+    @patch.object(AliasOperations, "_load_note_with_frontmatter")
     @patch.object(AliasOperations, "_get_aliases_from_file")
     @patch.object(AliasOperations, "_check_alias_conflicts")
     @patch("minerva.services.alias_operations.resolve_note_file")
@@ -339,7 +323,8 @@ class TestAliasOperations:
         mock_check_conflicts.return_value = []
         mock_get_aliases.return_value = ["existing-alias"]
         mock_post = Mock()
-        mock_load.return_value = (mock_post, [])
+        mock_frontmatter: dict[str, Any] = {}
+        mock_load.return_value = (mock_post, mock_frontmatter)
         mock_save.return_value = file_path
 
         # Act
@@ -379,7 +364,7 @@ class TestAliasOperations:
             )
 
     @patch.object(AliasOperations, "_save_note_with_updated_aliases")
-    @patch.object(AliasOperations, "_load_note_with_tags")
+    @patch.object(AliasOperations, "_load_note_with_frontmatter")
     @patch.object(AliasOperations, "_get_aliases_from_file")
     @patch.object(AliasOperations, "_check_alias_conflicts")
     @patch("minerva.services.alias_operations.resolve_note_file")
@@ -418,7 +403,7 @@ class TestAliasOperations:
             mock_save.assert_not_called()
 
     @patch.object(AliasOperations, "_save_note_with_updated_aliases")
-    @patch.object(AliasOperations, "_load_note_with_tags")
+    @patch.object(AliasOperations, "_load_note_with_frontmatter")
     @patch.object(AliasOperations, "_get_aliases_from_file")
     @patch("minerva.services.alias_operations.resolve_note_file")
     @patch.object(AliasOperations, "_normalize_alias")
@@ -441,7 +426,8 @@ class TestAliasOperations:
         mock_resolve.return_value = file_path
         mock_get_aliases.return_value = ["keep-alias", "remove-alias"]
         mock_post = Mock()
-        mock_load.return_value = (mock_post, [])
+        mock_frontmatter: dict[str, Any] = {}
+        mock_load.return_value = (mock_post, mock_frontmatter)
         mock_save.return_value = file_path
 
         # Act

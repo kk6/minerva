@@ -35,6 +35,12 @@ Claude Desktopを通じて、以下の操作が可能です：
 - エイリアスの取得（get_aliases）
 - エイリアスによるノート検索（search_by_alias）
 
+### フロントマター管理機能
+- フロントマターフィールドの取得（get_frontmatter_field）
+- フロントマターフィールドの設定（set_frontmatter_field）
+- フロントマターフィールドの削除（remove_frontmatter_field）
+- 全フロントマターフィールドの取得（get_all_frontmatter_fields）
+
 ### セマンティック検索機能（v0.15.0以降）
 - ベクターインデックスの構築（build_vector_index）
 - セマンティック検索によるノート発見（semantic_search）
@@ -239,6 +245,19 @@ add_alias 関数を使って「project_notes」ファイルに「プロジェク
 
 ```
 search_by_alias 関数を使って「会議メモ」というエイリアスでノートを検索してください。
+```
+
+#### フロントマター管理
+```
+set_frontmatter_field 関数を使って「task_note」ファイルの「priority」フィールドに「high」を設定してください。
+```
+
+```
+get_frontmatter_field 関数を使って「project_note」ファイルの「status」フィールドの値を取得してください。
+```
+
+```
+get_all_frontmatter_fields 関数を使って「meeting_note」ファイルのすべてのフロントマターフィールドを確認してください。
 ```
 
 #### セマンティック検索（v0.15.0以降）

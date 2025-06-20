@@ -585,9 +585,312 @@ results = search_by_alias(
 - Obsidianで作成されたエイリアスもMinervaで正常に読み取り・操作できます
 - Minervaで作成されたエイリアスもObsidianで正常に認識されます
 
-## 9. ノートマージ機能
+## 9. フロントマター管理機能
 
-### 9.1 概要
+Minervaは、ノートのフロントマター（メタデータ）を操作するための汎用的な機能セットを提供します。これらの機能により、任意のフロントマターフィールドの取得、設定、更新、削除が可能です。
+
+### 9.1 フロントマターフィールドの取得 (get_frontmatter_field)
+
+#### 機能概要
+指定されたノートのフロントマターから特定のフィールドの値を取得します。
+
+#### パラメータ
+- `field_name`: 取得するフィールド名（例: "author", "priority", "custom_field"）
+- `filename` または `filepath`: 対象ノートを特定します
+- `default_path` (オプション): サブディレクトリが指定されていない場合に使用するデフォルトディレクトリ
+
+#### 戻り値
+- フィールドの値（Any型 - 文字列、数値、リスト、辞書など）
+- フィールドが存在しない場合は `None`
+
+#### 使用例
+```python
+from minerva.tools import get_frontmatter_field
+
+# 著者フィールドを取得
+author = get_frontmatter_field("author", filename="my_note.md")
+print(f"著者: {author}")
+
+# カスタムフィールドを取得
+priority = get_frontmatter_field("priority", filename="task_note.md")
+print(f"優先度: {priority}")
+```
+
+### 9.2 フロントマターフィールドの設定 (set_frontmatter_field)
+
+#### 機能概要
+指定されたノートのフロントマターに特定のフィールドを設定または更新します。
+
+#### パラメータ
+- `field_name`: 設定するフィールド名
+- `value`: 設定する値（文字列、数値、リスト、辞書など）
+- `filename` または `filepath`: 対象ノートを特定します
+- `default_path` (オプション): サブディレクトリが指定されていない場合に使用するデフォルトディレクトリ
+
+#### 戻り値
+- 更新されたノートファイルのパス (`Path`オブジェクト)
+
+#### 使用例
+```python
+from minerva.tools import set_frontmatter_field
+
+# 優先度フィールドを設定
+file_path = set_frontmatter_field(
+    field_name="priority",
+    value="high",
+    filename="task_note.md"
+)
+
+# リスト型のフィールドを設定
+file_path = set_frontmatter_field(
+    field_name="categories",
+    value=["work", "project-a", "urgent"],
+    filename="project_note.md"
+)
+
+# 数値フィールドを設定
+file_path = set_frontmatter_field(
+    field_name="version",
+    value=2.1,
+    filename="document.md"
+)
+```
+
+### 9.3 フロントマターフィールドの削除 (remove_frontmatter_field)
+
+#### 機能概要
+指定されたノートのフロントマターから特定のフィールドを削除します。
+
+#### パラメータ
+- `field_name`: 削除するフィールド名
+- `filename` または `filepath`: 対象ノートを特定します
+- `default_path` (オプション): サブディレクトリが指定されていない場合に使用するデフォルトディレクトリ
+
+#### 戻り値
+- 更新されたノートファイルのパス (`Path`オブジェクト)
+
+#### 使用例
+```python
+from minerva.tools import remove_frontmatter_field
+
+# 特定のフィールドを削除
+file_path = remove_frontmatter_field(
+    field_name="draft",
+    filename="published_note.md"
+)
+
+# カスタムフィールドを削除
+file_path = remove_frontmatter_field(
+    field_name="temporary_data",
+    filename="cleaned_note.md"
+)
+```
+
+### 9.4 全フロントマターフィールドの取得 (get_all_frontmatter_fields)
+
+#### 機能概要
+指定されたノートのフロントマターに含まれるすべてのフィールドと値を取得します。
+
+#### パラメータ
+- `filename` または `filepath`: 対象ノートを特定します
+- `default_path` (オプション): サブディレクトリが指定されていない場合に使用するデフォルトディレクトリ
+
+#### 戻り値
+- フロントマターのすべてのフィールドを含む辞書 (`dict[str, Any]`)
+- フロントマターが存在しない場合は空の辞書
+
+#### 使用例
+```python
+from minerva.tools import get_all_frontmatter_fields
+
+# すべてのフロントマターフィールドを取得
+frontmatter = get_all_frontmatter_fields(filename="note.md")
+print("フロントマターフィールド:")
+for field_name, value in frontmatter.items():
+    print(f"  {field_name}: {value}")
+
+# 特定のフィールドが存在するかチェック
+if "status" in frontmatter:
+    print(f"ステータス: {frontmatter['status']}")
+```
+
+### 9.5 フロントマター管理のベストプラクティス
+
+#### 9.5.1 フィールド命名規則
+- 小文字とアンダースコアを使用（例: `project_status`, `due_date`）
+- ObsidianのProperties機能と互換性を保つ
+- 予約フィールド（`tags`, `aliases`, `created`, `updated`）の意図しない上書きを避ける
+
+#### 9.5.2 データ型の使い分け
+- **文字列**: `author`, `status`, `description`
+- **数値**: `version`, `priority_level`, `completion_percentage`
+- **リスト**: `categories`, `related_projects`, `keywords`
+- **辞書**: 構造化された複雑なメタデータ
+
+#### 9.5.3 安全な操作
+```python
+# フィールド存在確認後の安全な操作
+frontmatter = get_all_frontmatter_fields(filename="note.md")
+if "priority" in frontmatter:
+    current_priority = frontmatter["priority"]
+    print(f"現在の優先度: {current_priority}")
+else:
+    # デフォルト値を設定
+    set_frontmatter_field("priority", "medium", filename="note.md")
+```
+
+### 9.6 実用的な使用例
+
+#### 9.6.1 タスク管理システムとの統合
+```python
+# タスクノートのステータス管理
+def update_task_status(filename, new_status):
+    """タスクのステータスを更新し、完了時刻を記録"""
+    set_frontmatter_field("status", new_status, filename=filename)
+
+    if new_status == "completed":
+        from datetime import datetime
+        set_frontmatter_field(
+            "completed_at",
+            datetime.now().isoformat(),
+            filename=filename
+        )
+
+# 使用例
+update_task_status("project_task.md", "completed")
+```
+
+#### 9.6.2 文書管理システム
+```python
+# 文書のバージョン管理
+def increment_document_version(filename):
+    """文書のバージョンを自動インクリメント"""
+    current_version = get_frontmatter_field("version", filename=filename)
+    if current_version is None:
+        new_version = 1.0
+    else:
+        new_version = float(current_version) + 0.1
+
+    set_frontmatter_field("version", new_version, filename=filename)
+    return new_version
+
+# 使用例
+new_version = increment_document_version("specification.md")
+print(f"文書バージョンを {new_version} に更新しました")
+```
+
+#### 9.6.3 レビューシステムの実装
+```python
+# レビュー情報の管理
+def add_review_data(filename, reviewer, rating, comments):
+    """ノートにレビュー情報を追加"""
+    # 既存のレビューデータを取得
+    reviews = get_frontmatter_field("reviews", filename=filename) or []
+
+    # 新しいレビューを追加
+    new_review = {
+        "reviewer": reviewer,
+        "rating": rating,
+        "comments": comments,
+        "date": datetime.now().isoformat()
+    }
+    reviews.append(new_review)
+
+    # レビューデータを更新
+    set_frontmatter_field("reviews", reviews, filename=filename)
+
+# 使用例
+add_review_data(
+    filename="research_paper.md",
+    reviewer="Dr. Smith",
+    rating=4.5,
+    comments="Well-structured analysis"
+)
+```
+
+### 9.7 フロントマターフィールドの更新 (update_frontmatter_field)
+
+#### 機能概要
+指定されたノートのフロントマターで特定のフィールドを更新します。この機能は、既存のフィールド値を新しい値で上書きし、フィールドが存在しない場合は新規作成します。
+
+#### パラメータ
+- `field_name`: 更新するフィールド名（例: "author", "priority", "custom_field"）
+- `value`: 設定する新しい値（文字列、数値、リスト、辞書など）
+- `filename` または `filepath`: 対象ノートを特定します
+- `default_path` (オプション): サブディレクトリが指定されていない場合に使用するデフォルトディレクトリ
+
+#### 戻り値
+- 更新されたノートファイルのパス（Path オブジェクト）
+
+#### 使用例
+
+##### 9.7.1 基本的な使用例
+```python
+from minerva.tools import update_frontmatter_field
+
+# 著者フィールドを更新
+update_frontmatter_field("author", "田中太郎", filename="my_note.md")
+
+# 優先度フィールドを更新
+update_frontmatter_field("priority", "high", filename="task_note.md")
+
+# 数値フィールドを更新
+update_frontmatter_field("version", 2.1, filename="document.md")
+```
+
+##### 9.7.2 複雑なデータ型の更新
+```python
+# リストフィールドを更新
+tags = ["プロジェクト", "重要", "進行中"]
+update_frontmatter_field("tags", tags, filename="project_note.md")
+
+# 辞書フィールドを更新
+metadata = {
+    "status": "review",
+    "reviewer": "山田花子",
+    "due_date": "2024-01-15"
+}
+update_frontmatter_field("metadata", metadata, filename="report.md")
+```
+
+##### 9.7.3 カスタムフィールドの管理
+```python
+# 進捗状況の更新
+def update_progress(filename, progress_percentage):
+    """ノートの進捗状況を更新"""
+    update_frontmatter_field("progress", progress_percentage, filename=filename)
+
+    # 100%完了時にステータスも更新
+    if progress_percentage == 100:
+        update_frontmatter_field("status", "completed", filename=filename)
+
+# 使用例
+update_progress("task_list.md", 75)
+```
+
+##### 9.7.4 実践的な活用例
+```python
+# プロジェクト管理での使用
+def update_task_status(filename, new_status, assignee=None):
+    """タスクのステータスを更新し、必要に応じて担当者も更新"""
+    update_frontmatter_field("status", new_status, filename=filename)
+
+    if assignee:
+        update_frontmatter_field("assignee", assignee, filename=filename)
+
+    # 完了時に完了日時を記録
+    if new_status == "completed":
+        from datetime import datetime
+        update_frontmatter_field("completed_at", datetime.now().isoformat(), filename=filename)
+
+# 使用例
+update_task_status("feature_development.md", "in_progress", "開発者A")
+update_task_status("feature_development.md", "completed")
+```
+
+## 10. ノートマージ機能
+
+### 10.1 概要
 
 ノートマージ機能は、複数のノートを1つのファイルに統合する機能です。散在したメモの整理、関連トピックの統合、月次レポートの作成などに活用できます。
 

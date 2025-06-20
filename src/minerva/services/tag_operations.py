@@ -7,6 +7,7 @@ retrieving, and searching tags for notes in the Obsidian vault.
 
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import frontmatter
 
@@ -14,13 +15,13 @@ from minerva.error_handler import (
     log_performance,
     safe_operation,
 )
-from minerva.file_handler import (
-    FileWriteRequest,
-    write_file,
-)
 from minerva.services.core.base_service import BaseService
 from minerva.services.core.file_operations import resolve_note_file
 from minerva.validators import TagValidator
+
+if TYPE_CHECKING:
+    from minerva.config import MinervaConfig
+    from minerva.frontmatter_manager import FrontmatterManager
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,23 @@ class TagOperations(BaseService):
     This class handles adding, removing, retrieving, and searching tags
     in notes within the Obsidian vault, using the core infrastructure utilities.
     """
+
+    def __init__(
+        self, config: "MinervaConfig", frontmatter_manager: "FrontmatterManager"
+    ) -> None:
+        """
+        Initialize TagOperations with FrontmatterOperations dependency.
+
+        Args:
+            config: Configuration instance
+            frontmatter_manager: Frontmatter manager instance
+        """
+        super().__init__(config, frontmatter_manager)
+
+        # Initialize frontmatter operations for unified frontmatter handling
+        from minerva.services.frontmatter_operations import FrontmatterOperations
+
+        self._frontmatter_ops = FrontmatterOperations(config, frontmatter_manager)
 
     def _validate_and_resolve_file(
         self,
@@ -122,47 +140,27 @@ class TagOperations(BaseService):
     def _load_note_with_tags(
         self, file_path: Path
     ) -> tuple["frontmatter.Post", list[str]]:
-        """Load note and extract current tags."""
-        if not file_path.exists():
-            raise FileNotFoundError(f"File {file_path} does not exist")
-
-        # Import here to avoid circular imports
-        from minerva.services.note_operations import NoteOperations
-
-        # Create a temporary note operations instance to read the file
-        note_ops = NoteOperations(self.config, self.frontmatter_manager)
-        content = note_ops.read_note(str(file_path))
-
-        post = frontmatter.loads(content)
-        tags_value = post.metadata.get("tags", [])
+        """Load note and extract current tags using FrontmatterOperations."""
+        # Use the unified frontmatter operations
+        post, frontmatter_dict = self._frontmatter_ops._load_note_with_frontmatter(
+            file_path
+        )
+        tags_value = frontmatter_dict.get("tags", [])
         tags = list(tags_value) if isinstance(tags_value, list) else []
         return post, tags
 
     def _save_note_with_updated_tags(
         self, file_path: Path, post: "frontmatter.Post", tags: list[str]
     ) -> Path:
-        """Save note with updated tags."""
-        author_value = post.metadata.get("author")
-        author_str = str(author_value) if author_value is not None else None
+        """Save note with updated tags using FrontmatterOperations."""
+        # Update frontmatter with new tags
+        frontmatter_dict = dict(post.metadata)
+        frontmatter_dict["tags"] = tags
 
-        # Generate updated metadata
-        updated_post = self.frontmatter_manager.generate_metadata(
-            text=post.content,
-            author=author_str,
-            is_new_note=False,
-            existing_frontmatter=dict(post.metadata),
-            tags=tags,
+        # Use the unified frontmatter operations
+        return self._frontmatter_ops._save_note_with_updated_frontmatter(
+            file_path, post, frontmatter_dict
         )
-
-        content = frontmatter.dumps(updated_post)
-        file_write_request = FileWriteRequest(
-            directory=str(file_path.parent),
-            filename=file_path.name,
-            content=content,
-            overwrite=True,
-        )
-
-        return write_file(file_write_request)
 
     @log_performance(threshold_ms=300)
     def add_tag(

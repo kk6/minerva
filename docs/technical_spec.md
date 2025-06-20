@@ -13,6 +13,7 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
      - **TagOperations**: タグ追加・削除・一括変更・検索機能
      - **AliasOperations**: エイリアス管理と競合検出
      - **SearchOperations**: 全文検索とフィルタリング機能
+     - **FrontmatterOperations**: 汎用フロントマターフィールド操作
    - **MinervaConfig**: 依存性注入用の設定データクラス
    - **create_minerva_service()**: デフォルト設定でのServiceManagerファクトリー関数
 
@@ -43,6 +44,7 @@ Minervaは依存性注入パターンを採用した階層化アーキテクチ�
      - `merge_notes()`, `smart_merge_notes()` 関数（ノート統合機能）
      - `add_tag()`, `remove_tag()`, `rename_tag()`, `get_tags()`, `list_all_tags()`, `find_notes_with_tag()` 関数（タグ管理）
      - `add_alias()`, `remove_alias()`, `get_aliases()`, `search_by_alias()` 関数（エイリアス管理）
+     - `get_frontmatter_field()`, `set_frontmatter_field()`, `remove_frontmatter_field()`, `get_all_frontmatter_fields()` 関数（フロントマター管理）
      - `semantic_search()`, `build_vector_index()`, `get_vector_index_status()` 関数（セマンティック検索）
      - `build_vector_index_batch()`, `reset_vector_database()`, `debug_vector_schema()` 関数（ベクター検索デバッグ・管理）
      - **📖 詳細**: [vector_search_api.md](vector_search_api.md)で全9個のベクター検索ツールの完全ドキュメント
@@ -447,7 +449,76 @@ def _find_duplicate_groups(self, similarity_matrix: np.ndarray,
 - `_find_duplicate_groups()`: 類似ノートのグループ化アルゴリズム
 - `_create_duplicate_file()`: 重複ファイル情報の作成
 
-#### 3.5.4 ベクター検索統合アーキテクチャ
+#### 3.5.4 FrontmatterOperations - 汎用フロントマター管理
+
+FrontmatterOperationsは、ノートのフロントマター（YAMLメタデータ）に対する汎用的な操作を提供します：
+
+```python
+class FrontmatterOperations(BaseService):
+    """Generic frontmatter field operations for notes."""
+
+    def get_field(self, field_name: str, filename: str | None = None,
+                  filepath: str | None = None, default_path: str | None = None) -> Any:
+        """Get specific frontmatter field value from a note."""
+
+    def set_field(self, field_name: str, value: Any, filename: str | None = None,
+                  filepath: str | None = None, default_path: str | None = None) -> Path:
+        """Set specific frontmatter field value in a note."""
+
+    def update_field(self, field_name: str, value: Any, filename: str | None = None,
+                     filepath: str | None = None, default_path: str | None = None) -> Path:
+        """Update a specific frontmatter field in a note."""
+
+    def remove_field(self, field_name: str, filename: str | None = None,
+                     filepath: str | None = None, default_path: str | None = None) -> Path:
+        """Remove specific frontmatter field from a note."""
+
+    def get_all_fields(self, filename: str | None = None,
+                       filepath: str | None = None, default_path: str | None = None) -> dict[str, Any]:
+        """Get all frontmatter fields from a note."""
+```
+
+**主要機能**:
+
+1. **任意フィールドアクセス**: 標準フィールド（tags, aliases）以外のカスタムフィールドにもアクセス
+2. **型安全性**: Any型での値の保存・取得により、文字列、数値、リスト、辞書などに対応
+3. **自動フロントマター管理**: フィールド追加時のフロントマター自動生成
+4. **統一インターフェース**: `filename`/`filepath`パラメータによる柔軟なファイル指定
+
+**使用例**:
+
+```python
+# カスタムフィールドの設定
+frontmatter_ops.set_field("priority", "high", filename="task.md")
+frontmatter_ops.set_field("due_date", "2024-12-31", filename="task.md")
+frontmatter_ops.set_field("categories", ["work", "urgent"], filename="task.md")
+
+# フィールド値の取得
+priority = frontmatter_ops.get_field("priority", filename="task.md")
+all_fields = frontmatter_ops.get_all_fields(filename="task.md")
+
+# フィールドの更新
+frontmatter_ops.update_field("priority", "urgent", filename="task.md")
+frontmatter_ops.update_field("status", "in_progress", filename="task.md")
+
+# フィールドの削除
+frontmatter_ops.remove_field("draft", filename="published.md")
+```
+
+**統合パターン**:
+
+- **FrontmatterManager連携**: 低レベルYAML処理の委譲
+- **TagOperations統合**: `tags`フィールドを特殊化したタグ専用操作
+- **AliasOperations統合**: `aliases`フィールドを特殊化したエイリアス専用操作
+- **NoteOperations連携**: ノート作成・編集時の自動フロントマター生成
+
+**Obsidian Properties互換性**:
+
+- Obsidian Properties UIで設定したフィールドの読み取り・編集に対応
+- カスタムプロパティタイプ（日付、数値、選択肢）のサポート
+- プロパティスキーマとの自動統合
+
+#### 3.5.5 ベクター検索統合アーキテクチャ
 
 **コンポーネント間の相互作用**:
 

@@ -78,12 +78,13 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - **MCP Server**: FastMCP-based server (`server.py`) that provides tool endpoints
   - Uses `@mcp.tool()` decorators for direct service integration
   - Tool functions directly call service methods without wrapper layer
-  - **29 total MCP tools** including 9 vector search tools and duplicate detection
+  - **33 total MCP tools** including 9 vector search tools, duplicate detection, and 4 generic frontmatter tools
 - **Service Layer**: Modular service architecture (`services/`) with dependency injection pattern
   - `ServiceManager`: Central facade coordinating all service operations
+  - `FrontmatterOperations`: **Generic frontmatter field operations** (get, set, update, remove, get_all)
   - `NoteOperations`: Note CRUD operations, content management, note merging, and **auto-indexing integration**
-  - `TagOperations`: Comprehensive tag management functionality
-  - `AliasOperations`: Alias management and conflict detection
+  - `TagOperations`: Comprehensive tag management functionality (refactored to use FrontmatterOperations)
+  - `AliasOperations`: Alias management and conflict detection (refactored to use FrontmatterOperations)
   - `SearchOperations`: Full-text search and **semantic search with duplicate detection**
   - `MergeProcessors`: Strategy-based note merging (append, by-heading, by-date, smart)
   - `create_minerva_service()`: Factory function for ServiceManager creation
@@ -103,6 +104,7 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - Tag management (add, remove, rename, search by tag)
 - Two-phase deletion process for safety
 - Automatic frontmatter generation with metadata
+- **Generic frontmatter editing** - Unified operations for any frontmatter field (get, set, update, remove)
 - **Note merging functionality** - Combine multiple notes using various strategies (append, by-heading, by-date, smart)
 - **Semantic search functionality** (Phase 2 complete) - Full vector search implementation with DuckDB VSS and sentence transformers
 - **Duplicate note detection** - AI-powered detection of semantically similar content for consolidation
@@ -629,6 +631,8 @@ For features with optional dependencies (e.g., vector search):
 - `VECTOR_SEARCH_ENABLED`: Set to "true" to enable vector search functionality
 - `VECTOR_DB_PATH`: Custom path for vector database (defaults to `{vault}/.minerva/vectors.db`)
 - `EMBEDDING_MODEL`: Model name for text embeddings (defaults to `all-MiniLM-L6-v2`)
+- `AUTO_INDEX_ENABLED`: Set to "true" to enable automatic vector index updates (defaults to "true")
+- `AUTO_INDEX_STRATEGY`: Strategy for auto-indexing: "immediate", "batch", "background" (defaults to "immediate")
 
 **Configuration Pattern for Optional Features:**
 ```python
@@ -659,6 +663,17 @@ class MinervaConfig:
                 # Default to vault directory if not specified
                 vector_db_path = Path(vault_root) / default_vault / ".minerva" / "vectors.db"
 ```
+
+### Auto-Indexing Configuration Details
+
+- **`AUTO_INDEX_ENABLED`**: Controls automatic vector index updates when notes are created, edited, or deleted
+  - When `true`: Note operations automatically trigger vector index updates
+  - When `false`: Vector index must be manually rebuilt using `build_vector_index()` tools
+  - Requires `VECTOR_SEARCH_ENABLED=true` to have any effect
+- **`AUTO_INDEX_STRATEGY`**: Determines how auto-indexing is performed
+  - `"immediate"`: Index updates happen synchronously during note operations (real-time but slower)
+  - `"batch"`: Index updates are queued for batch processing (faster note operations, delayed search updates)
+  - `"background"`: Index updates happen asynchronously in the background threads (best performance, may miss rapid changes)
 
 **Testing Optional Configuration:**
 - Test default values when feature is disabled
