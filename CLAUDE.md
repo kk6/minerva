@@ -664,7 +664,8 @@ class MinervaConfig:
                 vector_db_path = Path(vault_root) / default_vault / ".minerva" / "vectors.db"
 ```
 
-**Auto-Indexing Configuration Details:**
+### Auto-Indexing Configuration Details
+
 - **`AUTO_INDEX_ENABLED`**: Controls automatic vector index updates when notes are created, edited, or deleted
   - When `true`: Note operations automatically trigger vector index updates
   - When `false`: Vector index must be manually rebuilt using `build_vector_index()` tools
@@ -672,7 +673,7 @@ class MinervaConfig:
 - **`AUTO_INDEX_STRATEGY`**: Determines how auto-indexing is performed
   - `"immediate"`: Index updates happen synchronously during note operations (real-time but slower)
   - `"batch"`: Index updates are queued for batch processing (faster note operations, delayed search updates)
-  - `"background"`: Index updates happen asynchronously in background threads (best performance, may miss rapid changes)
+  - `"background"`: Index updates happen asynchronously in the background threads (best performance, may miss rapid changes)
 
 **Testing Optional Configuration:**
 - Test default values when feature is disabled
