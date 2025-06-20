@@ -7,7 +7,7 @@ in the Obsidian vault, serving as a foundation for tag and alias operations.
 
 import logging
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable
 
 import frontmatter
 
@@ -24,8 +24,6 @@ from minerva.services.core.base_service import BaseService
 from minerva.services.core.file_operations import resolve_note_file
 
 logger = logging.getLogger(__name__)
-
-T = TypeVar("T")
 
 
 class FrontmatterOperations(BaseService):
@@ -144,6 +142,36 @@ class FrontmatterOperations(BaseService):
 
         return file_path
 
+    def _prepare_operation(
+        self,
+        operation_name: str,
+        filename: str | None = None,
+        filepath: str | None = None,
+        default_path: str | None = None,
+        **log_kwargs: Any,
+    ) -> Path:
+        """
+        Prepare common operation setup: logging and file path resolution.
+
+        Args:
+            operation_name: Name of the operation for logging
+            filename: Name of the file to operate on
+            filepath: Full path of the file to operate on
+            default_path: Default directory path
+            **log_kwargs: Additional keyword arguments for logging
+
+        Returns:
+            Path: Resolved file path
+
+        Raises:
+            ValueError: If neither filename nor filepath is provided
+            NoteNotFoundError: If the specified note file does not exist
+        """
+        self._log_operation_start(
+            operation_name, filename=filename, filepath=filepath, **log_kwargs
+        )
+        return self._resolve_file_path(filename, filepath, default_path)
+
     @log_performance(threshold_ms=200)
     @safe_operation(default_return=None, log_errors=True)
     def get_field(
@@ -169,11 +197,13 @@ class FrontmatterOperations(BaseService):
             ValueError: If neither filename nor filepath is provided
             NoteNotFoundError: If the specified note file does not exist
         """
-        self._log_operation_start(
-            "get_field", field_name=field_name, filename=filename, filepath=filepath
+        file_path = self._prepare_operation(
+            "get_field",
+            filename=filename,
+            filepath=filepath,
+            default_path=default_path,
+            field_name=field_name,
         )
-
-        file_path = self._resolve_file_path(filename, filepath, default_path)
         _, frontmatter_dict = self._load_note_with_frontmatter(file_path)
 
         value = frontmatter_dict.get(field_name)
@@ -214,15 +244,14 @@ class FrontmatterOperations(BaseService):
             ValueError: If neither filename nor filepath is provided
             NoteNotFoundError: If the specified note file does not exist
         """
-        self._log_operation_start(
+        file_path = self._prepare_operation(
             "set_field",
-            field_name=field_name,
-            value=value,
             filename=filename,
             filepath=filepath,
+            default_path=default_path,
+            field_name=field_name,
+            value=value,
         )
-
-        file_path = self._resolve_file_path(filename, filepath, default_path)
         post, frontmatter_dict = self._load_note_with_frontmatter(file_path)
 
         # Update the field
@@ -267,14 +296,13 @@ class FrontmatterOperations(BaseService):
             ValueError: If neither filename nor filepath is provided
             NoteNotFoundError: If the specified note file does not exist
         """
-        self._log_operation_start(
+        file_path = self._prepare_operation(
             "update_field",
-            field_name=field_name,
             filename=filename,
             filepath=filepath,
+            default_path=default_path,
+            field_name=field_name,
         )
-
-        file_path = self._resolve_file_path(filename, filepath, default_path)
         post, frontmatter_dict = self._load_note_with_frontmatter(file_path)
 
         # Get current value and apply update function
@@ -325,14 +353,13 @@ class FrontmatterOperations(BaseService):
             ValueError: If neither filename nor filepath is provided
             NoteNotFoundError: If the specified note file does not exist
         """
-        self._log_operation_start(
+        file_path = self._prepare_operation(
             "remove_field",
-            field_name=field_name,
             filename=filename,
             filepath=filepath,
+            default_path=default_path,
+            field_name=field_name,
         )
-
-        file_path = self._resolve_file_path(filename, filepath, default_path)
         post, frontmatter_dict = self._load_note_with_frontmatter(file_path)
 
         # Remove the field if it exists
@@ -379,11 +406,12 @@ class FrontmatterOperations(BaseService):
             ValueError: If neither filename nor filepath is provided
             NoteNotFoundError: If the specified note file does not exist
         """
-        self._log_operation_start(
-            "get_all_fields", filename=filename, filepath=filepath
+        file_path = self._prepare_operation(
+            "get_all_fields",
+            filename=filename,
+            filepath=filepath,
+            default_path=default_path,
         )
-
-        file_path = self._resolve_file_path(filename, filepath, default_path)
         _, frontmatter_dict = self._load_note_with_frontmatter(file_path)
 
         logger.info(
