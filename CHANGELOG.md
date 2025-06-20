@@ -1,6 +1,64 @@
 # CHANGELOG
 
 
+## v0.19.0 (2025-06-20)
+
+### Bug Fixes
+
+- Resolve MyPy type checking issues with optional dependencies
+  ([`340149c`](https://github.com/kk6/minerva/commit/340149c3331d63e17de716e68bcd9dc0ccbd6e0d))
+
+- Fix unused type ignore comments for conditional imports - Add torch.* to MyPy overrides for
+  transitive dependencies - Correct test-fast Makefile target to exclude vector tests - Add
+  comprehensive MyPy troubleshooting documentation - Document environment-dependent type checking
+  behavior
+
+Key improvements: - Type ignore comments now properly managed based on dependency installation -
+  test-fast no longer runs vector tests in environments without dependencies - Complete
+  troubleshooting guide for MyPy errors with optional dependencies - Enhanced documentation for
+  CI/CD strategies with mixed dependency environments
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Documentation
+
+- Improve wording in test command documentation
+  ([`1f27a21`](https://github.com/kk6/minerva/commit/1f27a21b510ea3591da99ae3af0ae7b06f41bf36))
+
+Changed "Fixed" to "Note" for test-fast command description to better reflect that this is an
+  improvement rather than a bug fix.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Features
+
+- Implement time-machine for datetime mocking in tests
+  ([`fde4739`](https://github.com/kk6/minerva/commit/fde47397281775120e48648290079ada0515f6ca))
+
+Replace inconsistent datetime handling with time-machine library for reliable and high-performance
+  datetime testing. Addresses issue #102.
+
+Key improvements: - 400x performance improvement over freezegun (16μs vs 6.4ms per call) -
+  Comprehensive time mocking via C-level integration - Full Python 3.12+ support with native type
+  hints - Better pytest integration for clearer error messages
+
+Changes: - Add time-machine>=2.15.0 to dev dependencies - Create datetime fixtures in
+  tests/conftest.py for different test scenarios - Update frontmatter property tests to use
+  time-machine fixtures - Update vector incremental indexing tests for consistent time handling -
+  Add comprehensive datetime testing documentation in test guidelines
+
+Test results: - All existing tests pass without regression - DateTime-dependent tests now use
+  consistent mocked time - Property-based tests work reliably with Hypothesis + time-machine
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.18.0 (2025-06-20)
 
 ### Features
