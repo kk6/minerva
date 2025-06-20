@@ -732,6 +732,9 @@ class SearchOperations(BaseService):
         Returns:
             List of duplicate groups found
         """
+        # Convert files list to set for O(1) membership checks
+        files_set = set(files)
+
         # Track processed files to avoid duplicates
         processed_files = set()
         duplicate_groups = []
@@ -751,7 +754,7 @@ class SearchOperations(BaseService):
             for similar_file_path, similarity_score in similar_files:
                 if (
                     similarity_score >= threshold
-                    and similar_file_path in files
+                    and similar_file_path in files_set
                     and similar_file_path not in processed_files
                 ):
                     group_candidates.append((similar_file_path, similarity_score))

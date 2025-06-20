@@ -1741,11 +1741,8 @@ class TestDuplicateDetection:
                 assert len(result) == 1
                 assert "/test/file2.md" in result
 
-    def test_create_duplicate_file(self, search_operations_with_vector):
-        """Test DuplicateFile creation."""
-        # This test verifies error handling when file doesn't exist
-        # which causes _create_duplicate_file to return None
-
+    def test_create_duplicate_file_nonexistent(self, search_operations_with_vector):
+        """Test DuplicateFile creation when file doesn't exist."""
         # Act
         result = search_operations_with_vector._create_duplicate_file(
             "/nonexistent/file.md", 0.9
@@ -1753,3 +1750,62 @@ class TestDuplicateDetection:
 
         # Assert
         assert result is None  # File doesn't exist, so should return None
+
+    def test_create_duplicate_file_success(self, search_operations_with_vector):
+        """Test successful DuplicateFile creation."""
+        # Arrange
+        test_file_path = "/test/vault/note.md"
+        similarity_score = 0.85
+
+        # Mock file existence and stats
+        with patch("pathlib.Path.exists", return_value=True):
+            with patch("pathlib.Path.stat") as mock_stat:
+                # Mock file stats
+                mock_stat_result = Mock()
+                mock_stat_result.st_size = 1024
+                mock_stat_result.st_mtime = 1640995200.0  # 2022-01-01 00:00:00
+                mock_stat.return_value = mock_stat_result
+
+                # Mock file content parsing
+                with patch.object(
+                    search_operations_with_vector, "_read_and_parse_file"
+                ) as mock_read:
+                    mock_post = Mock()
+                    mock_post.content = "This is the main content of the note"
+                    mock_read.return_value = (
+                        "---\ntitle: Test Note\n---\nThis is the main content of the note",
+                        mock_post,
+                        {"title": "Test Note"},
+                    )
+
+                    # Mock helper methods
+                    with patch.object(
+                        search_operations_with_vector, "_extract_title"
+                    ) as mock_extract_title:
+                        mock_extract_title.return_value = "Test Note"
+
+                        with patch.object(
+                            search_operations_with_vector, "_create_content_preview"
+                        ) as mock_create_preview:
+                            mock_create_preview.return_value = (
+                                "This is the main content..."
+                            )
+
+                            # Act
+                            result = (
+                                search_operations_with_vector._create_duplicate_file(
+                                    test_file_path, similarity_score
+                                )
+                            )
+
+                            # Assert
+                            assert result is not None
+                            assert isinstance(result, DuplicateFile)
+                            assert result.file_path == test_file_path
+                            assert result.title == "Test Note"
+                            assert result.similarity_score == similarity_score
+                            assert (
+                                result.content_preview == "This is the main content..."
+                            )
+                            assert result.file_size == 1024
+                            assert result.modified_date is not None

@@ -137,6 +137,22 @@ class DuplicateFile:
     modified_date: str | None = None
     """Last modification date of the file."""
 
+    def to_dict(self) -> dict:
+        """
+        Convert DuplicateFile to dictionary for serialization.
+
+        Returns:
+            dict: Dictionary representation suitable for JSON serialization
+        """
+        return {
+            "file_path": self.file_path,
+            "title": self.title,
+            "similarity_score": self.similarity_score,
+            "content_preview": self.content_preview,
+            "file_size": self.file_size,
+            "modified_date": self.modified_date,
+        }
+
 
 @dataclass
 class DuplicateGroup:
@@ -182,17 +198,7 @@ class DuplicateGroup:
             "max_similarity": self.max_similarity,
             "min_similarity": self.min_similarity,
             "total_size": self.total_size,
-            "files": [
-                {
-                    "file_path": file.file_path,
-                    "title": file.title,
-                    "similarity_score": file.similarity_score,
-                    "content_preview": file.content_preview,
-                    "file_size": file.file_size,
-                    "modified_date": file.modified_date,
-                }
-                for file in self.files
-            ],
+            "files": [file.to_dict() for file in self.files],
         }
 
 
