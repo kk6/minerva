@@ -78,12 +78,13 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - **MCP Server**: FastMCP-based server (`server.py`) that provides tool endpoints
   - Uses `@mcp.tool()` decorators for direct service integration
   - Tool functions directly call service methods without wrapper layer
+  - **29 total MCP tools** including 9 vector search tools and duplicate detection
 - **Service Layer**: Modular service architecture (`services/`) with dependency injection pattern
   - `ServiceManager`: Central facade coordinating all service operations
-  - `NoteOperations`: Note CRUD operations, content management, and note merging functionality
+  - `NoteOperations`: Note CRUD operations, content management, note merging, and **auto-indexing integration**
   - `TagOperations`: Comprehensive tag management functionality
   - `AliasOperations`: Alias management and conflict detection
-  - `SearchOperations`: Full-text search across markdown files
+  - `SearchOperations`: Full-text search and **semantic search with duplicate detection**
   - `MergeProcessors`: Strategy-based note merging (append, by-heading, by-date, smart)
   - `create_minerva_service()`: Factory function for ServiceManager creation
 - **File Handler**: Low-level file operations (`file_handler.py`)
@@ -104,6 +105,8 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - Automatic frontmatter generation with metadata
 - **Note merging functionality** - Combine multiple notes using various strategies (append, by-heading, by-date, smart)
 - **Semantic search functionality** (Phase 2 complete) - Full vector search implementation with DuckDB VSS and sentence transformers
+- **Duplicate note detection** - AI-powered detection of semantically similar content for consolidation
+- **Auto-indexing system** - Automatic vector index updates when notes are created, edited, or deleted
 - **Modular service architecture** with dependency injection for improved testability and extensibility
 - **ServiceManager facade pattern** providing unified access to specialized service modules
 - **Simplified MCP server architecture** with direct service integration using FastMCP decorators

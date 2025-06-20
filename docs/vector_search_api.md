@@ -28,6 +28,7 @@ Minervaのベクター検索（セマンティック検索）機能の完全なA
 |---------|----------|------|
 | `semantic_search` | 検索 | 自然言語クエリでセマンティック検索 |
 | `find_similar_notes` | 検索 | 指定ノートに類似するノートを検索 |
+| `find_duplicate_notes` | 検索 | セマンティック類似度による重複ノート検出 |
 | `build_vector_index` | インデックス | 全ファイルのベクターインデックス作成 |
 | `build_vector_index_batch` | インデックス | 小規模バッチでのインデックス作成 |
 | `get_vector_index_status` | 状態確認 | インデックス状況の確認 |
@@ -209,6 +210,122 @@ similar = find_similar_notes(
 - `FileNotFoundError`: 指定されたファイルが存在しない
 - `RuntimeError`: ファイルがベクターインデックスに登録されていない
 - `ValueError`: `filename`と`filepath`の両方または両方とも未指定
+
+### find_duplicate_notes
+
+**概要**: セマンティック類似度を使用して重複の可能性があるノートを検出
+
+```python
+find_duplicate_notes(
+    similarity_threshold: float = 0.85,
+    directory: str | None = None,
+    min_content_length: int = 100,
+    exclude_frontmatter: bool = True
+) -> dict
+```
+
+**パラメータ**:
+- `similarity_threshold`: 重複判定の類似度閾値 0.0-1.0（デフォルト: 0.85）
+- `directory`: 検索対象ディレクトリ（Noneの場合vault全体）
+- `min_content_length`: 検討対象の最小コンテンツ長（デフォルト: 100バイト）
+- `exclude_frontmatter`: 分析時にフロントマターを除外（デフォルト: True）
+
+**返り値**:
+```python
+{
+    "duplicate_groups": [
+        {
+            "group_id": int,                    # グループID
+            "files": [
+                {
+                    "file_path": str,           # ファイルパス
+                    "similarity_score": float,  # 類似度スコア
+                    "content_length": int,      # コンテンツ長
+                    "preview": str              # コンテンツプレビュー
+                }
+            ],
+            "average_similarity": float,        # グループ内平均類似度
+            "max_similarity": float,           # グループ内最大類似度
+            "recommendation": str              # 統合推奨事項
+        }
+    ],
+    "statistics": {
+        "total_files_analyzed": int,        # 分析対象ファイル数
+        "duplicate_groups_found": int,      # 検出された重複グループ数
+        "total_duplicates": int,            # 重複ファイル総数
+        "potential_space_savings": int,     # 統合による推定削減サイズ
+        "analysis_time_seconds": float     # 分析時間（秒）
+    },
+    "analysis_time": str                    # 分析時間（人間が読める形式）
+}
+```
+
+**使用例**:
+```python
+# デフォルト設定での重複検出
+result = find_duplicate_notes()
+
+# 高精度での重複検出（厳しい閾値）
+result = find_duplicate_notes(similarity_threshold=0.9)
+
+# 特定ディレクトリでの重複検出
+result = find_duplicate_notes(
+    similarity_threshold=0.8,
+    directory="meeting-notes"
+)
+
+# 短いコンテンツも含めた重複検出
+result = find_duplicate_notes(
+    similarity_threshold=0.75,
+    min_content_length=50
+)
+
+# 結果の活用
+for group in result["duplicate_groups"]:
+    print(f"重複グループ {group['group_id']} (類似度: {group['max_similarity']:.2f})")
+    for file_info in group["files"]:
+        print(f"  - {file_info['file_path']} ({file_info['content_length']} bytes)")
+    print(f"  推奨: {group['recommendation']}")
+```
+
+**活用ワークフロー**:
+```python
+# 1. 重複検出の実行
+duplicates = find_duplicate_notes(similarity_threshold=0.85)
+
+# 2. 統計情報の確認
+stats = duplicates["statistics"]
+print(f"分析ファイル数: {stats['total_files_analyzed']}")
+print(f"重複グループ: {stats['duplicate_groups_found']}")
+print(f"削減可能サイズ: {stats['potential_space_savings']} bytes")
+
+# 3. 各グループの詳細確認
+for group in duplicates["duplicate_groups"]:
+    print(f"\n=== グループ {group['group_id']} ===")
+    print(f"平均類似度: {group['average_similarity']:.2f}")
+
+    # ファイル詳細の表示
+    for file_info in group["files"]:
+        print(f"ファイル: {file_info['file_path']}")
+        print(f"プレビュー: {file_info['preview'][:100]}...")
+```
+
+**類似度閾値ガイドライン**:
+- **0.95-1.0**: ほぼ同一コンテンツ（誤字修正程度の差異）
+- **0.85-0.95**: 高い類似性（構造やトピックが同じ）
+- **0.70-0.85**: 中程度の類似性（関連するが異なる内容）
+- **0.50-0.70**: 低い類似性（部分的な重複）
+
+**エラー条件**:
+- `RuntimeError`: ベクター検索が無効化されている
+- `ImportError`: 必要な依存関係がインストールされていない
+- `ValueError`: 無効なパラメータ値（閾値範囲外等）
+
+**注意事項**:
+- 大規模なvaultでは処理時間が長くなる可能性があります
+- `exclude_frontmatter=True`では作成日等のメタデータは比較に含まれません
+- 非常に短いファイル（`min_content_length`未満）は分析対象外です
+- 重複判定は内容の意味的類似性に基づき、ファイル名は考慮されません
 
 ## インデックス管理
 
@@ -564,6 +681,51 @@ related_content = semantic_search("プロジェクト計画", threshold=0.6)
 print(f"\n関連コンテンツ ({len(related_content)} 件):")
 for content in related_content:
     print(f"- {content.file_path}: {content.content_preview[:100]}...")
+```
+
+### 重複ノート検出ワークフロー
+
+```python
+# ステップ1: 基本的な重複検出
+print("=== 重複ノート検出 ===")
+duplicates = find_duplicate_notes(similarity_threshold=0.85)
+
+# ステップ2: 統計情報の表示
+stats = duplicates["statistics"]
+print(f"分析対象: {stats['total_files_analyzed']} ファイル")
+print(f"重複グループ: {stats['duplicate_groups_found']} 個")
+print(f"重複ファイル: {stats['total_duplicates']} 件")
+print(f"削減可能サイズ: {stats['potential_space_savings']:,} bytes")
+print(f"分析時間: {duplicates['analysis_time']}")
+
+# ステップ3: 重複グループの詳細確認
+if duplicates["duplicate_groups"]:
+    print("\n=== 重複グループ詳細 ===")
+    for i, group in enumerate(duplicates["duplicate_groups"], 1):
+        print(f"\nグループ {i} (ID: {group['group_id']})")
+        print(f"平均類似度: {group['average_similarity']:.2f}")
+        print(f"最大類似度: {group['max_similarity']:.2f}")
+        print(f"推奨事項: {group['recommendation']}")
+
+        # ファイル一覧
+        print("含まれるファイル:")
+        for file_info in group["files"]:
+            print(f"  - {file_info['file_path']}")
+            print(f"    類似度: {file_info['similarity_score']:.2f}")
+            print(f"    サイズ: {file_info['content_length']:,} bytes")
+            print(f"    プレビュー: {file_info['preview'][:80]}...")
+else:
+    print("\n重複ノートは検出されませんでした。")
+
+# ステップ4: 特定ディレクトリでの詳細検索（必要に応じて）
+print("\n=== 会議ノートの重複検出 ===")
+meeting_duplicates = find_duplicate_notes(
+    similarity_threshold=0.8,
+    directory="meetings",
+    min_content_length=200
+)
+if meeting_duplicates["duplicate_groups"]:
+    print(f"会議ノートで {len(meeting_duplicates['duplicate_groups'])} 個の重複グループを検出")
 ```
 
 ### トラブル診断ワークフロー

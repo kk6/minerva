@@ -313,6 +313,165 @@ def _read_existing_frontmatter(file_path: Path) -> dict | None:
 2. シリアライズの簡素化: JSONなどへの変換時に日付型の特別な処理が不要になります
 3. 比較操作の信頼性向上: 日付型と文字列型の混在による比較問題を回避できます
 
+### 3.5 サービス層詳細実装 (services/)
+
+#### 3.5.1 ServiceManager - 統一ファサードパターン
+
+ServiceManagerはすべてのサービス操作への統一アクセスポイントを提供します：
+
+```python
+class ServiceManager:
+    """Facade for all Minerva service operations with dependency injection."""
+
+    def __init__(self, config: MinervaConfig, frontmatter_manager: FrontmatterManager):
+        self.config = config
+        self.frontmatter_manager = frontmatter_manager
+
+        # 専門化されたサービスの初期化
+        self.note_operations = NoteOperations(config, frontmatter_manager)
+        self.tag_operations = TagOperations(config, frontmatter_manager)
+        self.alias_operations = AliasOperations(config, frontmatter_manager)
+        self.search_operations = SearchOperations(config)
+```
+
+**主要メソッド**（27の公開メソッド）:
+- ノート操作の委譲: `create_note()`, `edit_note()`, `read_note()`, `delete_note()`
+- タグ管理の委譲: `add_tag()`, `remove_tag()`, `rename_tag()`, `get_tags()`
+- エイリアス管理の委譲: `add_alias()`, `remove_alias()`, `get_aliases()`
+- 検索機能の委譲: `search_notes()`, `semantic_search()`, `find_duplicate_notes()`
+- マージ機能の委譲: `merge_notes()`, `smart_merge_notes()`
+
+#### 3.5.2 NoteOperations - 自動インデックス統合
+
+NoteOperationsはノートのCRUD操作に加えて、自動ベクターインデックス更新を統合しています：
+
+```python
+class NoteOperations(BaseService):
+    """Note CRUD operations with automatic vector indexing integration."""
+
+    def create_note(self, text: str, filename: str, author: str | None = None,
+                   default_path: str | None = None) -> Path:
+        """Create note with automatic vector indexing."""
+        # 1. ノート作成
+        file_path = self._create_note_file(text, filename, author, default_path)
+
+        # 2. 自動インデックス更新
+        self._update_vector_index_if_enabled(file_path)
+
+        return file_path
+
+    def edit_note(self, text: str, filename: str, author: str | None = None,
+                 default_path: str | None = None) -> Path:
+        """Edit note with automatic vector index update."""
+        # 1. ノート更新
+        file_path = self._update_note_file(text, filename, author, default_path)
+
+        # 2. 自動インデックス更新
+        self._update_vector_index_if_enabled(file_path)
+
+        return file_path
+```
+
+**自動インデックス統合メソッド**:
+
+- `_update_vector_index_if_enabled(file_path: Path)`: インデックス有効時の更新制御
+- `_update_vector_index_immediate(file_path: Path)`: 即座にインデックス更新
+- `_update_vector_index_batched(file_path: Path)`: バッチキューへの追加
+- `_remove_from_vector_index_if_enabled(file_path: Path)`: ファイル削除時のインデックス除去
+- `_should_auto_update_index() -> bool`: 自動更新条件の判定
+
+**自動インデックス戦略**:
+
+1. **immediate**: ファイル操作時に即座にベクターインデックスを更新
+   - 利点: 常に最新のインデックス状態
+   - 欠点: ファイル操作の遅延
+   - 適用: 小規模vault、リアルタイム性重視
+
+2. **batch**: ファイル変更をバッチキューに追加し、後で一括処理
+   - 利点: 効率的な処理、システム負荷の分散
+   - 欠点: インデックス更新の遅延
+   - 適用: 中規模vault、効率重視
+
+3. **background**: バックグラウンドでの継続的インデックス処理
+   - 利点: ユーザー操作をブロックしない
+   - 欠点: 実装の複雑性、デバッグの困難
+   - 適用: 大規模vault、パフォーマンス重視
+
+#### 3.5.3 SearchOperations - セマンティック検索統合
+
+SearchOperationsは従来の全文検索に加えて、ベクター検索による意味的検索を提供します：
+
+```python
+class SearchOperations(BaseService):
+    """Full-text and semantic search operations."""
+
+    # 従来の全文検索
+    def search_notes(self, query: str, case_sensitive: bool = True) -> list[SearchResult]:
+        """Traditional keyword-based search in note contents."""
+
+    # セマンティック検索機能
+    def semantic_search(self, query: str, limit: int = 10,
+                       threshold: float | None = None,
+                       directory: str | None = None) -> list[SemanticSearchResult]:
+        """Natural language semantic search using vector embeddings."""
+
+    def find_duplicate_notes(self, similarity_threshold: float = 0.85,
+                           directory: str | None = None,
+                           min_content_length: int = 100,
+                           exclude_frontmatter: bool = True) -> DuplicateDetectionResult:
+        """Find potentially duplicate notes using semantic similarity."""
+```
+
+**セマンティック検索アーキテクチャ**:
+
+1. **VectorIndexer統合**: DuckDB VSS拡張を使用したベクター保存
+2. **EmbeddingProvider**: sentence-transformers（all-MiniLM-L6-v2、384次元）
+3. **類似度計算**: コサイン類似度によるランキング
+4. **結果フィルタリング**: 閾値、ディレクトリ、コンテンツ長による制限
+
+**重複検出アルゴリズム**:
+
+```python
+def _find_duplicate_groups(self, similarity_matrix: np.ndarray,
+                          file_paths: list[Path],
+                          threshold: float) -> list[DuplicateGroup]:
+    """Group files by semantic similarity using clustering algorithm."""
+    # 1. 類似度行列から類似ペアを抽出
+    # 2. 連結成分アルゴリズムでグループ化
+    # 3. グループ内統計情報の計算
+    # 4. 統合推奨事項の生成
+```
+
+**サポートメソッド**:
+- `_create_semantic_search_result()`: 検索結果の構造化
+- `_find_duplicate_groups()`: 類似ノートのグループ化アルゴリズム
+- `_create_duplicate_file()`: 重複ファイル情報の作成
+
+#### 3.5.4 ベクター検索統合アーキテクチャ
+
+**コンポーネント間の相互作用**:
+
+```
+NoteOperations ─── 自動インデックス更新 ──→ VectorIndexer
+                                          ↓
+SearchOperations ─── セマンティック検索 ──→ VectorSearcher
+                                          ↓
+MCP Tools ────────── 統一インターフェース ──→ ServiceManager
+```
+
+**設定統合**:
+
+- `AUTO_INDEX_ENABLED`: NoteOperationsでの自動インデックス制御
+- `AUTO_INDEX_STRATEGY`: インデックス更新戦略の選択
+- `VECTOR_SEARCH_ENABLED`: SearchOperationsでのベクター検索有効化
+- `EMBEDDING_MODEL`: 埋め込みモデルの指定
+
+**エラーハンドリング**:
+
+- 依存関係不足: 明確なインストール指示
+- インデックス不整合: 自動修復機能
+- 戦略設定エラー: フォールバック処理
+
 ## 4. ファイル検索実装
 
 ### 4.1 SearchConfig クラス
