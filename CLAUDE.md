@@ -18,7 +18,7 @@ For a unified development experience, use the Makefile commands:
 
 - **Testing**:
   - Run all tests: `make test`
-  - Run fast tests only (excludes slow integration tests): `make test-fast` ⚠️ **Fixed**: Now excludes vector tests
+  - Run fast tests only (excludes slow integration tests): `make test-fast` **Note**: Now excludes vector tests
   - Run core tests only (excludes vector dependency tests): `make test-core`
   - Run vector tests only (requires vector dependencies): `make test-vector`
   - Run slow integration tests only: `make test-slow`
