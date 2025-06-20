@@ -33,6 +33,7 @@ dev = [
     "pytest-mock>=3.14.0",
     "python-semantic-release>=9.21.1",
     "ruff>=0.8.0",
+    "time-machine>=2.15.0",
 ]
 
 [tool.mypy]
@@ -66,6 +67,7 @@ module = [
     "numpy.*",
     "sentence_transformers.*",
     "duckdb.*",
+    "torch.*",
 ]
 ignore_missing_imports = true
 

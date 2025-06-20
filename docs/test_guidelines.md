@@ -376,6 +376,139 @@ def temp_vault_env(self):
 - 境界値
 - リソース制約（大きなファイル、多数のファイルなど）
 
+### 3.7 日時テスト（datetime testing）⭐ **新機能**
+
+Minervaプロジェクトでは、日時に依存する機能の信頼性と性能を向上させるため、`time-machine`ライブラリを使用した日時モッキングを採用しています。
+
+#### 3.7.1 time-machine の優位性
+
+**従来のfreezegunとの比較:**
+- **パフォーマンス**: 400倍高速（16μs vs 6.4ms per call）
+- **カバレッジ**: C言語レベルでの時刻制御により、サードパーティライブラリを含む全ての時刻取得をキャッチ
+- **Python 3.12+対応**: 完全なタイプヒント対応とネイティブサポート
+- **pytest統合**: アサーション書き換えとの連携により、より分かりやすいエラーメッセージ
+
+#### 3.7.2 利用可能な日時フィクスチャ
+
+`tests/conftest.py`で以下のフィクスチャが定義されています：
+
+```python
+# 汎用的な固定日時（2023-06-15 12:00:00）
+def test_general_functionality(mock_time, fixed_datetime):
+    """一般的な日時テスト用フィクスチャ"""
+    # mock_timeにより、datetime.now()が固定値を返す
+    assert datetime.now() == fixed_datetime
+
+# フロントマター特化（2023-01-01 00:00:00）
+def test_frontmatter_generation(mock_frontmatter_time, frontmatter_test_time):
+    """フロントマター生成テスト用フィクスチャ"""
+    manager = FrontmatterManager("Author")
+    result = manager.generate_metadata("content", is_new_note=True)
+    expected = frontmatter_test_time.isoformat()
+    assert result.metadata["created"] == expected
+
+# 増分インデックス特化（2023-12-01 10:30:00）
+def test_indexing_functionality(mock_incremental_time, incremental_test_time):
+    """ベクトルインデックス関連テスト用フィクスチャ"""
+    # ファイル変更時刻の比較テストなどに使用
+    pass
+```
+
+#### 3.7.3 使用パターン
+
+**1. フロントマター関連テスト**
+```python
+@given(st.text(min_size=1, max_size=100))
+def test_generate_metadata_new_note_gets_created_timestamp(
+    self, content: str, mock_frontmatter_time, frontmatter_test_time
+):
+    """新規ノート作成時のタイムスタンプ生成テスト"""
+    # Arrange
+    manager = FrontmatterManager("Test Author")
+
+    # Act
+    result = manager.generate_metadata(content, is_new_note=True)
+
+    # Assert
+    assert "created" in result.metadata
+    expected_timestamp = frontmatter_test_time.isoformat()
+    assert result.metadata["created"] == expected_timestamp
+```
+
+**2. ベクトルインデックス関連テスト**
+```python
+def test_needs_update_file_modified(
+    self, indexer, mock_incremental_time, incremental_test_time
+):
+    """ファイル変更検知テスト"""
+    # Arrange
+    test_file = "/test/file.md"
+
+    with patch("os.stat") as mock_stat:
+        # 1時間前のファイル更新時刻でトラッキングを登録
+        old_time = incremental_test_time - timedelta(hours=1)
+        mock_stat.return_value.st_mtime = old_time.timestamp()
+        indexer.update_file_tracking(test_file, "hash", 1)
+
+        # 現在時刻（固定値）でファイルが更新されたと模擬
+        mock_stat.return_value.st_mtime = incremental_test_time.timestamp()
+
+        # Act & Assert
+        assert indexer.needs_update(test_file) is True
+```
+
+**3. Property-basedテストでの使用**
+```python
+@given(st.text(min_size=1, max_size=100))
+def test_property_with_datetime(
+    self, content: str, mock_frontmatter_time
+):
+    """Hypothesisを使用したプロパティテストでも日時固定可能"""
+    # time-machineにより全てのdatetime.now()呼び出しが固定値を返す
+    manager = FrontmatterManager("Author")
+    result = manager.generate_metadata(content, is_new_note=True)
+
+    # タイムスタンプの一貫性を検証
+    assert "created" in result.metadata
+    assert isinstance(result.metadata["created"], str)
+```
+
+#### 3.7.4 フィクスチャの選択指針
+
+| 用途 | フィクスチャ | 固定日時 | 適用場面 |
+|------|-------------|----------|----------|
+| 汎用 | `mock_time` | 2023-06-15 12:00:00 | 一般的な日時テスト |
+| フロントマター | `mock_frontmatter_time` | 2023-01-01 00:00:00 | メタデータ生成テスト |
+| インデックス | `mock_incremental_time` | 2023-12-01 10:30:00 | ファイル変更時刻テスト |
+
+#### 3.7.5 ベストプラクティス
+
+- **一貫性**: 同じ種類のテストでは同じフィクスチャを使用
+- **可読性**: テスト内で`expected_timestamp = test_time.isoformat()`のように明示的に期待値を計算
+- **性能**: time-machineは非常に高速なので、全ての日時関連テストで積極的に使用可能
+- **Property-basedテスト**: Hypothesisと組み合わせても安全に使用可能
+
+#### 3.7.6 移行指針
+
+既存のテストを time-machine に移行する際：
+
+1. **手動datetime生成の置換**: `datetime.now()` → フィクスチャ利用
+2. **assertion の更新**: 動的時刻比較 → 固定時刻比較
+3. **モック除去**: `patch`による手動日時モック → time-machine フィクスチャ
+
+```python
+# Before（従来のアプローチ）
+def test_timestamp_generation(self):
+    with patch('minerva.frontmatter_manager.datetime') as mock_dt:
+        mock_dt.now.return_value = datetime(2023, 1, 1)
+        # テスト実装
+
+# After（time-machine使用）
+def test_timestamp_generation(self, mock_frontmatter_time, frontmatter_test_time):
+    # パッチ不要、自動的に時刻が固定される
+    # テスト実装
+```
+
 ## 4. コードカバレッジ
 
 Minervaプロジェクトでは、高いコードカバレッジを目指しています：
@@ -477,7 +610,7 @@ pytestmark = pytest.mark.vector  # ファイル上部に記述
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 def _check_numpy_available() -> None:
     if np is None:
@@ -487,6 +620,8 @@ def embed(self, text: str) -> Any:
     _check_numpy_available()  # 使用前にチェック
     # ... 実装
 ```
+
+**重要**: `type: ignore[assignment]` コメントは、オプション依存関係がインストールされている環境でMyPyが型の不一致を検出するのを防ぐために必要です。
 
 ### 6.3 実行方法
 
@@ -515,6 +650,131 @@ test-vector:
   run: |
     uv sync --extra vector     # 全依存関係インストール
     pytest -m "vector"
+```
+
+### 6.3 MyPy型チェック対応
+
+#### 6.3.1 依存関係の有無による型チェック動作の違い
+
+**依存関係なし環境**:
+- MyPyがnumpyモジュールを見つけられないため、type ignoreコメントは「未使用」として報告される
+- この場合、type ignoreコメントを削除する必要がある
+
+**依存関係あり環境**:
+- MyPyが実際のnumpyモジュール型を検出し、`None`との不一致を報告する
+- この場合、type ignoreコメントが必要
+
+#### 6.3.2 pyproject.tomlでの型チェック設定
+
+```toml
+# オプション依存関係の型チェック設定
+[[tool.mypy.overrides]]
+module = [
+    "numpy.*",
+    "sentence_transformers.*",
+    "duckdb.*",
+    "torch.*",  # sentence_transformersの推移的依存関係
+]
+ignore_missing_imports = true
+```
+
+推移的依存関係（torchなど）も追加することで、型チェックエラーを包括的に防げます。
+
+### 6.4 実行方法
+
+```bash
+# コア機能のみ（依存関係不要、高速）
+make test-core
+pytest -m "not vector"
+
+# ベクトル機能のみ（依存関係必要）
+make test-vector
+pytest -m "vector"
+
+# 全テスト実行
+make test
+pytest
+
+# 環境に応じた品質チェック
+make check-all-core  # 基本依存関係のみの環境
+make check-all       # ベクトル依存関係あり環境
+```
+
+### 6.5 Makefileターゲット設計
+
+#### 6.5.1 test-fastマーカー除外の重要性
+
+`test-fast`ターゲットでは、`vector`マーカーも除外する必要があります：
+
+```makefile
+# 正しい設定
+test-fast:
+    PYTHONPATH=src uv run pytest -m "not slow and not integration and not vector"
+
+# 問題のある設定（vectorテストが実行されてしまう）
+test-fast:
+    PYTHONPATH=src uv run pytest -m "not slow and not integration"
+```
+
+vectorマーカーを除外しないと、依存関係がない環境でvectorテストが実行され、テストが失敗します。
+
+### 6.6 CI/CDでの活用
+
+```yaml
+# 並列実行でパフォーマンス最適化
+test-core:
+  run: pytest -m "not vector"  # 基本依存関係のみ
+
+test-vector:
+  run: |
+    uv sync --extra vector     # 全依存関係インストール
+    pytest -m "vector"
+
+# 型チェックは全依存関係が必要
+quality-checks:
+  run: |
+    uv sync --extra vector     # MyPy用に全依存関係をインストール
+    make check-all
+```
+
+### 6.7 トラブルシューティング
+
+#### 6.7.1 よくある問題と解決策
+
+**問題**: `make check-all`が依存関係なし環境で失敗する
+
+**原因**: `check-all`は全テスト（vectorテスト含む）を実行するため
+
+**解決策**: 環境に応じた適切なターゲットを使用
+```bash
+# 基本依存関係のみの環境
+make check-all-core
+
+# ベクトル依存関係ありの環境
+make check-all
+```
+
+**問題**: MyPyで「Unused type ignore comment」エラー
+
+**原因**: 依存関係がない環境でtype ignoreコメントが不要と判定される
+
+**解決策**: 依存関係の有無に応じてtype ignoreコメントを調整
+```python
+# 依存関係なし環境
+np = None
+
+# 依存関係あり環境
+np = None  # type: ignore[assignment]
+```
+
+**問題**: `test-fast`でvectorテストが実行される
+
+**原因**: Makefileで`vector`マーカーが除外されていない
+
+**解決策**: test-fastの定義を修正
+```makefile
+test-fast:
+    pytest -m "not slow and not integration and not vector"
 ```
 
 **詳細情報**: [オプション依存関係実装ガイド](optional_dependencies.md)を参照
