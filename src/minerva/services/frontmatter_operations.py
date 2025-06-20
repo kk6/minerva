@@ -15,6 +15,7 @@ from minerva.error_handler import (
     log_performance,
     safe_operation,
 )
+from minerva.exceptions import NoteNotFoundError
 from minerva.file_handler import (
     FileWriteRequest,
     write_file,
@@ -49,10 +50,14 @@ class FrontmatterOperations(BaseService):
             tuple: (frontmatter.Post object, frontmatter dict)
 
         Raises:
-            FileNotFoundError: If file doesn't exist
+            NoteNotFoundError: If file doesn't exist
         """
         if not file_path.exists():
-            raise FileNotFoundError(f"File {file_path} does not exist")
+            raise NoteNotFoundError(
+                f"File {file_path} does not exist",
+                context={"filepath": str(file_path)},
+                operation="load_note_with_frontmatter",
+            )
 
         # Import here to avoid circular imports
         from minerva.services.note_operations import NoteOperations
@@ -123,7 +128,7 @@ class FrontmatterOperations(BaseService):
 
         Raises:
             ValueError: If neither filename nor filepath is provided
-            FileNotFoundError: If the file doesn't exist
+            NoteNotFoundError: If the file doesn't exist
         """
         if not filename and not filepath:
             raise ValueError("Either filename or filepath must be provided")
@@ -131,7 +136,11 @@ class FrontmatterOperations(BaseService):
         file_path = resolve_note_file(self.config, filename, filepath, default_path)
 
         if not file_path.exists():
-            raise FileNotFoundError(f"File {file_path} does not exist")
+            raise NoteNotFoundError(
+                f"File {file_path} does not exist",
+                context={"filepath": str(file_path), "filename": filename},
+                operation="resolve_file_path",
+            )
 
         return file_path
 
@@ -158,7 +167,7 @@ class FrontmatterOperations(BaseService):
 
         Raises:
             ValueError: If neither filename nor filepath is provided
-            FileNotFoundError: If the specified note file does not exist
+            NoteNotFoundError: If the specified note file does not exist
         """
         self._log_operation_start(
             "get_field", field_name=field_name, filename=filename, filepath=filepath
@@ -179,6 +188,7 @@ class FrontmatterOperations(BaseService):
         return value
 
     @log_performance(threshold_ms=300)
+    @safe_operation(default_return=None, log_errors=True)
     def set_field(
         self,
         field_name: str,
@@ -202,7 +212,7 @@ class FrontmatterOperations(BaseService):
 
         Raises:
             ValueError: If neither filename nor filepath is provided
-            FileNotFoundError: If the specified note file does not exist
+            NoteNotFoundError: If the specified note file does not exist
         """
         self._log_operation_start(
             "set_field",
@@ -231,6 +241,7 @@ class FrontmatterOperations(BaseService):
         return written_path
 
     @log_performance(threshold_ms=300)
+    @safe_operation(default_return=None, log_errors=True)
     def update_field(
         self,
         field_name: str,
@@ -254,7 +265,7 @@ class FrontmatterOperations(BaseService):
 
         Raises:
             ValueError: If neither filename nor filepath is provided
-            FileNotFoundError: If the specified note file does not exist
+            NoteNotFoundError: If the specified note file does not exist
         """
         self._log_operation_start(
             "update_field",
@@ -290,6 +301,7 @@ class FrontmatterOperations(BaseService):
         return written_path
 
     @log_performance(threshold_ms=300)
+    @safe_operation(default_return=None, log_errors=True)
     def remove_field(
         self,
         field_name: str,
@@ -311,7 +323,7 @@ class FrontmatterOperations(BaseService):
 
         Raises:
             ValueError: If neither filename nor filepath is provided
-            FileNotFoundError: If the specified note file does not exist
+            NoteNotFoundError: If the specified note file does not exist
         """
         self._log_operation_start(
             "remove_field",
@@ -365,7 +377,7 @@ class FrontmatterOperations(BaseService):
 
         Raises:
             ValueError: If neither filename nor filepath is provided
-            FileNotFoundError: If the specified note file does not exist
+            NoteNotFoundError: If the specified note file does not exist
         """
         self._log_operation_start(
             "get_all_fields", filename=filename, filepath=filepath

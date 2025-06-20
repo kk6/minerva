@@ -9,6 +9,7 @@ from pathlib import Path
 from minerva.config import MinervaConfig
 from minerva.frontmatter_manager import FrontmatterManager
 from minerva.services.tag_operations import TagOperations
+from minerva.exceptions import NoteNotFoundError
 
 
 class TestTagOperations:
@@ -136,12 +137,10 @@ class TestTagOperations:
         file_path = Path("/test/vault/notes/nonexistent.md")
         mock_exists.return_value = False
 
-        with pytest.raises(FileNotFoundError, match="File .* does not exist"):
+        with pytest.raises(NoteNotFoundError, match="File .* does not exist"):
             tag_operations._load_note_with_tags(file_path)
 
-    @patch("minerva.services.tag_operations.write_file")
-    @patch("frontmatter.dumps")
-    def test_save_note_with_updated_tags(self, mock_dumps, mock_write, tag_operations):
+    def test_save_note_with_updated_tags(self, tag_operations):
         """Test saving note with updated tags."""
         # Arrange
         file_path = Path("/test/vault/notes/test.md")
@@ -150,26 +149,24 @@ class TestTagOperations:
         mock_post.content = "Test content"
         tags = ["tag1", "tag2"]
 
-        mock_updated_post = Mock()
-        tag_operations.frontmatter_manager.generate_metadata.return_value = (
-            mock_updated_post
-        )
-        mock_dumps.return_value = "updated content"
-        mock_write.return_value = file_path
-
-        # Act
-        result = tag_operations._save_note_with_updated_tags(file_path, mock_post, tags)
+        # Mock the FrontmatterOperations method
+        with patch.object(
+            tag_operations._frontmatter_ops,
+            "_save_note_with_updated_frontmatter",
+            return_value=file_path,
+        ) as mock_save:
+            # Act
+            result = tag_operations._save_note_with_updated_tags(
+                file_path, mock_post, tags
+            )
 
         # Assert
         assert result == file_path
-        tag_operations.frontmatter_manager.generate_metadata.assert_called_once_with(
-            text="Test content",
-            author="Test Author",
-            is_new_note=False,
-            existing_frontmatter={"author": "Test Author"},
-            tags=tags,
-        )
-        mock_write.assert_called_once()
+        mock_save.assert_called_once()
+        call_args = mock_save.call_args[0]
+        updated_frontmatter = call_args[2]  # Third argument is frontmatter dict
+        assert updated_frontmatter["tags"] == tags
+        assert updated_frontmatter["author"] == "Test Author"
 
     @patch.object(TagOperations, "_save_note_with_updated_tags")
     @patch.object(TagOperations, "_load_note_with_tags")
