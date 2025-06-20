@@ -1,6 +1,68 @@
 # CHANGELOG
 
 
+## v0.18.0 (2025-06-20)
+
+### Features
+
+- Implement duplicate note detection functionality for issue #31
+  ([`0c1497c`](https://github.com/kk6/minerva/commit/0c1497c68d16dc1f94a717b6ad0aa96af5d66204))
+
+## Summary - Add comprehensive duplicate note detection using vector similarity - Implement data
+  models for duplicate groups and results - Add MCP tool for user-facing duplicate detection -
+  Include extensive test coverage for all functionality
+
+## Key Features - `find_duplicate_notes()` MCP tool for detecting similar content - Semantic
+  similarity analysis using existing vector search infrastructure - Configurable similarity
+  thresholds and content filtering - Detailed reporting with file groups, statistics, and analysis
+  time - Support for directory-specific searches
+
+## Technical Implementation - New data models: `DuplicateFile`, `DuplicateGroup`,
+  `DuplicateDetectionResult` - Service layer method in `SearchOperations` with comprehensive
+  validation - Efficient grouping algorithm using vector similarity comparisons - Content length
+  filtering and frontmatter exclusion options - Full integration with existing MCP server
+  architecture
+
+## Testing - 6 new test cases covering validation, success scenarios, and edge cases - Tests for
+  error handling, parameter validation, and result formatting - All 679 existing tests continue to
+  pass
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+### Refactoring
+
+- Address PR review comments for duplicate detection
+  ([`ffb4f6b`](https://github.com/kk6/minerva/commit/ffb4f6b1970287c0a9b25c90dcfaf4d851a58014))
+
+- Optimize performance: Convert files list to set for O(1) lookups in _find_duplicate_groups -
+  Improve test coverage: Add comprehensive test for _create_duplicate_file success path - Enhance
+  maintainability: Add to_dict() method to DuplicateFile class for consistent serialization
+
+These changes address code review feedback to improve performance with large file sets, increase
+  test coverage from 79.16% to better coverage of success paths, and maintain consistent patterns
+  across data model classes.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+- Improve duplicate detection code quality based on PR review
+  ([`db76cca`](https://github.com/kk6/minerva/commit/db76cca8435b146aa78b1978f397fab62e977d37))
+
+- Reduce performance logging threshold from 5s to 3s for better monitoring - Extract directory
+  filtering logic into _filter_files_by_directory method - Decompose complex _find_duplicate_groups
+  logic into focused helper methods: - _filter_similarity_candidates for similarity filtering -
+  _calculate_group_statistics for group statistics - _create_duplicate_group for group creation -
+  Add comprehensive error handling tests for _create_duplicate_file method - Clarify content length
+  units in docstrings (specify "in bytes") - Fix MyPy type annotation for processed_files variable
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.17.0 (2025-06-19)
 
 ### Bug Fixes
