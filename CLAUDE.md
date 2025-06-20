@@ -78,12 +78,13 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - **MCP Server**: FastMCP-based server (`server.py`) that provides tool endpoints
   - Uses `@mcp.tool()` decorators for direct service integration
   - Tool functions directly call service methods without wrapper layer
-  - **29 total MCP tools** including 9 vector search tools and duplicate detection
+  - **33 total MCP tools** including 9 vector search tools, duplicate detection, and 4 generic frontmatter tools
 - **Service Layer**: Modular service architecture (`services/`) with dependency injection pattern
   - `ServiceManager`: Central facade coordinating all service operations
+  - `FrontmatterOperations`: **Generic frontmatter field operations** (get, set, update, remove, get_all)
   - `NoteOperations`: Note CRUD operations, content management, note merging, and **auto-indexing integration**
-  - `TagOperations`: Comprehensive tag management functionality
-  - `AliasOperations`: Alias management and conflict detection
+  - `TagOperations`: Comprehensive tag management functionality (refactored to use FrontmatterOperations)
+  - `AliasOperations`: Alias management and conflict detection (refactored to use FrontmatterOperations)
   - `SearchOperations`: Full-text search and **semantic search with duplicate detection**
   - `MergeProcessors`: Strategy-based note merging (append, by-heading, by-date, smart)
   - `create_minerva_service()`: Factory function for ServiceManager creation
@@ -103,6 +104,7 @@ If you need a label that doesn't exist, ask for permission before creating it.
 - Tag management (add, remove, rename, search by tag)
 - Two-phase deletion process for safety
 - Automatic frontmatter generation with metadata
+- **Generic frontmatter editing** - Unified operations for any frontmatter field (get, set, update, remove)
 - **Note merging functionality** - Combine multiple notes using various strategies (append, by-heading, by-date, smart)
 - **Semantic search functionality** (Phase 2 complete) - Full vector search implementation with DuckDB VSS and sentence transformers
 - **Duplicate note detection** - AI-powered detection of semantically similar content for consolidation

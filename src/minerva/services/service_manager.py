@@ -8,7 +8,7 @@ maintaining backward compatibility with the existing API.
 
 import logging
 from pathlib import Path
-from typing import ParamSpec, TypeVar, TYPE_CHECKING, Any
+from typing import ParamSpec, TypeVar, TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from minerva.vector.indexer import VectorIndexer
@@ -24,6 +24,7 @@ from minerva.services.core.file_operations import (
     build_file_path,
     assemble_complete_note,
 )
+from minerva.services.frontmatter_operations import FrontmatterOperations
 from minerva.services.note_operations import NoteOperations
 from minerva.services.search_operations import SearchOperations
 from minerva.services.tag_operations import TagOperations
@@ -63,12 +64,20 @@ class ServiceManager:
         self.error_handler = MinervaErrorHandler(vault_path=config.vault_path)
 
         # Initialize specialized service modules
+        self._frontmatter_operations = FrontmatterOperations(
+            config, frontmatter_manager
+        )
         self._note_operations = NoteOperations(config, frontmatter_manager)
         self._tag_operations = TagOperations(config, frontmatter_manager)
         self._alias_operations = AliasOperations(config, frontmatter_manager)
         self._search_operations = SearchOperations(config, frontmatter_manager)
 
     # Property-based access to specialized services
+    @property
+    def frontmatter_operations(self) -> FrontmatterOperations:
+        """Access to frontmatter operations service."""
+        return self._frontmatter_operations
+
     @property
     def note_operations(self) -> NoteOperations:
         """Access to note operations service."""
@@ -571,6 +580,144 @@ class ServiceManager:
             FileNotFoundError: If the specified directory does not exist
         """
         return self.alias_operations.search_by_alias(alias, directory)
+
+    # Frontmatter operations delegation methods
+    def get_frontmatter_field(
+        self,
+        field_name: str,
+        filename: str | None = None,
+        filepath: str | None = None,
+        default_path: str | None = None,
+    ) -> Any:
+        """
+        Get a specific field value from a note's frontmatter.
+
+        Args:
+            field_name: Name of the frontmatter field to retrieve
+            filename: The name of the note file
+            filepath: The full path of the note file
+            default_path: The default directory path
+
+        Returns:
+            Any: The field value, or None if field doesn't exist
+
+        Raises:
+            ValueError: If neither filename nor filepath is provided
+            FileNotFoundError: If the specified note file does not exist
+        """
+        return self.frontmatter_operations.get_field(
+            field_name, filename, filepath, default_path
+        )
+
+    def set_frontmatter_field(
+        self,
+        field_name: str,
+        value: Any,
+        filename: str | None = None,
+        filepath: str | None = None,
+        default_path: str | None = None,
+    ) -> Path:
+        """
+        Set a specific field value in a note's frontmatter.
+
+        Args:
+            field_name: Name of the frontmatter field to set
+            value: Value to set for the field
+            filename: The name of the file to modify
+            filepath: The full path of the file to modify
+            default_path: The default directory path
+
+        Returns:
+            Path: The path of the modified note file
+
+        Raises:
+            ValueError: If neither filename nor filepath is provided
+            FileNotFoundError: If the specified note file does not exist
+        """
+        return self.frontmatter_operations.set_field(
+            field_name, value, filename, filepath, default_path
+        )
+
+    def update_frontmatter_field(
+        self,
+        field_name: str,
+        update_func: Callable[[Any], Any],
+        filename: str | None = None,
+        filepath: str | None = None,
+        default_path: str | None = None,
+    ) -> Path:
+        """
+        Update a field using an update function.
+
+        Args:
+            field_name: Name of the frontmatter field to update
+            update_func: Function that takes current value and returns new value
+            filename: The name of the file to modify
+            filepath: The full path of the file to modify
+            default_path: The default directory path
+
+        Returns:
+            Path: The path of the modified note file
+
+        Raises:
+            ValueError: If neither filename nor filepath is provided
+            FileNotFoundError: If the specified note file does not exist
+        """
+        return self.frontmatter_operations.update_field(
+            field_name, update_func, filename, filepath, default_path
+        )
+
+    def remove_frontmatter_field(
+        self,
+        field_name: str,
+        filename: str | None = None,
+        filepath: str | None = None,
+        default_path: str | None = None,
+    ) -> Path:
+        """
+        Remove a specific field from a note's frontmatter.
+
+        Args:
+            field_name: Name of the frontmatter field to remove
+            filename: The name of the file to modify
+            filepath: The full path of the file to modify
+            default_path: The default directory path
+
+        Returns:
+            Path: The path of the modified note file
+
+        Raises:
+            ValueError: If neither filename nor filepath is provided
+            FileNotFoundError: If the specified note file does not exist
+        """
+        return self.frontmatter_operations.remove_field(
+            field_name, filename, filepath, default_path
+        )
+
+    def get_all_frontmatter_fields(
+        self,
+        filename: str | None = None,
+        filepath: str | None = None,
+        default_path: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get all frontmatter fields from a note.
+
+        Args:
+            filename: The name of the note file
+            filepath: The full path of the note file
+            default_path: The default directory path
+
+        Returns:
+            dict[str, Any]: Dictionary containing all frontmatter fields
+
+        Raises:
+            ValueError: If neither filename nor filepath is provided
+            FileNotFoundError: If the specified note file does not exist
+        """
+        return self.frontmatter_operations.get_all_fields(
+            filename, filepath, default_path
+        )
 
     # Vector search operations
     def _prepare_vector_indexing(
