@@ -71,9 +71,12 @@ module = [
     "numpy.*",
     "sentence_transformers.*",
     "duckdb.*",
+    "torch.*",  # 推移的依存関係も含める
 ]
 ignore_missing_imports = true
 ```
+
+**重要**: 推移的依存関係（sentence_transformersが依存するtorchなど）も明示的に追加する必要があります。
 
 ### 4. 依存関係ベースのテスト用pytestマーカー
 
@@ -306,7 +309,7 @@ from minerva.core import CoreModule  # 標準インポートを先に
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 # pytestマーカーを最後に
 pytestmark = pytest.mark.vector
@@ -324,6 +327,107 @@ pytestmark = pytest.mark.vector
 
 **解決策:** 品質チェックジョブでは全依存関係をインストールするが、テスト実行は依存関係要件で分離する。
 
+### 5. MyPy型チェックエラー（新規追加）
+
+#### 5.1 「Unused type ignore comment」エラー
+
+**問題:** 依存関係がインストールされていない環境でtype ignoreコメントが「未使用」として報告される。
+
+**症状:**
+```
+src/minerva/vector/embeddings.py:10: error: Unused "type: ignore" comment [unused-ignore]
+```
+
+**原因:** MyPyが依存関係を見つけられない場合、型の不一致が発生しないためtype ignoreが不要と判定される。
+
+**解決策:** 依存関係の有無に応じてtype ignoreコメントを動的に管理する。
+
+```python
+# 依存関係なし環境
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type ignoreコメント不要
+
+# 依存関係あり環境
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore[assignment]  # 必要
+```
+
+#### 5.2 「Incompatible types in assignment」エラー
+
+**問題:** 依存関係がインストールされている環境で、`None`をモジュール型変数に代入するときの型不一致。
+
+**症状:**
+```
+src/minerva/vector/embeddings.py:16: error: Incompatible types in assignment (expression has type "None", variable has type "type[SentenceTransformer]") [assignment]
+```
+
+**原因:** MyPyが実際のモジュール型を検出し、`None`との不一致を検出する。
+
+**解決策:** 適切なtype ignoreコメントを追加する。
+
+```python
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None  # type: ignore[assignment,misc]
+```
+
+#### 5.3 推移的依存関係の型エラー
+
+**問題:** 直接依存関係ではないが、他の依存関係が内部で使用するモジュール（torchなど）の型エラー。
+
+**症状:**
+```
+tests/vector/test_embeddings.py:1: error: Cannot find implementation or library stub for module named "torch" [import-not-found]
+```
+
+**原因:** sentence_transformersが内部でtorchを使用するが、MyPy設定でtorchが除外されていない。
+
+**解決策:** pyproject.tomlで推移的依存関係も明示的に除外する。
+
+```toml
+[[tool.mypy.overrides]]
+module = [
+    "numpy.*",
+    "sentence_transformers.*",
+    "duckdb.*",
+    "torch.*",           # 推移的依存関係
+    "transformers.*",    # さらなる推移的依存関係
+]
+ignore_missing_imports = true
+```
+
+#### 5.4 環境依存のMyPy実行戦略
+
+**基本依存関係のみの環境:**
+- type ignoreコメント不要
+- `make check-all-core`を使用
+- MyPyがインポートエラーを無視
+
+**全依存関係インストール済み環境:**
+- type ignoreコメント必要
+- `make check-all`を使用
+- MyPyが実際の型を検出
+
+**CI/CD戦略:**
+```yaml
+quality-checks:
+  name: "品質チェック（全依存関係）"
+  steps:
+    - run: uv sync --dev --extra vector  # 型チェック用に全依存関係
+    - run: make check-all                # MyPy実行
+
+fast-tests:
+  name: "高速テスト（基本依存関係）"
+  steps:
+    - run: uv sync --dev                 # 基本依存関係のみ
+    - run: make test-core                # 型チェックはスキップ
+```
+
 ## ベストプラクティス
 
 1. **ハード依存関係よりも機能フラグ**: インポート成功/失敗に依存するより、設定による機能有効/無効を使用。
@@ -337,6 +441,10 @@ pytestmark = pytest.mark.vector
 5. **適切な劣化**: オプション依存関係なしでもコア機能は完璧に動作する。
 
 6. **CI並列化**: 依存関係要件でCIジョブを分離して最適なパフォーマンスを実現。
+
+7. **型チェック環境統一**: MyPy実行時は全依存関係をインストールして一貫した型チェックを実行。
+
+8. **エラーメッセージの明確化**: type ignoreコメントには具体的な理由を記載し、将来のメンテナンスを容易にする。
 
 ## 将来の検討事項
 

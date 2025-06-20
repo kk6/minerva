@@ -67,6 +67,7 @@ module = [
     "numpy.*",
     "sentence_transformers.*",
     "duckdb.*",
+    "torch.*",
 ]
 ignore_missing_imports = true
 

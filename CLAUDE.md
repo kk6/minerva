@@ -18,7 +18,7 @@ For a unified development experience, use the Makefile commands:
 
 - **Testing**:
   - Run all tests: `make test`
-  - Run fast tests only (excludes slow integration tests): `make test-fast`
+  - Run fast tests only (excludes slow integration tests): `make test-fast` ⚠️ **Fixed**: Now excludes vector tests
   - Run core tests only (excludes vector dependency tests): `make test-core`
   - Run vector tests only (requires vector dependencies): `make test-vector`
   - Run slow integration tests only: `make test-slow`
@@ -31,6 +31,9 @@ For a unified development experience, use the Makefile commands:
   - Format code: `make format`
   - Fix trailing whitespace: `make fix-whitespace`
   - Run pre-commit hooks: `make pre-commit`
+  - **Environment-specific quality checks**:
+    - `make check-all-core` (basic dependencies only)
+    - `make check-all` (with vector dependencies)
 
 - **Development Tools**:
   - Start MCP inspector: `make dev`
@@ -518,6 +521,14 @@ assert result.shape[0] == 1
 2. **Use `Any` for external library types**: Avoid complex type inference issues
 3. **Prefer behavior testing over type testing**: Test what the code does, not what type it returns
 4. **Handle module-level imports explicitly**: Use type ignore comments for unavoidable import patterns
+5. **Environment-dependent type ignore**: Add/remove `type: ignore[assignment]` based on dependency installation
+6. **Include transitive dependencies**: Add torch.* to MyPy overrides for sentence_transformers
+
+**Critical MyPy Issue**: Type ignore comments must be managed based on environment:
+- **Dependencies not installed**: Remove type ignore comments (MyPy reports "unused")
+- **Dependencies installed**: Add type ignore comments (MyPy detects type conflicts)
+
+See [docs/optional_dependencies.md](docs/optional_dependencies.md) for comprehensive troubleshooting guide.
 
 ### See Also
 - Official MyPy documentation for comprehensive type checking guidance

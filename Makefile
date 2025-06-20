@@ -68,7 +68,7 @@ test: ## Run all tests
 
 test-fast: ## Run fast tests only (excludes slow integration tests)
 	@echo "$(BLUE)Running fast tests (excluding slow tests)...$(RESET)"
-	PYTHONPATH=src uv run pytest -m "not slow and not integration"
+	PYTHONPATH=src uv run pytest -m "not slow and not integration and not vector"
 	@echo "$(GREEN)Fast tests completed! Use 'make test' for full test suite.$(RESET)"
 
 test-core: ## Run core tests only (excludes vector dependency tests)
