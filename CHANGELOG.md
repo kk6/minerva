@@ -1,6 +1,27 @@
 # CHANGELOG
 
 
+## v0.22.0 (2025-06-26)
+
+### Features
+
+- Add automated Claude Desktop installation script
+  ([`c72250c`](https://github.com/kk6/minerva/commit/c72250c6c75800319044aad8a5228506b20ac956))
+
+Add install_claude.py script to automate MCP installation and configuration: - Automatically
+  installs dependencies with vector search support - Updates PYTHONPATH in .env file to use absolute
+  paths - Installs MCP server with --with-editable flag for proper module resolution - Fixes Claude
+  Desktop configuration automatically - Adds make install-claude command for unified development
+  workflow
+
+This eliminates the need for manual configuration fixes after MCP installation and provides a
+  consistent, automated installation process for developers.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.21.0 (2025-06-26)
 
 ### Features
