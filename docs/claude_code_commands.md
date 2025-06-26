@@ -16,6 +16,8 @@ Minervaプロジェクトでは、開発効率の向上と一貫したコード�
     update-knowledge.md      # プロジェクト全体のリファレンス情報
     check-documentation.md   # ドキュメント更新チェック
     sync-labels.md           # GitHubラベル同期
+    create-issue.md          # GitHub Issue作成
+    create-pr.md             # GitHub Pull Request作成
 ```
 
 ## 3. カスタムスラッシュコマンドの使用方法
@@ -126,6 +128,65 @@ Minervaプロジェクトでは、開発効率の向上と一貫したコード�
 - **同期処理**: 不足ラベルの追加、不整合の修正
 - **クリーンアップ**: 定義外ラベルの削除（確認後）
 - **検証**: 同期完了後の整合性確認
+
+### `/project:create-issue`
+
+- コマンド名（ファイル名）: `create-issue.md`
+- 使用方法: `/project:create-issue`
+
+このコマンドはGitHub Issue作成の標準化されたワークフローを提供します：
+
+#### 主な特徴
+
+- **テンプレート連携**: `.github/ISSUE_TEMPLATE` の適切なテンプレート選択
+- **ラベル自動適用**: Issue作成後の適切なラベル付け
+- **エラーハンドリング**: 作成失敗時の適切な対処法
+- **品質保証**: 英語でのIssue作成とラベル管理
+- **プロジェクト統合**: 既存のラベル体系との整合性確保
+
+#### 使用タイミング
+
+- **バグ発見時**: バグレポートの標準化された作成
+- **機能要求時**: 機能リクエストの体系的な記録
+- **ドキュメント改善時**: ドキュメント更新要求の管理
+- **技術的な議論が必要な時**: 設計や実装方針の議論開始
+- **ユーザーフィードバック時**: 外部からの要望や報告の記録
+
+#### サポートするIssueタイプ
+
+- **Bug Report** (`bug_report.yml`): バグの詳細な報告
+- **Feature Request** (`feature_request.yml`): 新機能の提案
+- **Documentation** (`documentation.yml`): ドキュメント改善要求
+
+### `/project:create-pr`
+
+- コマンド名（ファイル名）: `create-pr.md`
+- 使用方法: `/project:create-pr`
+
+このコマンドはGitHub Pull Request作成の包括的なワークフローを提供します：
+
+#### 主な特徴
+
+- **ブランチ管理**: 適切なトピックブランチの作成と管理
+- **品質チェック統合**: PR作成前の必須品質検証
+- **ラベル体系**: PR固有ラベルと一般ラベルの適用
+- **Issue連携**: 関連するIssueとの適切なリンク
+- **レビュー管理**: Draft状態とReady状態の管理
+
+#### 使用タイミング
+
+- **機能実装完了時**: 新機能のコードレビュー要求
+- **バグ修正完了時**: 修正内容の検証依頼
+- **ドキュメント更新時**: ドキュメント変更のレビュー
+- **リファクタリング完了時**: コード改善の共有
+- **作業進行中**: Draft PRでの進捗共有と早期フィードバック
+
+#### PR管理機能
+
+- **Branch Strategy**: feature/fix/docs等の適切な命名規則
+- **Quality Gates**: make check-all、pre-commit hooks の必須実行
+- **Label Management**: pr:ready、pr:wip等のステータス管理
+- **Review Process**: レビュアー指定とアサイン管理
 
 ## 5. 注意事項とベストプラクティス
 
