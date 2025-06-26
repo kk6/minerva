@@ -1,6 +1,27 @@
 # CHANGELOG
 
 
+## v0.21.0 (2025-06-26)
+
+### Features
+
+- Add GitHub issue and PR creation command guides
+  ([`3256947`](https://github.com/kk6/minerva/commit/3256947180e10ca05eb465c0a4e263b0b2af1d98))
+
+Add comprehensive documentation for standardized GitHub workflow commands:
+
+- .claude/commands/create-issue.md: GitHub Issue creation with template integration -
+  .claude/commands/create-pr.md: GitHub Pull Request creation with quality gates - Updated
+  docs/claude_code_commands.md: Added documentation for both new commands
+
+These commands provide structured workflows for issue tracking and code review processes, ensuring
+  consistent label application and quality standards.
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+
 ## v0.20.0 (2025-06-20)
 
 ### Documentation
