@@ -1,7 +1,7 @@
 # Minerva Development Makefile
 # Provides unified interface for common development commands
 
-.PHONY: help install install-vector setup-dev test test-fast test-core test-vector test-slow test-cov lint type-check format dev clean check-all check-fast fix-whitespace
+.PHONY: help install install-vector setup-dev install-claude test test-fast test-core test-vector test-slow test-cov lint type-check format dev clean check-all check-fast fix-whitespace
 
 # Default target
 .DEFAULT_GOAL := help
@@ -39,7 +39,7 @@ help: ## Display this help message
 	@echo ""
 	@echo "$(GREEN)Development Tools:$(RESET)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		grep -E "(dev)" | \
+		grep -E "(dev|install-claude)" | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-15s$(RESET) %s\n", $$1, $$2}'
 
 install: ## Install project dependencies (basic features only)
@@ -102,6 +102,14 @@ type-check: ## Run type checking with mypy
 format: ## Format code with ruff
 	@echo "$(BLUE)Formatting code...$(RESET)"
 	uv run ruff format
+
+install-claude: ## Install Minerva to Claude Desktop (automated)
+	@echo "$(BLUE)Installing Minerva to Claude Desktop...$(RESET)"
+	@if [ ! -f .env ]; then \
+		echo "$(RED)Error: .env file required. Copy .env.example to .env first$(RESET)"; \
+		exit 1; \
+	fi
+	python install_claude.py
 
 dev: ## Start MCP inspector for development
 	@echo "$(BLUE)Starting MCP inspector...$(RESET)"

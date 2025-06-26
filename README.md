@@ -75,12 +75,12 @@ pip install -e .
 ### セマンティック検索付きインストール
 ベクター検索機能を含む完全版をインストールする場合：
 ```bash
-pip install -e ".[vector]"
-```
-
-または、uvを使用する場合：
-```bash
+# uvでの推奨方法
+uv pip install -e ".[vector]"
 uv sync --extra vector
+
+# またはpipを使用する場合
+pip install -e ".[vector]"
 ```
 
 ## 設定方法
@@ -186,26 +186,98 @@ uv run mcp dev src/minerva/server.py:mcp
 
 ## Claude Desktop にインストールする
 
-### 基本機能のみ
-標準機能のみを使用する場合：
+### 🚀 自動インストール（推奨）
+
+カスタムインストールスクリプトを使用すると、手動での設定修正が不要です：
+
 ```bash
-uv run mcp install src/minerva/server.py:mcp -f .env
+# 1. .envファイルを設定（初回のみ）
+cp .env.example .env
+# .envファイルを編集してObsidianのvaultパスなどを設定
+
+# 2. 自動インストールスクリプトを実行
+make install-claude
+
+# または直接実行
+python install_claude.py
 ```
 
-### セマンティック検索機能込み
-ベクター検索機能を含む場合（推奨）：
+このスクリプトは以下を自動実行します：
+- 依存関係のインストール（`uv pip install -e ".[vector]"`）
+- 正しいPYTHONPATHの設定
+- MCPサーバーのClaude Desktopへの登録
+- 設定ファイルの自動修正
+
+### 🔧 手動インストール（非推奨）
+
+手動でインストールする場合：
+
 ```bash
-# まずvector依存関係をインストール
+# 1. 依存関係をインストール
+uv pip install -e ".[vector]"
 uv sync --extra vector
 
-# Claude Desktopにインストール
-uv run mcp install src/minerva/server.py:mcp -f .env
+# 2. Claude Desktopにインストール
+uv run mcp install src/minerva/server.py:mcp --with-editable . -f .env --name minerva
 ```
 
-**重要**:
-- セマンティック検索を使用する場合は、事前に`uv sync --extra vector`を実行してください
-- `.env`ファイルで`VECTOR_SEARCH_ENABLED=true`を設定することを忘れずに
-- インストール後は、Claude Desktopを再起動してください
+**⚠️ 手動インストールの注意事項**:
+- 手動インストール後は設定ファイルの修正が必要です（下記トラブルシューティング参照）
+- 機能追加時の再インストールは自動インストールスクリプトの使用を推奨
+
+### トラブルシューティング
+
+#### Claude Desktopで「No module named 'minerva'」エラーが発生する場合
+
+**原因**: `uv run mcp install`コマンドが設定を自動生成するため、正しく動作しない設定になってしまいます。
+
+**解決手順**:
+
+1. **minervaパッケージを明示的にインストール**：
+   ```bash
+   uv pip install -e .
+   ```
+
+2. **Claude Desktop設定ファイルを手動修正**：
+   `~/Library/Application Support/Claude/claude_desktop_config.json`を開き、minervaの設定を以下のように修正：
+
+   **修正前**（`uv run mcp install`で自動生成される設定）:
+   ```json
+   "args": [
+     "run",
+     "--with",
+     "mcp[cli]",
+     "mcp",
+     "run",
+     "/Users/username/path/to/minerva/src/minerva/server.py:mcp"
+   ]
+   ```
+
+   **修正後**（正しく動作する設定）:
+   ```json
+   "args": [
+     "run",
+     "--directory",
+     "/Users/username/path/to/minerva",
+     "mcp",
+     "run",
+     "src/minerva/server.py:mcp"
+   ]
+   ```
+
+3. **PYTHONPATH も正しいフルパスに修正**：
+   ```json
+   "env": {
+     "PYTHONPATH": "/Users/username/path/to/minerva/src"
+   }
+   ```
+
+4. **Claude Desktopを再起動**
+
+ログの確認方法：
+```bash
+tail -f ~/Library/Logs/Claude/mcp-server-minerva.log
+```
 
 ## Claude Desktop での使い方
 
